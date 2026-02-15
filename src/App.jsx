@@ -1,3 +1,4 @@
+// Cache clear attempt
 import React, { useState, useEffect } from 'react';
 import { Dice1, Spade, ArrowLeft, Circle } from 'lucide-react';
 import { listenToData, saveData } from './firebase.js'; 
