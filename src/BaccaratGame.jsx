@@ -1,9 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Users, Timer, Crown, Trophy, Settings, ArrowLeft } from 'lucide-react';
+// ========== FIREBASE: Import real-time sync hooks ==========
+import {
+  useGameState,
+  useLeaderboard,
+  useChat,
+  useUserData,
+  usePresence,
+  distributeBonusChips as fbDistributeBonusChips,
+  resetSession
+} from './useFirebaseSync';
+
+const GAME_NAME = 'baccarat';
 
 const BaccaratGame = ({ onBack }) => {
   // User state
-  const [userId] = useState(() => `user_${Math.random().toString(36).substr(2, 9)}`);
+  const [userId] = useState(() => {
+    let id = sessionStorage.getItem('baccarat-userId');
+    if (!id) { id = `user_${Math.random().toString(36).substr(2, 9)}`; sessionStorage.setItem('baccarat-userId', id); }
+    return id;
+  });
   const [userName, setUserName] = useState('');
   const [isRegistered, setIsRegistered] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -18,7 +34,16 @@ const BaccaratGame = ({ onBack }) => {
   const [bonusChipsAmount, setBonusChipsAmount] = useState(0);
   const [bonusRecipient, setBonusRecipient] = useState('all');
   
-  // Game state
+  // ========== FIREBASE: Game state from real-time listener ==========
+  const defaultGameState = {
+    gamePhase: 'betting', playerCards: [], bankerCards: [],
+    playerScore: 0, bankerScore: 0, winner: null,
+    roundNumber: 0, bettingOpen: true, countdown: 15, roadmap: []
+  };
+  const { gameState, updateGameState } = useGameState(GAME_NAME, defaultGameState);
+  
+  // Game state (synced from Firebase)
+  // FIREBASE: gamePhase, playerCards, bankerCards, etc. come from gameState
   const [gamePhase, setGamePhase] = useState('betting'); // 'betting' or 'dealt'
   const [playerCards, setPlayerCards] = useState([]);
   const [bankerCards, setBankerCards] = useState([]);
@@ -52,19 +77,21 @@ const BaccaratGame = ({ onBack }) => {
     startingBankroll: 1000
   });
   
-  // Leaderboard
-  const [leaderboard, setLeaderboard] = useState([]);
+  // ========== FIREBASE: Leaderboard ==========
+  const { leaderboard, updateLeaderboardEntry, clearLeaderboard } = useLeaderboard(GAME_NAME);
   
   // Admin state
   const [adminPlayerCards, setAdminPlayerCards] = useState(['', '']);
   const [adminBankerCards, setAdminBankerCards] = useState(['', '']);
   const [adminPlayerThird, setAdminPlayerThird] = useState('');
   const [adminBankerThird, setAdminBankerThird] = useState('');
-  const [activeUsers, setActiveUsers] = useState(0);
+  // FIREBASE: activeUsers from presence
+  const activeUsers = usePresence(GAME_NAME, isRegistered ? userId : null, userName);
   const [showSettings, setShowSettings] = useState(false);
   
-  // Chat
-  const [chatMessages, setChatMessages] = useState([]);
+  // ========== FIREBASE: Chat + User hooks ==========
+  const { chatMessages, sendMessage: fbSendMessage, clearChat } = useChat(GAME_NAME);
+  const { userData, saveUserData: fbSaveUserData } = useUserData(GAME_NAME, userId);
   const [chatInput, setChatInput] = useState('');
 
   // Card values for baccarat
@@ -85,136 +112,73 @@ const BaccaratGame = ({ onBack }) => {
     return card1.substring(0, card1.length - 1) === card2.substring(0, card2.length - 1);
   };
 
-  // Load game state
+  // ========== FIREBASE: Auto-load user data from listener ==========
   useEffect(() => {
-    loadGameState();
-    loadLeaderboard();
-    loadUserData();
-    loadChatMessages();
-    
-    const interval = setInterval(() => {
-      loadGameState();
-      loadLeaderboard();
-      loadChatMessages();
-    }, 2000);
-    
-    return () => clearInterval(interval);
-  }, []);
+    if (userData && !isRegistered) {
+      setUserName(userData.name || '');
+      setBankroll(userData.bankroll || 1000);
+      setIsRegistered(true);
+      setIsAdmin(userData.isAdmin || false);
+      setActiveBets(userData.activeBets || {});
+      setSessionStats(userData.sessionStats || { totalWagered: 0, biggestWin: 0, totalRounds: 0, startingBankroll: 1000 });
+    }
+  }, [userData]);
+  
+  // ========== FIREBASE: Sync game state from Firebase ==========
+  useEffect(() => {
+    setGamePhase(gameState.gamePhase || 'betting');
+    setPlayerCards(gameState.playerCards || []);
+    setBankerCards(gameState.bankerCards || []);
+    setPlayerScore(gameState.playerScore || 0);
+    setBankerScore(gameState.bankerScore || 0);
+    setWinner(gameState.winner || null);
+    setRoundNumber(gameState.roundNumber || 0);
+    setBettingOpen(gameState.bettingOpen !== undefined ? gameState.bettingOpen : true);
+    setRoadmap(gameState.roadmap || []);
+  }, [gameState]);
+  
+  // ========== FIREBASE: Sync countdown ==========
+  const [localCountdown, setLocalCountdown] = useState(15);
+  useEffect(() => {
+    if (gameState.bettingOpen) setLocalCountdown(gameState.countdown || 15);
+  }, [gameState.countdown, gameState.bettingOpen]);
+  
+  // ========== FIREBASE: Auto-resolve bets when dealer pushes deal result ==========
+  const lastResolvedRound = useRef(0);
+  useEffect(() => {
+    if (gameState.winner && gameState.roundNumber > lastResolvedRound.current) {
+      lastResolvedRound.current = gameState.roundNumber;
+      if (Object.values(activeBets).some(v => v > 0)) {
+        resolveRound(gameState.playerCards || [], gameState.bankerCards || []);
+      }
+    }
+  }, [gameState.winner, gameState.roundNumber]);
 
-  // Countdown timer
+  // Countdown timer (ticks locally)
   useEffect(() => {
-    if (bettingOpen && countdown > 0) {
-      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+    if (gameState.bettingOpen && localCountdown > 0) {
+      const timer = setTimeout(() => setLocalCountdown(localCountdown - 1), 1000);
       return () => clearTimeout(timer);
-    } else if (countdown === 0) {
-      setBettingOpen(false);
     }
-  }, [countdown, bettingOpen]);
+  }, [localCountdown, gameState.bettingOpen]);
 
-  const loadGameState = async () => {
-    try {
-      const state = await window.storage.get('baccarat-game-state', true);
-      if (state) {
-        const data = JSON.parse(state.value);
-        setGamePhase(data.gamePhase || 'betting');
-        setPlayerCards(data.playerCards || []);
-        setBankerCards(data.bankerCards || []);
-        setPlayerScore(data.playerScore || 0);
-        setBankerScore(data.bankerScore || 0);
-        setWinner(data.winner || null);
-        setRoundNumber(data.roundNumber || 0);
-        setBettingOpen(data.bettingOpen !== undefined ? data.bettingOpen : true);
-        setCountdown(data.countdown || 15);
-        setRoadmap(data.roadmap || []);
-      }
-    } catch (e) {
-      // Initialize if not exists
-    }
-  };
 
-  const saveGameState = async (updates) => {
-    const state = {
-      gamePhase,
-      playerCards,
-      bankerCards,
-      playerScore,
-      bankerScore,
-      winner,
-      roundNumber,
-      bettingOpen,
-      countdown,
-      roadmap,
-      ...updates
-    };
-    await window.storage.set('baccarat-game-state', JSON.stringify(state), true);
-  };
 
-  const loadLeaderboard = async () => {
-    try {
-      const result = await window.storage.get('baccarat-leaderboard', true);
-      if (result) {
-        setLeaderboard(JSON.parse(result.value));
-      }
-    } catch (e) {
-      setLeaderboard([]);
-    }
-  };
 
-  const loadUserData = async () => {
-    try {
-      const userData = await window.storage.get(`baccarat-user-${userId}`);
-      if (userData) {
-        const data = JSON.parse(userData.value);
-        setUserName(data.name);
-        setBankroll(data.bankroll);
-        setIsRegistered(true);
-        setActiveBets(data.activeBets || {});
-        setSessionStats(data.sessionStats || {
-          totalWagered: 0,
-          biggestWin: 0,
-          totalRounds: 0,
-          startingBankroll: 1000
-        });
-      }
-    } catch (e) {
-      // User not registered
-    }
-  };
 
+
+
+
+
+  // ========== FIREBASE: Save user data ==========
   const saveUserData = async (updates) => {
-    const userData = {
-      name: userName,
-      bankroll,
-      activeBets,
-      userId,
-      lastActive: Date.now(),
-      sessionStats,
-      ...updates
-    };
-    await window.storage.set(`baccarat-user-${userId}`, JSON.stringify(userData));
+    const data = { name: userName, bankroll, activeBets, userId, sessionStats, ...updates };
+    await fbSaveUserData(data);
   };
 
+  // ========== FIREBASE: Update leaderboard ==========
   const updateLeaderboard = async (newBankroll) => {
-    try {
-      const current = await window.storage.get('baccarat-leaderboard', true);
-      let leaders = current ? JSON.parse(current.value) : [];
-      
-      leaders = leaders.filter(l => l.userId !== userId);
-      leaders.push({
-        userId,
-        name: userName,
-        bankroll: newBankroll,
-        timestamp: Date.now()
-      });
-      
-      leaders.sort((a, b) => b.bankroll - a.bankroll);
-      leaders = leaders.slice(0, 10);
-      
-      await window.storage.set('baccarat-leaderboard', JSON.stringify(leaders), true);
-      setLeaderboard(leaders);
-    } catch (e) {
-      console.error('Failed to update leaderboard:', e);
-    }
+    await updateLeaderboardEntry(userId, userName, newBankroll);
   };
 
   const registerUser = async () => {
@@ -418,37 +382,34 @@ const BaccaratGame = ({ onBack }) => {
     return roundWinner;
   };
 
+  // ========== FIREBASE: Admin deal writes to Firebase — all clients auto-resolve ==========
   const adminDealCards = async () => {
     const pCards = [adminPlayerCards[0], adminPlayerCards[1]];
     const bCards = [adminBankerCards[0], adminBankerCards[1]];
-    
     if (adminPlayerThird) pCards.push(adminPlayerThird);
     if (adminBankerThird) bCards.push(adminBankerThird);
     
     const pScore = calculateScore(pCards);
     const bScore = calculateScore(bCards);
-    const roundWinner = await resolveRound(pCards, bCards);
+    let roundWinner = null;
+    if (pScore > bScore) roundWinner = 'player';
+    else if (bScore > pScore) roundWinner = 'banker';
+    else roundWinner = 'tie';
     
-    await saveGameState({
+    const newRoadmap = [...(gameState.roadmap || []), roundWinner === 'player' ? 'P' : roundWinner === 'banker' ? 'B' : 'T'].slice(-50);
+    
+    // Push to Firebase — all clients will auto-resolve via useEffect
+    await updateGameState({
       gamePhase: 'dealt',
       playerCards: pCards,
       bankerCards: bCards,
       playerScore: pScore,
       bankerScore: bScore,
       winner: roundWinner,
-      roundNumber: roundNumber + 1,
+      roundNumber: (gameState.roundNumber || 0) + 1,
       bettingOpen: false,
-      roadmap: [...roadmap, roundWinner === 'player' ? 'P' : roundWinner === 'banker' ? 'B' : 'T'].slice(-50)
+      roadmap: newRoadmap
     });
-    
-    setGamePhase('dealt');
-    setPlayerCards(pCards);
-    setBankerCards(bCards);
-    setPlayerScore(pScore);
-    setBankerScore(bScore);
-    setWinner(roundWinner);
-    setRoundNumber(roundNumber + 1);
-    setBettingOpen(false);
     
     setAdminPlayerCards(['', '']);
     setAdminBankerCards(['', '']);
@@ -456,178 +417,46 @@ const BaccaratGame = ({ onBack }) => {
     setAdminBankerThird('');
   };
 
+  // ========== FIREBASE: New round via Firebase ==========
   const adminStartNewRound = async () => {
-    await saveGameState({
-      gamePhase: 'betting',
-      playerCards: [],
-      bankerCards: [],
-      playerScore: 0,
-      bankerScore: 0,
-      winner: null,
-      bettingOpen: true,
-      countdown: 15
+    await updateGameState({
+      gamePhase: 'betting', playerCards: [], bankerCards: [],
+      playerScore: 0, bankerScore: 0, winner: null,
+      bettingOpen: true, countdown: 15
     });
-    
-    setGamePhase('betting');
-    setPlayerCards([]);
-    setBankerCards([]);
-    setPlayerScore(0);
-    setBankerScore(0);
-    setWinner(null);
-    setBettingOpen(true);
-    setCountdown(15);
   };
 
+  // ========== FIREBASE: Bonus chips ==========
   const distributeBonusChips = async () => {
-    if (bonusChipsAmount <= 0) {
-      alert('Please enter a valid bonus amount');
-      return;
-    }
-    
-    if (bonusRecipient === 'all') {
-      if (confirm(`Give $${bonusChipsAmount.toLocaleString()} to ALL ${leaderboard.length} players?`)) {
-        for (const player of leaderboard) {
-          try {
-            const userData = await window.storage.get(`baccarat-user-${player.userId}`);
-            if (userData) {
-              const data = JSON.parse(userData.value);
-              const newBankroll = data.bankroll + bonusChipsAmount;
-              await window.storage.set(`baccarat-user-${player.userId}`, JSON.stringify({
-                ...data,
-                bankroll: newBankroll
-              }));
-            }
-          } catch (e) {
-            console.error(`Failed to update ${player.name}:`, e);
-          }
-        }
-        
-        await loadLeaderboard();
-        alert(`✅ Distributed $${bonusChipsAmount.toLocaleString()} to ${leaderboard.length} players!`);
-        setBonusChipsAmount(0);
-      }
-    } else {
-      const targetPlayer = leaderboard.find(p => p.userId === bonusRecipient);
-      if (!targetPlayer) {
-        alert('Player not found');
-        return;
-      }
-      
-      if (confirm(`Give $${bonusChipsAmount.toLocaleString()} to ${targetPlayer.name}?`)) {
-        try {
-          const userData = await window.storage.get(`baccarat-user-${bonusRecipient}`);
-          if (userData) {
-            const data = JSON.parse(userData.value);
-            const newBankroll = data.bankroll + bonusChipsAmount;
-            await window.storage.set(`baccarat-user-${bonusRecipient}`, JSON.stringify({
-              ...data,
-              bankroll: newBankroll
-            }));
-            
-            if (bonusRecipient === userId) {
-              setBankroll(newBankroll);
-            }
-            
-            await loadLeaderboard();
-            alert(`✅ Gave $${bonusChipsAmount.toLocaleString()} to ${targetPlayer.name}!`);
-            setBonusChipsAmount(0);
-          }
-        } catch (e) {
-          alert('Failed to distribute bonus chips');
-          console.error(e);
-        }
-      }
+    if (bonusChipsAmount <= 0) { alert('Please enter a valid bonus amount'); return; }
+    const targetName = bonusRecipient === 'all' ? `ALL ${leaderboard.length} players` : leaderboard.find(p => p.userId === bonusRecipient)?.name || 'Unknown';
+    if (confirm(`Give $${bonusChipsAmount.toLocaleString()} to ${targetName}?`)) {
+      await fbDistributeBonusChips(GAME_NAME, leaderboard, bonusRecipient, bonusChipsAmount, userId, setBankroll);
+      alert(`Distributed $${bonusChipsAmount.toLocaleString()} to ${targetName}!`);
+      setBonusChipsAmount(0);
     }
   };
 
+  // ========== FIREBASE: Reset ==========
   const adminResetSession = async () => {
-    if (confirm('Reset entire session? This will clear all user data.')) {
+    if (confirm('Reset entire session?')) {
       try {
-        await window.storage.set('baccarat-game-state', JSON.stringify({
-          gamePhase: 'betting',
-          playerCards: [],
-          bankerCards: [],
-          playerScore: 0,
-          bankerScore: 0,
-          winner: null,
-          roundNumber: 0,
-          bettingOpen: true,
-          countdown: 15,
-          roadmap: []
-        }), true);
-        
-        await window.storage.set('baccarat-leaderboard', JSON.stringify([]), true);
-        
-        setGamePhase('betting');
-        setPlayerCards([]);
-        setBankerCards([]);
-        setPlayerScore(0);
-        setBankerScore(0);
-        setWinner(null);
-        setRoundNumber(0);
-        setBettingOpen(true);
-        setCountdown(15);
-        setRoadmap([]);
-        setBankroll(1000);
-        clearAllBets();
-        setActiveBets({});
-        setSessionStats({
-          totalWagered: 0,
-          biggestWin: 0,
-          totalRounds: 0,
-          startingBankroll: 1000
-        });
-        
-        await saveUserData({ 
-          bankroll: 1000, 
-          activeBets: {},
-          sessionStats: {
-            totalWagered: 0,
-            biggestWin: 0,
-            totalRounds: 0,
-            startingBankroll: 1000
-          }
-        });
-      } catch (e) {
-        console.error('Reset failed:', e);
-      }
+        await resetSession(GAME_NAME);
+        setBankroll(1000); clearAllBets(); setActiveBets({});
+        setSessionStats({ totalWagered: 0, biggestWin: 0, totalRounds: 0, startingBankroll: 1000 });
+        await saveUserData({ bankroll: 1000, activeBets: {}, sessionStats: { totalWagered: 0, biggestWin: 0, totalRounds: 0, startingBankroll: 1000 }});
+      } catch (e) { console.error('Reset failed:', e); }
     }
   };
 
-  // Chat functionality
+  // ========== FIREBASE: Chat ==========
   const sendChatMessage = async () => {
     if (!chatInput.trim()) return;
-    
-    const message = {
-      userId,
-      userName,
-      text: chatInput,
-      timestamp: Date.now()
-    };
-    
-    try {
-      const current = await window.storage.get('baccarat-chat-messages', true);
-      let messages = current ? JSON.parse(current.value) : [];
-      messages.push(message);
-      messages = messages.slice(-50);
-      await window.storage.set('baccarat-chat-messages', JSON.stringify(messages), true);
-      setChatMessages(messages);
-      setChatInput('');
-    } catch (e) {
-      console.error('Chat error:', e);
-    }
+    await fbSendMessage(userId, userName, chatInput);
+    setChatInput('');
   };
 
-  const loadChatMessages = async () => {
-    try {
-      const result = await window.storage.get('baccarat-chat-messages', true);
-      if (result) {
-        setChatMessages(JSON.parse(result.value));
-      }
-    } catch (e) {
-      setChatMessages([]);
-    }
-  };
+
 
   useEffect(() => {
     setActiveUsers(leaderboard.length);
