@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Dice1, Spade, ArrowLeft, Circle } from 'lucide-react';
+import { listenToData, saveData } from './firebase';
 
 // Import your game components
 import CrapsGame from './CrapsGame';
@@ -14,40 +15,40 @@ const App = () => {
   
   const DEALER_PASSWORD = 'dealer2024'; // CHANGE THIS!
 
-  // Load active game from shared storage
+  // Load active game from Firebase in real-time
   useEffect(() => {
     if (!isDealerMode) {
-      loadActiveGame();
+      // Listen to active game changes in real-time
+      const unsubscribe = listenToData('activeGame', (data) => {
+        if (data && data.game) {
+          console.log('📡 Active game updated:', data.game);
+          setSelectedGame(data.game);
+        }
+      });
       
-      // Poll every 2 seconds to check for game changes (players only)
-      const interval = setInterval(loadActiveGame, 2000);
-      return () => clearInterval(interval);
+      // Cleanup listener on unmount
+      return () => {
+        if (unsubscribe) unsubscribe();
+      };
     }
   }, [isDealerMode]);
-
-  const loadActiveGame = async () => {
-    try {
-      const stored = localStorage.getItem('active-game');
-      if (stored && !isDealerMode) {
-        const activeGame = JSON.parse(stored);
-        setSelectedGame(activeGame.game);
-      }
-    } catch (e) {
-      console.log('No active game in storage');
-    }
-  };
 
   const setActiveGame = async (game) => {
     console.log('🎮 Dealer selecting game:', game);
     
     try {
-      localStorage.setItem('active-game', JSON.stringify({ 
-        game, 
-        timestamp: Date.now() 
-      }));
-      console.log('✅ Saved to localStorage, now setting local state...');
-      setSelectedGame(game);
-      console.log('✅ Local state set to:', game);
+      const success = await saveData('activeGame', {
+        game,
+        timestamp: Date.now()
+      });
+      
+      if (success) {
+        console.log('✅ Saved to Firebase, setting local state...');
+        setSelectedGame(game);
+        console.log('✅ Local state set to:', game);
+      } else {
+        alert('Failed to set active game. Please try again.');
+      }
     } catch (e) {
       console.error('❌ Failed to set active game:', e);
       alert('Failed to set active game. Error: ' + e.message);
