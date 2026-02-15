@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Dice1, Spade, ArrowLeft, Circle } from 'lucide-react';
-import { listenToData, saveData } from './firebase.js';
+import { listenToData, saveData } from './firebase.js'; 
 
 // Import your game components
 import CrapsGame from './CrapsGame';
