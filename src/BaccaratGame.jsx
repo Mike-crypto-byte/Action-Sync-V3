@@ -88,7 +88,9 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
   const [betHistory, setBetHistory] = useState([]);
   const [showBetHistory, setShowBetHistory] = useState(false);
   // ========== RESULT BANNER ==========
-  const [resultBanner, setResultBanner] = useState(null); // { type: 'win'|'loss'|'push', amount, message }
+  const [resultBanner, setResultBanner] = useState(null);
+  const [prevBankroll, setPrevBankroll] = useState(null);
+  const [lastRoundUndoable, setLastRoundUndoable] = useState(false); // { type: 'win'|'loss'|'push', amount, message }
   
   const showResultBanner = (type, amount, message) => {
     setResultBanner({ type, amount, message });
@@ -102,6 +104,23 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
   useEffect(() => {
     if (prevBettingOpen.current !== null && prevBettingOpen.current !== gameState.bettingOpen) {
       setBettingNotification(gameState.bettingOpen ? 'open' : 'closed');
+      // Sound + vibration when betting opens
+      if (gameState.bettingOpen) {
+        try {
+          if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+          const ctx = new (window.AudioContext || window.webkitAudioContext)();
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.frequency.value = 880;
+          osc.type = 'sine';
+          gain.gain.value = 0.15;
+          osc.start();
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+          osc.stop(ctx.currentTime + 0.3);
+        } catch (e) { /* audio not available */ }
+      }
       setTimeout(() => setBettingNotification(null), 3000);
     }
     prevBettingOpen.current = gameState.bettingOpen;
@@ -135,6 +154,7 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
   const { chatMessages, sendMessage: fbSendMessage, clearChat } = useChat();
   const { userData, saveUserData: fbSaveUserData } = useUserData(userId);
   const [chatInput, setChatInput] = useState('');
+  const chatEndRef = useRef(null);
 
   // Card values for baccarat
   const getCardValue = (card) => {
@@ -296,6 +316,8 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
   };
 
   const resolveRound = async (pCards, bCards) => {
+    setPrevBankroll(bankroll);
+    setLastRoundUndoable(true);
     const pScore = calculateScore(pCards);
     const bScore = calculateScore(bCards);
     
@@ -531,6 +553,27 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
     setChatInput('');
   };
   
+  // Auto-scroll chat to bottom
+  useEffect(() => {
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chatMessages]);
+
+
+  // Undo last result — reverts bankroll to before the last round
+  const undoLastResult = async () => {
+    if (prevBankroll === null) return;
+    if (!confirm('Undo last result? This will revert your bankroll to before the last round.')) return;
+    setBankroll(prevBankroll);
+    await saveUserData({ bankroll: prevBankroll });
+    await updateLeaderboard(prevBankroll);
+    setLastRoundUndoable(false);
+    setPrevBankroll(null);
+    setResultBanner(null);
+    await sendSystemMessage('⚠️ Last result was VOIDED by dealer');
+  };
+
   // System message helper
   const sendSystemMessage = async (text) => {
     await fbSendMessage('system', '🎰 System', text);
@@ -1717,7 +1760,7 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
               <div style={{ textAlign: 'center', padding: '20px', color: '#666', fontSize: '11px' }}>
                 No messages yet. Say hello!
               </div>
-            ) : (
+            ) : (<>
               chatMessages.map((msg, idx) => (
                 <div key={idx} style={{
                   marginBottom: '10px',
@@ -1742,7 +1785,8 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                   </div>
                 </div>
               ))
-            )}
+              <div ref={chatEndRef} />
+            </>)}
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
             <input
@@ -2325,7 +2369,31 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                 🔴 Close Betting
               </button>
             </div>
-            
+
+            {/* Undo Last Result */}
+            {lastRoundUndoable && isAdmin && (
+              <button
+                onClick={undoLastResult}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  marginBottom: '10px',
+                  background: 'rgba(255, 152, 0, 0.2)',
+                  border: '2px solid #ff9800',
+                  borderRadius: '8px',
+                  color: '#ff9800',
+                  fontSize: '12px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  textTransform: 'uppercase',
+                  letterSpacing: '1px'
+                }}
+              >
+                ⚠️ Undo Last Result
+              </button>
+            )}
+
             <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
               <button
                 onClick={adminResetSession}
