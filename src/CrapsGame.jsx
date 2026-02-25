@@ -408,7 +408,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
 
   // FIREBASE: Chat messages come from useChat hook (fbChatMessages)
 
-  async function resolveRoll(dice1, dice2) {
+  const resolveRoll = async (dice1, dice2) => {
     setPrevBankroll(bankroll);
     setLastRoundUndoable(true);
     const total = dice1 + dice2;
