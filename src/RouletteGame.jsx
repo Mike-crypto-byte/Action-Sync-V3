@@ -322,7 +322,7 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
     setIsConfirming(false);
   };
 
-  const resolveSpin = async (number) => {
+  async function resolveSpin(number) {
     setPrevBankroll(bankroll);
     setLastRoundUndoable(true);
     let winnings = 0;
@@ -955,12 +955,12 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
             };
 
             // Cell size — responsive
-            const W = isMobile ? 28 : 'minmax(40px, 1fr)'; // number cell width
+            const W = isMobile ? 28 : 80; // number cell width
             const H = isMobile ? 28 : 50; // number cell height
             const E = isMobile ? 6 : 8; // edge zone size (clickable split area)
             
             return (
-              <div style={{ display: 'flex', gap: '8px', marginBottom: '15px' }}>
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '15px', width: '100%' }}>
                 {/* 0 and 00 */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', justifyContent: 'center' }}>
                   {['0', '00'].map(n => {
@@ -982,11 +982,11 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                 </div>
                 
                 {/* Main grid with split zones */}
-                <div style={{ position: 'relative' }}>
+                <div style={{ position: 'relative', flex: 1 }}>
                   {/* Number cells - CSS grid */}
                   <div style={{
                     display: 'grid',
-                    gridTemplateColumns: isMobile ? `repeat(12, ${W}px)` : `repeat(12, ${W})`,
+                    gridTemplateColumns: isMobile ? `repeat(12, ${W}px)` : 'repeat(12, 1fr)',
                     gridTemplateRows: `repeat(3, ${H}px)`,
                     gap: `${E}px`
                   }}>
