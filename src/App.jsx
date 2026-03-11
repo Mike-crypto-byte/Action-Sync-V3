@@ -247,17 +247,17 @@ const App = () => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontFamily: '"Courier New", monospace',
+        fontFamily: ''Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif',
         padding: '20px'
       }}>
         <div style={{
-          background: 'linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)',
-          border: '3px solid #d4af37',
+          background: 'linear-gradient(135deg, #1c1e2a 0%, #252836 100%)',
+          border: '1px solid rgba(212, 175, 55, 0.4)',
           borderRadius: '15px',
           padding: '50px 40px',
           maxWidth: '450px',
           width: '100%',
-          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.8)'
+          boxShadow: '0 12px 40px rgba(0, 0, 0, 0.4)'
         }}>
           <div style={{ textAlign: 'center', marginBottom: '35px' }}>
             <div style={{
@@ -265,14 +265,14 @@ const App = () => {
               fontWeight: 'bold',
               color: '#d4af37',
               marginBottom: '10px',
-              letterSpacing: '3px'
+              letterSpacing: '1.5px'
             }}>
               🎰 DEALER LOGIN
             </div>
             <div style={{
               color: '#888',
               fontSize: '13px',
-              letterSpacing: '2px',
+              letterSpacing: '1px',
               textTransform: 'uppercase'
             }}>
               Control Active Game
@@ -284,7 +284,7 @@ const App = () => {
               display: 'block',
               color: '#d4af37',
               fontSize: '11px',
-              letterSpacing: '2px',
+              letterSpacing: '1px',
               textTransform: 'uppercase',
               marginBottom: '8px'
             }}>
@@ -317,7 +317,7 @@ const App = () => {
               display: 'block',
               color: '#d4af37',
               fontSize: '11px',
-              letterSpacing: '2px',
+              letterSpacing: '1px',
               textTransform: 'uppercase',
               marginBottom: '8px'
             }}>
@@ -341,7 +341,7 @@ const App = () => {
                 outline: 'none',
                 fontFamily: 'inherit',
                 textAlign: 'center',
-                letterSpacing: '2px'
+                letterSpacing: '1px'
               }}
             />
           </div>
@@ -351,7 +351,7 @@ const App = () => {
               display: 'block',
               color: '#d4af37',
               fontSize: '11px',
-              letterSpacing: '2px',
+              letterSpacing: '1px',
               textTransform: 'uppercase',
               marginBottom: '8px'
             }}>
@@ -395,7 +395,7 @@ const App = () => {
               color: dealerPassword.trim() ? '#000' : '#666',
               fontSize: '15px',
               fontWeight: 'bold',
-              letterSpacing: '3px',
+              letterSpacing: '1.5px',
               cursor: dealerPassword.trim() ? 'pointer' : 'not-allowed',
               textTransform: 'uppercase',
               fontFamily: 'inherit',
@@ -437,18 +437,18 @@ const App = () => {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          fontFamily: '"Courier New", monospace',
+          fontFamily: ''Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif',
           padding: '20px'
         }}>
           <div style={{
-            background: 'linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)',
-            border: '3px solid #d4af37',
+            background: 'linear-gradient(135deg, #1c1e2a 0%, #252836 100%)',
+            border: '1px solid rgba(212, 175, 55, 0.4)',
             borderRadius: '15px',
             padding: isMobile ? '30px 20px' : '50px 40px',
             maxWidth: '450px',
             width: '100%',
             boxSizing: 'border-box',
-            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.8)'
+            boxShadow: '0 12px 40px rgba(0, 0, 0, 0.4)'
           }}>
             <div style={{ textAlign: 'center', marginBottom: '35px' }}>
               <div style={{
@@ -458,14 +458,14 @@ const App = () => {
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 marginBottom: '15px',
-                letterSpacing: '3px'
+                letterSpacing: '1.5px'
               }}>
                 ACTION SYNC
               </div>
               <div style={{
                 color: '#d4af37',
                 fontSize: '11px',
-                letterSpacing: '4px',
+                letterSpacing: '2px',
                 textTransform: 'uppercase',
                 marginBottom: '20px'
               }}>
@@ -546,7 +546,7 @@ const App = () => {
                 color: playerName.trim() ? '#000' : '#666',
                 fontSize: '16px',
                 fontWeight: 'bold',
-                letterSpacing: '3px',
+                letterSpacing: '1.5px',
                 cursor: playerName.trim() ? 'pointer' : 'not-allowed',
                 textTransform: 'uppercase',
                 fontFamily: 'inherit',
@@ -569,7 +569,7 @@ const App = () => {
                   fontSize: '10px',
                   cursor: 'pointer',
                   fontFamily: 'inherit',
-                  letterSpacing: '2px',
+                  letterSpacing: '1px',
                   textTransform: 'uppercase'
                 }}
               >
@@ -601,7 +601,7 @@ const App = () => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontFamily: '"Courier New", monospace',
+        fontFamily: ''Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif',
         padding: '20px'
       }}>
         <div style={{
@@ -615,7 +615,7 @@ const App = () => {
               <div style={{ fontSize: '52px', marginBottom: '15px' }}>🏆</div>
               <div style={{
                 fontSize: '28px', fontWeight: 'bold', color: '#d4af37',
-                marginBottom: '8px', letterSpacing: '4px'
+                marginBottom: '8px', letterSpacing: '2px'
               }}>
                 SESSION RESULTS
               </div>
@@ -660,7 +660,7 @@ const App = () => {
                   {/* 1st Place */}
                   <div style={{
                     background: 'linear-gradient(180deg, rgba(212,175,55,0.2) 0%, rgba(212,175,55,0.05) 100%)',
-                    border: '3px solid #d4af37',
+                    border: '1px solid rgba(212, 175, 55, 0.4)',
                     borderRadius: '12px', padding: '25px 20px', width: isMobile ? '100%' : '160px',
                     textAlign: 'center',
                     boxShadow: '0 0 30px rgba(212,175,55,0.2)'
@@ -761,7 +761,7 @@ const App = () => {
                     border: `2px solid ${pnl >= 0 ? '#4caf50' : '#f44336'}`,
                     borderRadius: '12px', padding: '20px', marginBottom: '25px'
                   }}>
-                    <div style={{ fontSize: '12px', color: '#888', letterSpacing: '2px', marginBottom: '8px' }}>
+                    <div style={{ fontSize: '12px', color: '#888', letterSpacing: '1px', marginBottom: '8px' }}>
                       YOUR RESULT — #{myRank} of {sessionLeaderboard.length}
                     </div>
                     <div style={{
@@ -802,7 +802,7 @@ const App = () => {
               <div style={{ fontSize: '64px', marginBottom: '20px' }}>⏳</div>
               <div style={{
                 fontSize: '32px', fontWeight: 'bold', color: '#d4af37',
-                marginBottom: '15px', letterSpacing: '3px'
+                marginBottom: '15px', letterSpacing: '1.5px'
               }}>
                 WAITING FOR DEALER
               </div>
@@ -854,14 +854,14 @@ const App = () => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontFamily: '"Courier New", monospace',
+        fontFamily: ''Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif',
         padding: '20px'
       }}>
         <div style={{ textAlign: 'center', maxWidth: '650px', width: '100%' }}>
           <div style={{ fontSize: '52px', marginBottom: '15px' }}>🏆</div>
           <div style={{
             fontSize: '28px', fontWeight: 'bold', color: '#d4af37',
-            marginBottom: '8px', letterSpacing: '4px'
+            marginBottom: '8px', letterSpacing: '2px'
           }}>
             SESSION RESULTS
           </div>
@@ -895,7 +895,7 @@ const App = () => {
             {/* 1st */}
             <div style={{
               background: 'linear-gradient(180deg, rgba(212,175,55,0.2) 0%, rgba(212,175,55,0.05) 100%)',
-              border: '3px solid #d4af37', borderRadius: '12px', padding: '25px 20px',
+              border: '1px solid rgba(212, 175, 55, 0.4)', borderRadius: '12px', padding: '25px 20px',
               width: isMobile ? '100%' : '160px', textAlign: 'center',
               boxShadow: '0 0 30px rgba(212,175,55,0.2)'
             }}>
@@ -962,7 +962,7 @@ const App = () => {
               padding: '16px 50px',
               background: 'linear-gradient(135deg, #d4af37 0%, #f4e5a1 100%)',
               border: 'none', borderRadius: '8px', color: '#000',
-              fontSize: '14px', fontWeight: 'bold', letterSpacing: '2px',
+              fontSize: '14px', fontWeight: 'bold', letterSpacing: '1px',
               cursor: 'pointer', fontFamily: 'inherit', textTransform: 'uppercase',
               boxShadow: '0 4px 20px rgba(212, 175, 55, 0.3)'
             }}
@@ -984,7 +984,7 @@ const App = () => {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      fontFamily: '"Courier New", monospace',
+      fontFamily: ''Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif',
       padding: '20px'
     }}>
       <div style={{ maxWidth: '1200px', width: '100%' }}>
@@ -1086,7 +1086,7 @@ const App = () => {
                 fontWeight: 'bold',
                 color: '#fff',
                 marginBottom: '15px',
-                letterSpacing: '2px'
+                letterSpacing: '1px'
               }}>
                 CRAPS
               </div>
@@ -1186,7 +1186,7 @@ const App = () => {
                 fontWeight: 'bold',
                 color: '#fff',
                 marginBottom: '15px',
-                letterSpacing: '2px'
+                letterSpacing: '1px'
               }}>
                 BACCARAT
               </div>
@@ -1286,7 +1286,7 @@ const App = () => {
                 fontWeight: 'bold',
                 color: '#fff',
                 marginBottom: '15px',
-                letterSpacing: '2px'
+                letterSpacing: '1px'
               }}>
                 ROULETTE
               </div>
@@ -1345,7 +1345,7 @@ const App = () => {
           border: '1px solid rgba(212, 175, 55, 0.2)',
           marginBottom: '20px'
         }}>
-          <div style={{ color: '#d4af37', fontSize: '12px', fontWeight: 'bold', letterSpacing: '2px', marginBottom: '15px' }}>
+          <div style={{ color: '#d4af37', fontSize: '12px', fontWeight: 'bold', letterSpacing: '1px', marginBottom: '15px' }}>
             💰 STARTING STACK
           </div>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
@@ -1437,7 +1437,7 @@ const App = () => {
               color: '#000',
               fontSize: '14px',
               fontWeight: 'bold',
-              letterSpacing: '2px',
+              letterSpacing: '1px',
               cursor: 'pointer',
               fontFamily: 'inherit',
               textTransform: 'uppercase',
@@ -1452,7 +1452,7 @@ const App = () => {
             fontSize: '13px',
             fontWeight: 'bold',
             marginBottom: '15px',
-            letterSpacing: '2px'
+            letterSpacing: '1px'
           }}>
             🎮 DEALER INSTRUCTIONS
           </div>

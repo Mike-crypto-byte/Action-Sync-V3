@@ -12,9 +12,9 @@ import {
   resetSession
 } from './useFirebaseSync';
 
-const GAME_NAME = 'baccarat';
+const GAME_NAME = 'roulette';
 
-const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: propPlayerName, skipRegistration = false }) => {
+const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: propPlayerName, skipRegistration = false }) => {
   // Mobile detection
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   useEffect(() => {
@@ -47,7 +47,7 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
   // Admin password protection
   const [showUserSettings, setShowUserSettings] = useState(false);
   
-  // Dealer chip management
+  // Dealer chip management (was missing in original)
   const [startingChips, setStartingChips] = useState(1000);
   const [bonusChipsAmount, setBonusChipsAmount] = useState(0);
   const [bonusRecipient, setBonusRecipient] = useState('all');
@@ -55,36 +55,24 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
   
   // ========== FIREBASE: Game state from real-time listener ==========
   const defaultGameState = {
-    gamePhase: 'betting', playerCards: [], bankerCards: [],
-    playerScore: 0, bankerScore: 0, winner: null,
-    roundNumber: 0, bettingOpen: false, countdown: 0, roadmap: []
+    spinResult: null, isSpinning: false, roundNumber: 0,
+    bettingOpen: false, countdown: 0, spinHistory: []
   };
   const { gameState, updateGameState } = useGameState(GAME_NAME, defaultGameState);
-  
-  // Game state (synced from Firebase)
-  // FIREBASE: gamePhase, playerCards, bankerCards, etc. come from gameState
-  const [gamePhase, setGamePhase] = useState('betting'); // 'betting' or 'dealt'
-  const [playerCards, setPlayerCards] = useState([]);
-  const [bankerCards, setBankerCards] = useState([]);
-  const [playerScore, setPlayerScore] = useState(0);
-  const [bankerScore, setBankerScore] = useState(0);
-  const [winner, setWinner] = useState(null); // 'player', 'banker', 'tie'
-  const [roundNumber, setRoundNumber] = useState(0);
-  const [bettingOpen, setBettingOpen] = useState(true);
-  const [countdown, setCountdown] = useState(15);
+
+  // Game state
+  // FIREBASE: spinResult now comes from gameState
+  // FIREBASE: isSpinning now comes from gameState
+  // FIREBASE: roundNumber now comes from gameState
+  // FIREBASE: bettingOpen now comes from gameState
+  // FIREBASE: countdown ticks locally but syncs from gameState
+  const [localCountdown, setLocalCountdown] = useState(15);
+  // FIREBASE: spinHistory now comes from gameState
   
   // User bankroll and bets
   const [bankroll, setBankroll] = useState(1000);
   const [selectedChip, setSelectedChip] = useState(5);
-  const [currentBets, setCurrentBets] = useState({
-    player: 0,
-    banker: 0,
-    tie: 0,
-    playerPair: 0,
-    bankerPair: 0,
-    dragon: 0, // Natural 9 winner by 4+ points
-    panda: 0   // Natural 8 winner
-  });
+  const [currentBets, setCurrentBets] = useState({});
   const [activeBets, setActiveBets] = useState({});
   const [lastConfirmedBets, setLastConfirmedBets] = useState(null);
   const [isConfirming, setIsConfirming] = useState(false);
@@ -130,51 +118,42 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
   }, [gameState.bettingOpen]);
 
   
-  // History and stats
-  const [roadmap, setRoadmap] = useState([]); // B, P, T tracking
+  // UI State
   const [sessionStats, setSessionStats] = useState({
     totalWagered: 0,
     biggestWin: 0,
-    totalRounds: 0,
+    totalSpins: 0,
     startingBankroll: startingChips
   });
   
-  // ========== FIREBASE: Leaderboard ==========
+  // ========== FIREBASE: Leaderboard from real-time listener ==========
   const { leaderboard, updateLeaderboardEntry, clearLeaderboard } = useLeaderboard();
   
   // Admin state
-  const [adminPlayerCards, setAdminPlayerCards] = useState(['', '']);
-  const [adminBankerCards, setAdminBankerCards] = useState(['', '']);
-  const [adminPlayerThird, setAdminPlayerThird] = useState('');
-  const [adminBankerThird, setAdminBankerThird] = useState('');
-  const [qpValue, setQpValue] = useState('');
-  const [qpTarget, setQpTarget] = useState('p1');
-  // FIREBASE: activeUsers from presence
+  const [adminNumber, setAdminNumber] = useState('');
+  // FIREBASE: activeUsers from presence tracking
   const activeUsers = usePresence(isRegistered ? userId : null, userName);
   const [showSettings, setShowSettings] = useState(false);
   
-  // ========== FIREBASE: Chat + User hooks ==========
+  // ========== FIREBASE: Chat from real-time listener ==========
   const { chatMessages, sendMessage: fbSendMessage, clearChat } = useChat();
-  const { userData, saveUserData: fbSaveUserData } = useUserData(userId);
   const [chatInput, setChatInput] = useState('');
   const chatEndRef = useRef(null);
+  
+  // ========== FIREBASE: User data from real-time listener ==========
+  const { userData, saveUserData: fbSaveUserData } = useUserData(userId);
 
-  // Card values for baccarat
-  const getCardValue = (card) => {
-    if (!card) return 0;
-    const value = card.substring(0, card.length - 1);
-    if (value === 'A') return 1;
-    if (['J', 'Q', 'K', '10'].includes(value)) return 0;
-    return parseInt(value);
+  // Roulette numbers configuration
+  const numbers = {
+    red: [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36],
+    black: [2, 4, 6, 8, 10, 11, 13, 15, 17, 20, 22, 24, 26, 28, 29, 31, 33, 35],
+    green: ['0', '00']
   };
 
-  const calculateScore = (cards) => {
-    return cards.reduce((sum, card) => sum + getCardValue(card), 0) % 10;
-  };
-
-  const isPair = (card1, card2) => {
-    if (!card1 || !card2) return false;
-    return card1.substring(0, card1.length - 1) === card2.substring(0, card2.length - 1);
+  const getNumberColor = (num) => {
+    if (num === '0' || num === '00') return 'green';
+    if (numbers.red.includes(parseInt(num))) return 'red';
+    return 'black';
   };
 
   // Read startingChips from Firebase settings
@@ -188,51 +167,37 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
     return () => unsub();
   }, []);
 
-  // ========== FIREBASE: Auto-load user data from listener ==========
+  // ========== FIREBASE: Auto-load user data when it arrives from listener ==========
   useEffect(() => {
     if (userData) {
-      // ALWAYS sync bankroll from shared session — carries across games
+      // ALWAYS sync bankroll from shared session — this is what carries it across games
       if (userData.bankroll !== undefined) setBankroll(userData.bankroll);
       setIsAdmin(userData.isAdmin || isDealerMode);
       
+      // Auto-register if user data exists but we haven't registered locally yet
       if (!isRegistered && userData.name) {
         setUserName(userData.name);
         setIsRegistered(true);
       }
+      // Don't overwrite activeBets from session — they're game-specific and local
     }
   }, [userData]);
   
-  // ========== FIREBASE: Sync game state from Firebase ==========
-  useEffect(() => {
-    setGamePhase(gameState.gamePhase || 'betting');
-    setPlayerCards(gameState.playerCards || []);
-    setBankerCards(gameState.bankerCards || []);
-    setPlayerScore(gameState.playerScore || 0);
-    setBankerScore(gameState.bankerScore || 0);
-    setWinner(gameState.winner || null);
-    setRoundNumber(gameState.roundNumber || 0);
-    setBettingOpen(gameState.bettingOpen !== undefined ? gameState.bettingOpen : true);
-    setRoadmap(gameState.roadmap || []);
-  }, [gameState]);
-  
-  // ========== FIREBASE: Sync countdown ==========
-  const [localCountdown, setLocalCountdown] = useState(15);
+  // ========== FIREBASE: Sync local countdown from gameState ==========
   useEffect(() => {
     if (gameState.bettingOpen) setLocalCountdown(gameState.countdown || 15);
   }, [gameState.countdown, gameState.bettingOpen]);
   
-  // ========== FIREBASE: Auto-resolve bets when dealer pushes deal result ==========
+  // ========== FIREBASE: Auto-resolve bets when dealer pushes spin result ==========
   const lastResolvedRound = useRef(0);
   useEffect(() => {
-    if (gameState.winner && gameState.roundNumber > lastResolvedRound.current) {
+    if (gameState.spinResult !== null && gameState.roundNumber > lastResolvedRound.current) {
       lastResolvedRound.current = gameState.roundNumber;
-      if (Object.values(activeBets).some(v => v > 0)) {
-        resolveRound(gameState.playerCards || [], gameState.bankerCards || []);
-      }
+      if (Object.keys(activeBets).length > 0) resolveSpin(gameState.spinResult);
     }
-  }, [gameState.winner, gameState.roundNumber]);
+  }, [gameState.spinResult, gameState.roundNumber]);
 
-  // Countdown timer — auto-closes at 0
+  // Countdown timer — dealer controls start, auto-closes at 0
   useEffect(() => {
     if (gameState.bettingOpen && localCountdown > 0) {
       // Beep on last 5 seconds
@@ -254,6 +219,7 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
       const timer = setTimeout(() => setLocalCountdown(localCountdown - 1), 1000);
       return () => clearTimeout(timer);
     } else if (gameState.bettingOpen && localCountdown === 0 && isAdmin) {
+      // Auto-close betting when countdown hits 0 (dealer only pushes this)
       updateGameState({ bettingOpen: false, countdown: 0 });
     }
   }, [localCountdown, gameState.bettingOpen]);
@@ -261,20 +227,16 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
 
 
 
-
-
-
-
-
-  // ========== FIREBASE: Save user data ==========
+  // ========== FIREBASE: Save user data wrapper ==========
   const saveUserData = async (updates) => {
     const data = { name: userName, bankroll, activeBets, userId, sessionStats, ...updates };
     await fbSaveUserData(data);
   };
-
-  // ========== FIREBASE: Update leaderboard ==========
+  
+  // ========== FIREBASE: Update leaderboard wrapper ==========
   const updateLeaderboard = async (newBankroll) => {
     await updateLeaderboardEntry(userId, userName, newBankroll, isAdmin);
+    setIsConfirming(false);
   };
 
   const registerUser = async () => {
@@ -291,11 +253,12 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
     }
   };
 
-  const placeBet = (betType) => {
+  const placeBet = (betType, betValue) => {
     if (!bettingOpen || bankroll < selectedChip) return;
     
+    const betKey = `${betType}-${betValue}`;
     const newBets = { ...currentBets };
-    newBets[betType] = (newBets[betType] || 0) + selectedChip;
+    newBets[betKey] = (newBets[betKey] || 0) + selectedChip;
     
     const totalBet = Object.values(newBets).reduce((sum, bet) => sum + bet, 0);
     if (totalBet <= bankroll) {
@@ -303,20 +266,8 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
     }
   };
 
-  const clearBet = (betType) => {
-    setCurrentBets(prev => ({ ...prev, [betType]: 0 }));
-  };
-
   const clearAllBets = () => {
-    setCurrentBets({
-      player: 0,
-      banker: 0,
-      tie: 0,
-      playerPair: 0,
-      bankerPair: 0,
-      dragon: 0,
-      panda: 0
-    });
+    setCurrentBets({});
   };
 
 
@@ -367,208 +318,187 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
     clearAllBets();
     
     await saveUserData({ bankroll: newBankroll, activeBets: newActiveBets, sessionStats: newStats });
-    await updateLeaderboard(newBankroll);
+    await updateLeaderboardEntry(userId, userName, newBankroll, isAdmin);
     setIsConfirming(false);
   };
 
-  async function resolveRound(pCards, bCards) {
+  async function resolveSpin(number) {
     setPrevBankroll(bankroll);
     setLastRoundUndoable(true);
-    const pScore = calculateScore(pCards);
-    const bScore = calculateScore(bCards);
-    
-    let roundWinner = null;
-    if (pScore > bScore) roundWinner = 'player';
-    else if (bScore > pScore) roundWinner = 'banker';
-    else roundWinner = 'tie';
-    
     let winnings = 0;
-    let roundWinnings = 0;
-    const newActiveBets = { ...activeBets };
+    let spinWinnings = 0;
+    const newActiveBets = {};
     
-    // Player bet (1:1)
-    if (newActiveBets.player > 0) {
-      if (roundWinner === 'player') {
-        const payout = newActiveBets.player * 2;
-        winnings += payout;
-        roundWinnings += payout - newActiveBets.player;
-      } else {
-        roundWinnings -= newActiveBets.player;
-      }
-      newActiveBets.player = 0;
-    }
+    const numStr = number.toString();
+    const numInt = numStr === '0' || numStr === '00' ? -1 : parseInt(numStr);
+    const color = getNumberColor(numStr);
     
-    // Banker bet (0.95:1 - 5% commission)
-    if (newActiveBets.banker > 0) {
-      if (roundWinner === 'banker') {
-        const payout = Math.round(newActiveBets.banker + (newActiveBets.banker * 0.95));
-        winnings += payout;
-        roundWinnings += payout - newActiveBets.banker;
-      } else {
-        roundWinnings -= newActiveBets.banker;
-      }
-      newActiveBets.banker = 0;
-    }
-    
-    // Tie bet (8:1)
-    if (newActiveBets.tie > 0) {
-      if (roundWinner === 'tie') {
-        const payout = newActiveBets.tie * 9;
-        winnings += payout;
-        roundWinnings += payout - newActiveBets.tie;
-      } else {
-        roundWinnings -= newActiveBets.tie;
-      }
-      newActiveBets.tie = 0;
-    }
-    
-    // Player Pair (11:1)
-    if (newActiveBets.playerPair > 0) {
-      if (isPair(pCards[0], pCards[1])) {
-        const payout = newActiveBets.playerPair * 12;
-        winnings += payout;
-        roundWinnings += payout - newActiveBets.playerPair;
-      } else {
-        roundWinnings -= newActiveBets.playerPair;
-      }
-      newActiveBets.playerPair = 0;
-    }
-    
-    // Banker Pair (11:1)
-    if (newActiveBets.bankerPair > 0) {
-      if (isPair(bCards[0], bCards[1])) {
-        const payout = newActiveBets.bankerPair * 12;
-        winnings += payout;
-        roundWinnings += payout - newActiveBets.bankerPair;
-      } else {
-        roundWinnings -= newActiveBets.bankerPair;
-      }
-      newActiveBets.bankerPair = 0;
-    }
-    
-    // Dragon Bonus (Natural 9 wins by 4+)
-    if (newActiveBets.dragon > 0) {
-      const isNatural = pCards.length === 2 && bCards.length === 2;
-      const margin = Math.abs(pScore - bScore);
+    Object.keys(activeBets).forEach(betKey => {
+      const [betType, betValue] = betKey.split('-');
+      const betAmount = activeBets[betKey];
+      let won = false;
+      let payout = 0;
       
-      if (isNatural && ((pScore === 9 && margin >= 4) || (bScore === 9 && margin >= 4))) {
-        const payout = newActiveBets.dragon * 31; // 30:1
-        winnings += payout;
-        roundWinnings += payout - newActiveBets.dragon;
-      } else {
-        roundWinnings -= newActiveBets.dragon;
+      switch(betType) {
+        case 'straight':
+          if (betValue === numStr) {
+            won = true;
+            payout = betAmount * 36; // 35:1
+          }
+          break;
+        case 'split':
+          const splitNums = betValue.split(',');
+          if (splitNums.includes(numStr)) {
+            won = true;
+            payout = betAmount * 18; // 17:1
+          }
+          break;
+        case 'street':
+          const streetNums = betValue.split(',');
+          if (streetNums.includes(numStr)) {
+            won = true;
+            payout = betAmount * 12; // 11:1
+          }
+          break;
+        case 'corner':
+          const cornerNums = betValue.split(',');
+          if (cornerNums.includes(numStr)) {
+            won = true;
+            payout = betAmount * 9; // 8:1
+          }
+          break;
+        case 'line':
+          const lineNums = betValue.split(',');
+          if (lineNums.includes(numStr)) {
+            won = true;
+            payout = betAmount * 6; // 5:1
+          }
+          break;
+        case 'dozen':
+          if (betValue === '1st' && numInt >= 1 && numInt <= 12) won = true;
+          if (betValue === '2nd' && numInt >= 13 && numInt <= 24) won = true;
+          if (betValue === '3rd' && numInt >= 25 && numInt <= 36) won = true;
+          if (won) payout = betAmount * 3; // 2:1
+          break;
+        case 'column':
+          const colNum = parseInt(betValue);
+          if (numInt > 0 && (numInt - colNum) % 3 === 0) {
+            won = true;
+            payout = betAmount * 3; // 2:1
+          }
+          break;
+        case 'red':
+          if (color === 'red') {
+            won = true;
+            payout = betAmount * 2; // 1:1
+          }
+          break;
+        case 'black':
+          if (color === 'black') {
+            won = true;
+            payout = betAmount * 2; // 1:1
+          }
+          break;
+        case 'even':
+          if (numInt > 0 && numInt % 2 === 0) {
+            won = true;
+            payout = betAmount * 2; // 1:1
+          }
+          break;
+        case 'odd':
+          if (numInt > 0 && numInt % 2 === 1) {
+            won = true;
+            payout = betAmount * 2; // 1:1
+          }
+          break;
+        case 'low':
+          if (numInt >= 1 && numInt <= 18) {
+            won = true;
+            payout = betAmount * 2; // 1:1
+          }
+          break;
+        case 'high':
+          if (numInt >= 19 && numInt <= 36) {
+            won = true;
+            payout = betAmount * 2; // 1:1
+          }
+          break;
       }
-      newActiveBets.dragon = 0;
-    }
-    
-    // Panda Bonus (Natural 8 winner)
-    if (newActiveBets.panda > 0) {
-      const isNatural = pCards.length === 2 && bCards.length === 2;
       
-      if (isNatural && (pScore === 8 || bScore === 8) && roundWinner !== 'tie') {
-        const payout = newActiveBets.panda * 26; // 25:1
+      if (won) {
         winnings += payout;
-        roundWinnings += payout - newActiveBets.panda;
+        spinWinnings += (payout - betAmount);
       } else {
-        roundWinnings -= newActiveBets.panda;
+        spinWinnings -= betAmount;
       }
-      newActiveBets.panda = 0;
-    }
+    });
     
     const newBankroll = Math.round(bankroll + winnings);
     setBankroll(newBankroll);
     setActiveBets(newActiveBets);
     
-    // Update roadmap
-    const newRoadmap = [...roadmap, roundWinner === 'player' ? 'P' : roundWinner === 'banker' ? 'B' : 'T'];
-    setRoadmap(newRoadmap.slice(-50));
-    
-    const newStats = {
-      ...sessionStats,
-      totalRounds: sessionStats.totalRounds + 1,
-      biggestWin: Math.max(sessionStats.biggestWin, roundWinnings)
-    };
-    setSessionStats(newStats);
-    
-    // Record bet history
-    const totalWagered = Object.values(activeBets).reduce((s, v) => s + (v > 0 ? v : 0), 0);
-    if (totalWagered > 0) {
-      setBetHistory(prev => [{
+    // Record bet history for this player
+    if (Object.keys(activeBets).length > 0) {
+      const historyEntry = {
         round: gameState.roundNumber || 0,
-        winner: roundWinner,
-        playerScore: pScore,
-        bankerScore: bScore,
-        totalWagered,
-        winnings: roundWinnings,
+        result: numStr,
+        color: color,
+        bets: { ...activeBets },
+        totalWagered: Object.values(activeBets).reduce((s, v) => s + v, 0),
+        winnings: spinWinnings,
         timestamp: Date.now()
-      }, ...prev].slice(0, 20));
+      };
+      setBetHistory(prev => [historyEntry, ...prev].slice(0, 20));
     }
     
     // Show result banner
-    const totalBetAmount = Object.values(activeBets).filter(v => v > 0).reduce((s, v) => s + v, 0);
-    if (totalBetAmount > 0) {
-      const winnerLabel = roundWinner === 'player' ? '👤 Player Wins' : roundWinner === 'banker' ? '🏦 Banker Wins' : '🤝 Tie';
-      const netResult = newBankroll - bankroll;
-      if (roundWinnings > 0) {
-        showResultBanner('win', roundWinnings, `${winnerLabel} — P:${pScore} B:${bScore}`);
-      } else if (roundWinnings === 0) {
-        showResultBanner('push', 0, `${winnerLabel} — P:${pScore} B:${bScore}`);
+    if (Object.keys(activeBets).length > 0) {
+      if (spinWinnings > 0) {
+        showResultBanner('win', spinWinnings, `Number ${numStr} • ${color}`);
+      } else if (spinWinnings === 0) {
+        showResultBanner('push', 0, `Number ${numStr} • ${color}`);
       } else {
-        showResultBanner('loss', roundWinnings, `${winnerLabel} — P:${pScore} B:${bScore}`);
+        showResultBanner('loss', spinWinnings, `Number ${numStr} • ${color}`);
       }
     }
-
+    
+    // FIREBASE: spinHistory is managed by gameState (dealer pushes it)
+    
+    const newStats = {
+      ...sessionStats,
+      totalSpins: sessionStats.totalSpins + 1,
+      biggestWin: Math.max(sessionStats.biggestWin, spinWinnings)
+    };
+    setSessionStats(newStats);
+    
     await saveUserData({ bankroll: newBankroll, activeBets: newActiveBets, sessionStats: newStats });
-    await updateLeaderboard(newBankroll);
-    
-    return roundWinner;
+    await updateLeaderboardEntry(userId, userName, newBankroll, isAdmin);
+    setIsConfirming(false);
   };
 
-  // ========== FIREBASE: Admin deal writes to Firebase — all clients auto-resolve ==========
-  const adminDealCards = async () => {
-    const pCards = [adminPlayerCards[0], adminPlayerCards[1]];
-    const bCards = [adminBankerCards[0], adminBankerCards[1]];
-    if (adminPlayerThird) pCards.push(adminPlayerThird);
-    if (adminBankerThird) bCards.push(adminBankerThird);
-    
-    const pScore = calculateScore(pCards);
-    const bScore = calculateScore(bCards);
-    let roundWinner = null;
-    if (pScore > bScore) roundWinner = 'player';
-    else if (bScore > pScore) roundWinner = 'banker';
-    else roundWinner = 'tie';
-    
-    const newRoadmap = [...(gameState.roadmap || []), roundWinner === 'player' ? 'P' : roundWinner === 'banker' ? 'B' : 'T'].slice(-50);
-    
-    // Push to Firebase — all clients will auto-resolve via useEffect
-    await updateGameState({
-      gamePhase: 'dealt',
-      playerCards: pCards,
-      bankerCards: bCards,
-      playerScore: pScore,
-      bankerScore: bScore,
-      winner: roundWinner,
-      roundNumber: (gameState.roundNumber || 0) + 1,
-      bettingOpen: false,
-      roadmap: newRoadmap
-    });
-    
-    setAdminPlayerCards(['', '']);
-    setAdminBankerCards(['', '']);
-    setAdminPlayerThird('');
-    setAdminBankerThird('');
-    
-    const winLabel = roundWinner === 'player' ? '👤 Player Wins' : roundWinner === 'banker' ? '🏦 Banker Wins' : '🤝 Tie';
-    await sendSystemMessage(`🃏 ${winLabel}! Player: ${pScore} | Banker: ${bScore} — Round #${(gameState.roundNumber || 0) + 1}`);
+  // ========== FIREBASE: Admin spin writes to Firebase — all clients see instantly ==========
+  const adminSpin = async () => {
+    if (!adminNumber) return;
+    await updateGameState({ isSpinning: true, bettingOpen: false });
+    setTimeout(async () => {
+      const newHistory = [
+        { number: adminNumber, color: getNumberColor(adminNumber) },
+        ...(gameState.spinHistory || []).slice(0, 19)
+      ];
+      await updateGameState({
+        spinResult: adminNumber,
+        roundNumber: (gameState.roundNumber || 0) + 1,
+        isSpinning: false,
+        spinHistory: newHistory
+      });
+      setAdminNumber('');
+      await sendSystemMessage(`🎰 Result: ${adminNumber} — Round #${(gameState.roundNumber || 0) + 1}`);
+    }, 3000);
   };
 
-  // ========== Dealer betting controls ==========
+  // ========== Dealer countdown controls ==========
   const adminOpenBetting = async () => {
-    await updateGameState({
-      gamePhase: 'betting', playerCards: [], bankerCards: [],
-      playerScore: 0, bankerScore: 0, winner: null,
-      bettingOpen: true, countdown: countdownDuration
-    });
+    await updateGameState({ spinResult: null, bettingOpen: true, countdown: countdownDuration, isSpinning: false });
     await sendSystemMessage(`🟢 Betting is OPEN — ${countdownDuration}s to place your bets!`);
   };
   
@@ -577,32 +507,33 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
     await sendSystemMessage('🔴 Betting is CLOSED — no more bets!');
   };
   
-  const adminStartNewRound = adminOpenBetting;
+  // Keep old name for compatibility with UI
+  const adminNewRound = adminOpenBetting;
 
-  // ========== FIREBASE: Bonus chips ==========
+  // ========== FIREBASE: Bonus chips via Firebase ==========
   const distributeBonusChips = async () => {
     if (bonusChipsAmount <= 0) { alert('Please enter a valid bonus amount'); return; }
     const targetName = bonusRecipient === 'all' ? `ALL ${leaderboard.length} players` : leaderboard.find(p => p.userId === bonusRecipient)?.name || 'Unknown';
     if (confirm(`Give $${bonusChipsAmount.toLocaleString()} to ${targetName}?`)) {
       await fbDistributeBonusChips(leaderboard, bonusRecipient, bonusChipsAmount, userId, setBankroll);
-      alert(`Distributed $${bonusChipsAmount.toLocaleString()} to ${targetName}!`);
+      alert(`✅ Distributed $${bonusChipsAmount.toLocaleString()} to ${targetName}!`);
       setBonusChipsAmount(0);
     }
   };
 
-  // ========== FIREBASE: Reset ==========
+  // ========== FIREBASE: Reset session via Firebase ==========
   const adminResetSession = async () => {
-    if (confirm('Reset entire session?')) {
+    if (confirm('Reset entire session? This will clear all user data.')) {
       try {
         await resetSession(GAME_NAME);
-        setBankroll(startingChips); clearAllBets(); setActiveBets({});
-        setSessionStats({ totalWagered: 0, biggestWin: 0, totalRounds: 0, startingBankroll: startingChips });
-        await saveUserData({ bankroll: startingChips, activeBets: {}, sessionStats: { totalWagered: 0, biggestWin: 0, totalRounds: 0, startingBankroll: startingChips }});
+        setBankroll(startingChips); setCurrentBets({}); setActiveBets({});
+        setSessionStats({ totalWagered: 0, biggestWin: 0, totalSpins: 0, startingBankroll: startingChips });
+        await saveUserData({ bankroll: startingChips, activeBets: {}, sessionStats: { totalWagered: 0, biggestWin: 0, totalSpins: 0, startingBankroll: startingChips }});
       } catch (e) { console.error('Reset failed:', e); }
     }
   };
 
-  // ========== FIREBASE: Chat ==========
+  // ========== FIREBASE: Chat via real-time hook ==========
   const sendChatMessage = async () => {
     if (!chatInput.trim()) return;
     await fbSendMessage(userId, userName, chatInput);
@@ -635,89 +566,25 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
     await fbSendMessage('system', '🎰 System', text);
   };
 
-
   // FIREBASE: activeUsers tracked via usePresence hook
 
-  // Card rendering component
-  const Card = ({ card, hidden = false }) => {
-    if (hidden) {
-      return (
-        <div style={{
-          width: isMobile ? '50px' : '70px',
-          height: isMobile ? '72px' : '100px',
-          background: 'linear-gradient(135deg, #1a5f7a 0%, #0d3d4d 100%)',
-          borderRadius: '8px',
-          border: '1px solid rgba(212, 175, 55, 0.4)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
-          position: 'relative',
-          overflow: 'hidden'
-        }}>
-          <div style={{
-            position: 'absolute',
-            width: '100%',
-            height: '100%',
-            background: 'repeating-linear-gradient(45deg, rgba(212,175,55,0.1), rgba(212,175,55,0.1) 10px, transparent 10px, transparent 20px)'
-          }} />
-        </div>
-      );
-    }
+  // ========== FIREBASE: Convenience aliases so JSX reads gameState transparently ==========
+  const spinResult = gameState.spinResult;
+  const isSpinning = gameState.isSpinning;
+  const roundNumber = gameState.roundNumber || 0;
+  const bettingOpen = gameState.bettingOpen;
+  const countdown = localCountdown;
+  const spinHistory = gameState.spinHistory || [];
 
-    if (!card) return null;
-    
-    const suit = card.slice(-1);
-    const value = card.slice(0, -1);
-    const isRed = suit === '♥' || suit === '♦';
-    
-    return (
-      <div style={{
-        width: isMobile ? '50px' : '70px',
-        height: isMobile ? '72px' : '100px',
-        background: '#fff',
-        borderRadius: '8px',
-        border: '2px solid #333',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '8px',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-        position: 'relative'
-      }}>
-        <div style={{ 
-          fontSize: '18px', 
-          fontWeight: 'bold', 
-          color: isRed ? '#dc143c' : '#000',
-          lineHeight: '1'
-        }}>
-          {value}
-        </div>
-        <div style={{ fontSize: '32px', color: isRed ? '#dc143c' : '#000' }}>
-          {suit}
-        </div>
-        <div style={{ 
-          fontSize: '18px', 
-          fontWeight: 'bold', 
-          color: isRed ? '#dc143c' : '#000',
-          lineHeight: '1',
-          transform: 'rotate(180deg)'
-        }}>
-          {value}
-        </div>
-      </div>
-    );
-  };
-
+  // Registration screen
   if (!isRegistered) {
     return (
       <div style={{
         minHeight: '100vh',
-        background: '#1a5f1a',
+        background: '#1a1a1a',
         backgroundImage: `
           repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(0,0,0,.05) 10px, rgba(0,0,0,.05) 20px),
-          radial-gradient(circle at 30% 50%, rgba(255,255,255,0.03) 0%, transparent 70%)
+          radial-gradient(circle at 30% 50%, rgba(139, 0, 0, 0.1) 0%, transparent 70%)
         `,
         display: 'flex',
         alignItems: 'center',
@@ -727,23 +594,22 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
       }}>
         <div style={{
           background: 'linear-gradient(135deg, #1c1e2a 0%, #252836 100%)',
-          border: '1px solid rgba(212, 175, 55, 0.4)',
+          border: '1px solid rgba(139, 0, 0, 0.4)',
           borderRadius: '15px',
           padding: '50px 40px',
           maxWidth: '450px',
           width: '100%',
-          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
+          boxShadow: '0 12px 40px rgba(0, 0, 0, 0.4)'
         }}>
           <div style={{ textAlign: 'center', marginBottom: '35px' }}>
             <div style={{
               fontSize: '42px',
               fontWeight: 'bold',
-              color: '#d4af37',
+              color: '#8b0000',
               marginBottom: '10px',
-              letterSpacing: '1.5px',
-              textShadow: '0 0 20px rgba(212, 175, 55, 0.5)'
+              letterSpacing: '1.5px'
             }}>
-              ACTION SYNC
+              🎰 Roulette
             </div>
             <div style={{
               color: '#888',
@@ -751,14 +617,14 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
               letterSpacing: '2px',
               textTransform: 'uppercase'
             }}>
-              Live Casino Baccarat
+              American Double-Zero
             </div>
           </div>
           
           <div style={{ marginBottom: '25px' }}>
             <label style={{
               display: 'block',
-              color: '#d4af37',
+              color: '#8b0000',
               fontSize: '11px',
               letterSpacing: '1px',
               textTransform: 'uppercase',
@@ -781,7 +647,6 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                 color: '#fff',
                 fontSize: '15px',
                 outline: 'none',
-                transition: 'all 0.3s ease',
                 fontFamily: 'inherit'
               }}
             />
@@ -794,19 +659,18 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
               width: '100%',
               padding: '16px',
               background: userName.trim() 
-                ? 'linear-gradient(135deg, #d4af37 0%, #f4e5a1 100%)'
+                ? 'linear-gradient(135deg, #8b0000 0%, #b30000 100%)'
                 : '#333',
               border: 'none',
               borderRadius: '8px',
-              color: userName.trim() ? '#000' : '#666',
+              color: userName.trim() ? '#fff' : '#666',
               fontSize: '15px',
               fontWeight: 'bold',
               letterSpacing: '1.5px',
               cursor: userName.trim() ? 'pointer' : 'not-allowed',
-              transition: 'all 0.3s ease',
               textTransform: 'uppercase',
               fontFamily: 'inherit',
-              boxShadow: userName.trim() ? '0 8px 25px rgba(212, 175, 55, 0.4)' : 'none'
+              boxShadow: userName.trim() ? '0 8px 25px rgba(139, 0, 0, 0.4)' : 'none'
             }}
           >
             Join Table
@@ -815,11 +679,11 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
           <div style={{
             marginTop: '25px',
             padding: '18px',
-            background: 'rgba(212, 175, 55, 0.1)',
+            background: 'rgba(139, 0, 0, 0.1)',
             borderRadius: '8px',
-            border: '1px solid rgba(212, 175, 55, 0.2)'
+            border: '1px solid rgba(139, 0, 0, 0.2)'
           }}>
-            <div style={{ color: '#d4af37', fontSize: '12px', marginBottom: '12px', fontWeight: 'bold' }}>
+            <div style={{ color: '#8b0000', fontSize: '12px', marginBottom: '12px', fontWeight: 'bold' }}>
               Starting Chips: $1,000
             </div>
             <div style={{ color: '#888', fontSize: '10px', lineHeight: '1.6' }}>
@@ -831,13 +695,108 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
     );
   }
 
+  // Number button component
+  const NumberButton = ({ number }) => {
+    const color = getNumberColor(number);
+    const betKey = `straight-${number}`;
+    const hasBet = currentBets[betKey] || activeBets[betKey];
+    
+    return (
+      <div
+        onClick={() => placeBet('straight', number)}
+        style={{
+          background: color === 'green' ? '#0a6e0a' : color === 'red' ? '#8b0000' : '#000',
+          border: '1px solid rgba(212, 175, 55, 0.4)',
+          borderRadius: '8px',
+          padding: '15px 10px',
+          textAlign: 'center',
+          cursor: bettingOpen ? 'pointer' : 'not-allowed',
+          position: 'relative',
+          opacity: bettingOpen ? 1 : 0.5,
+          minWidth: '60px',
+          transition: 'all 0.2s'
+        }}
+      >
+        <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#fff' }}>
+          {number}
+        </div>
+        {hasBet > 0 && (
+          <div style={{
+            position: 'absolute',
+            top: '-8px',
+            right: '-8px',
+            background: '#d4af37',
+            color: '#000',
+            borderRadius: '50%',
+            width: '24px',
+            height: '24px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '10px',
+            fontWeight: 'bold',
+            border: '2px solid #000'
+          }}>
+            ${hasBet}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Outside bet button component
+  const OutsideBetButton = ({ label, betType, betValue, color = '#8b0000' }) => {
+    const betKey = `${betType}-${betValue}`;
+    const hasBet = currentBets[betKey] || activeBets[betKey];
+    
+    return (
+      <div
+        onClick={() => placeBet(betType, betValue)}
+        style={{
+          background: `linear-gradient(135deg, ${color} 0%, ${color}dd 100%)`,
+          border: '1px solid rgba(212, 175, 55, 0.4)',
+          borderRadius: '12px',
+          padding: isMobile ? '12px 6px' : '20px 15px',
+          textAlign: 'center',
+          cursor: bettingOpen ? 'pointer' : 'not-allowed',
+          position: 'relative',
+          opacity: bettingOpen ? 1 : 0.5,
+          transition: 'all 0.2s'
+        }}
+      >
+        <div style={{ fontSize: isMobile ? '10px' : '14px', fontWeight: 'bold', color: '#fff', letterSpacing: isMobile ? '0px' : '1px' }}>
+          {label}
+        </div>
+        {hasBet > 0 && (
+          <div style={{
+            position: 'absolute',
+            top: '-10px',
+            right: '-10px',
+            background: '#d4af37',
+            color: '#000',
+            borderRadius: '50%',
+            width: '30px',
+            height: '30px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '11px',
+            fontWeight: 'bold',
+            border: '2px solid #000'
+          }}>
+            ${hasBet}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div style={{
       minHeight: '100vh',
-      background: '#1a5f1a',
+      background: '#1a1a1a',
       backgroundImage: `
-        repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(0,0,0,.05) 10px, rgba(0,0,0,.05) 20px),
-        radial-gradient(circle at 30% 50%, rgba(255,255,255,0.03) 0%, transparent 70%)
+        repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(0,0,0,.05) 10px, rgba(0,0,0,.05) 20px)
       `,
       fontFamily: ''Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif',
       color: '#fff',
@@ -848,7 +807,7 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
       <div style={{
         padding: isMobile ? '8px 10px' : '12px 20px',
         background: 'linear-gradient(135deg, #1c1e2a 0%, #252836 100%)',
-        borderBottom: '3px solid #d4af37',
+        borderBottom: '3px solid #8b0000',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
@@ -857,12 +816,12 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
         zIndex: 1000
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '8px' : '20px' }}>
-          <div style={{ fontSize: isMobile ? '14px' : '20px', fontWeight: 'bold', color: '#d4af37', letterSpacing: '1px' }}>
-            ACTION SYNC
+          <div style={{ fontSize: isMobile ? '14px' : '20px', fontWeight: 'bold', color: '#8b0000', letterSpacing: '1px' }}>
+            🎰 Roulette
           </div>
           <div style={{ fontSize: '11px', color: '#888' }}>
             <span style={{ color: '#aaa', fontSize: '12px' }}>{userName}</span>
-              <span style={{ color: '#d4af37', fontSize: isMobile ? '16px' : '22px', fontWeight: 'bold', marginLeft: isMobile ? '5px' : '10px' }}>${Math.round(bankroll).toLocaleString()}</span>
+              <span style={{ color: '#8b0000', fontSize: isMobile ? '16px' : '22px', fontWeight: 'bold', marginLeft: isMobile ? '5px' : '10px' }}>${Math.round(bankroll).toLocaleString()}</span>
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
@@ -870,11 +829,11 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
             <button
               onClick={onBack}
               style={{
-                background: 'rgba(33, 150, 243, 0.2)',
-                border: '1px solid #2196f3',
+                background: 'rgba(139, 0, 0, 0.2)',
+                border: '1px solid #8b0000',
                 borderRadius: '6px',
                 padding: '6px 12px',
-                color: '#2196f3',
+                color: '#8b0000',
                 cursor: 'pointer',
                 fontSize: '11px',
                 fontFamily: 'inherit',
@@ -899,7 +858,7 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
         {/* Status Bar */}
         <div style={{
           background: 'linear-gradient(135deg, #1c1e2a 0%, #252836 100%)',
-          border: '1px solid rgba(212, 175, 55, 0.4)',
+          border: '1px solid rgba(139, 0, 0, 0.4)',
           borderRadius: '12px',
           padding: '15px 20px',
           marginBottom: '20px',
@@ -908,27 +867,20 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
           alignItems: 'center'
         }}>
           <div>
-            <div style={{ fontSize: '10px', color: '#888', marginBottom: '4px' }}>GAME</div>
-            <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#d4af37' }}>
-              BACCARAT
-            </div>
-          </div>
-          <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: '10px', color: '#666', marginBottom: '4px', fontWeight: '600' }}>Status</div>
-            <div style={{ fontSize: '18px', fontWeight: 'bold', color: gamePhase === 'betting' ? '#4caf50' : '#ff9800' }}>
-              {gamePhase === 'betting' ? 'BETTING' : 'HAND DEALT'}
+            <div style={{ fontSize: '18px', fontWeight: 'bold', color: isSpinning ? '#ff9800' : bettingOpen ? '#4caf50' : '#8b0000' }}>
+              {isSpinning ? 'Spinning...' : bettingOpen ? 'Place Your Bets' : 'No More Bets'}
             </div>
           </div>
-          {bettingOpen && (
+          {bettingOpen && !isSpinning && (
             <div style={{
-              background: countdown <= 5 ? '#ff5252' : '#d4af37',
-              color: '#000',
+              background: countdown <= 5 ? '#ff5252' : '#8b0000',
+              color: '#fff',
               borderRadius: '8px',
               padding: '10px 20px',
               display: 'flex',
               alignItems: 'center',
-              gap: '8px',
-              animation: countdown <= 5 ? 'pulse 1s infinite' : 'none'
+              gap: '8px'
             }}>
               <Timer size={18} />
               <span style={{ fontSize: '20px', fontWeight: 'bold' }}>{countdown}s</span>
@@ -936,455 +888,305 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
           )}
           <div>
             <div style={{ fontSize: '10px', color: '#888', marginBottom: '4px' }}>Round #{roundNumber}</div>
-            {winner && (
+            {spinResult && (
               <div style={{
-                fontSize: '16px',
+                fontSize: '32px',
                 fontWeight: 'bold',
-                color: winner === 'player' ? '#2196f3' : winner === 'banker' ? '#f44336' : '#ffc107'
+                color: getNumberColor(spinResult) === 'green' ? '#0a6e0a' : getNumberColor(spinResult) === 'red' ? '#ff4444' : '#fff',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px'
               }}>
-                {winner === 'player' ? 'PLAYER WINS' : winner === 'banker' ? 'BANKER WINS' : 'TIE'}
+                <div style={{
+                  width: '50px',
+                  height: '50px',
+                  borderRadius: '50%',
+                  background: getNumberColor(spinResult) === 'green' ? '#0a6e0a' : getNumberColor(spinResult) === 'red' ? '#8b0000' : '#000',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: '1px solid rgba(212, 175, 55, 0.4)'
+                }}>
+                  {spinResult}
+                </div>
               </div>
             )}
           </div>
         </div>
 
-        {/* Baccarat Table */}
+        {/* Roulette Table */}
         <div style={{
-          background: '#0d3d0d',
-          border: '8px solid #8b4513',
-          borderRadius: '20px',
-          padding: '40px',
+          background: '#0a4d0a',
+          border: isMobile ? '3px solid #8b4513' : '8px solid #8b4513',
+          borderRadius: isMobile ? '12px' : '20px',
+          padding: isMobile ? '10px' : '20px',
           boxShadow: 'inset 0 0 50px rgba(0,0,0,0.5), 0 10px 40px rgba(0,0,0,0.8)',
-          marginBottom: '20px'
+          marginBottom: '20px',
+          overflowX: 'auto'
         }}>
-          
-          {/* Card Display Area */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
-            gap: isMobile ? '20px' : '40px',
-            marginBottom: isMobile ? '20px' : '40px'
-          }}>
-            {/* Player Side */}
-            <div>
-              <div style={{
-                fontSize: '14px',
-                color: '#2196f3',
-                fontWeight: 'bold',
-                marginBottom: '15px',
-                textAlign: 'center',
-                letterSpacing: '1px'
-              }}>
-                PLAYER
-              </div>
-              <div style={{
-                display: 'flex',
-                gap: '15px',
-                justifyContent: 'center',
-                marginBottom: '15px',
-                minHeight: '100px'
-              }}>
-                {gamePhase === 'betting' ? (
-                  <>
-                    <Card hidden />
-                    <Card hidden />
-                  </>
-                ) : (
-                  playerCards.map((card, idx) => <Card key={idx} card={card} />)
-                )}
-              </div>
-              {gamePhase === 'dealt' && (
+          {/* Interactive Roulette Board */}
+          {(() => {
+            // Standard roulette layout: 3 rows x 12 columns
+            // Row 0 (top): 3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36
+            // Row 1 (mid): 2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 32, 35
+            // Row 2 (bot): 1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34
+            const rows = [
+              [3,6,9,12,15,18,21,24,27,30,33,36],
+              [2,5,8,11,14,17,20,23,26,29,32,35],
+              [1,4,7,10,13,16,19,22,25,28,31,34]
+            ];
+            
+            const chipDot = (betKey) => {
+              const amt = currentBets[betKey] || activeBets[betKey];
+              if (!amt) return null;
+              return (
                 <div style={{
-                  textAlign: 'center',
-                  fontSize: isMobile ? '24px' : '32px',
-                  fontWeight: 'bold',
-                  color: '#2196f3',
-                  background: 'rgba(33, 150, 243, 0.2)',
-                  padding: isMobile ? '10px' : '15px',
-                  borderRadius: '12px',
-                  border: '2px solid #2196f3'
+                  position: 'absolute', top: '50%', left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  background: '#d4af37', color: '#000',
+                  borderRadius: '50%', width: isMobile ? '16px' : '22px', height: isMobile ? '16px' : '22px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: isMobile ? '6px' : '8px', fontWeight: 'bold', border: isMobile ? '1px solid #000' : '2px solid #000',
+                  zIndex: 5, pointerEvents: 'none'
                 }}>
-                  {playerScore}
+                  {amt}
                 </div>
-              )}
-            </div>
+              );
+            };
 
-            {/* Banker Side */}
-            <div>
-              <div style={{
-                fontSize: '14px',
-                color: '#f44336',
-                fontWeight: 'bold',
-                marginBottom: '15px',
-                textAlign: 'center',
-                letterSpacing: '1px'
-              }}>
-                BANKER
-              </div>
-              <div style={{
-                display: 'flex',
-                gap: '15px',
-                justifyContent: 'center',
-                marginBottom: '15px',
-                minHeight: '100px'
-              }}>
-                {gamePhase === 'betting' ? (
-                  <>
-                    <Card hidden />
-                    <Card hidden />
-                  </>
-                ) : (
-                  bankerCards.map((card, idx) => <Card key={idx} card={card} />)
-                )}
-              </div>
-              {gamePhase === 'dealt' && (
-                <div style={{
-                  textAlign: 'center',
-                  fontSize: isMobile ? '24px' : '32px',
-                  fontWeight: 'bold',
-                  color: '#f44336',
-                  background: 'rgba(244, 67, 54, 0.2)',
-                  padding: isMobile ? '10px' : '15px',
-                  borderRadius: '12px',
-                  border: '2px solid #f44336'
-                }}>
-                  {bankerScore}
+            // Cell size — responsive
+            const W = isMobile ? 22 : 80; // number cell width
+            const H = isMobile ? 24 : 50; // number cell height
+            const E = isMobile ? 4 : 8; // edge zone size (clickable split area)
+            
+            return (
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '15px', width: '100%' }}>
+                {/* 0 and 00 */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', justifyContent: 'center' }}>
+                  {['0', '00'].map(n => {
+                    const betKey = `straight-${n}`;
+                    const hasBet = currentBets[betKey] || activeBets[betKey];
+                    return (
+                      <div key={n} onClick={() => placeBet('straight', n)} style={{
+                      width: isMobile ? W : 52, height: isMobile ? H * 1.2 : H * 1.5, background: '#0a6e0a',
+                        border: '1px solid rgba(212, 175, 55, 0.4)', borderRadius: '8px',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        cursor: bettingOpen ? 'pointer' : 'not-allowed',
+                        position: 'relative', opacity: bettingOpen ? 1 : 0.5
+                      }}>
+                        <span style={{ fontSize: isMobile ? '12px' : '18px', fontWeight: 'bold', color: '#fff' }}>{n}</span>
+                        {hasBet > 0 && chipDot(betKey)}
+                      </div>
+                    );
+                  })}
                 </div>
-              )}
-            </div>
+                
+                {/* Main grid with split zones */}
+                <div style={{ position: 'relative', flex: 1 }}>
+                  {/* Number cells - CSS grid */}
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: isMobile ? `repeat(12, ${W}px)` : 'repeat(12, 1fr)',
+                    gridTemplateRows: `repeat(3, ${H}px)`,
+                    gap: `${E}px`
+                  }}>
+                    {rows.flat().map(num => {
+                      const n = num.toString();
+                      const color = getNumberColor(n);
+                      const betKey = `straight-${n}`;
+                      const hasBet = currentBets[betKey] || activeBets[betKey];
+                      return (
+                        <div key={num} onClick={() => placeBet('straight', n)} style={{
+                          background: color === 'red' ? '#8b0000' : '#111',
+                          border: '1px solid rgba(212, 175, 55, 0.4)', borderRadius: '6px',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          cursor: bettingOpen ? 'pointer' : 'not-allowed',
+                          position: 'relative', opacity: bettingOpen ? 1 : 0.5,
+                          zIndex: 2
+                        }}>
+                          <span style={{ fontSize: isMobile ? '11px' : '16px', fontWeight: 'bold', color: '#fff' }}>{n}</span>
+                          {hasBet > 0 && chipDot(betKey)}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  
+                  {/* SPLIT ZONES — clickable areas between numbers */}
+                  {/* Horizontal splits (between columns: left-right neighbors) */}
+                  {rows.map((row, ri) => 
+                    row.slice(0, -1).map((num, ci) => {
+                      const n1 = num.toString();
+                      const n2 = row[ci + 1].toString();
+                      const sorted = [n1, n2].sort((a, b) => parseInt(a) - parseInt(b)).join(',');
+                      const betKey = `split-${sorted}`;
+                      const hasBet = currentBets[betKey] || activeBets[betKey];
+                      const left = (ci + 1) * (W + E) - E / 2 - E / 2;
+                      const top = ri * (H + E);
+                      return (
+                        <div key={`hsplit-${n1}-${n2}`}
+                          onClick={() => placeBet('split', sorted)}
+                          style={{
+                            position: 'absolute',
+                            left: left, top: top,
+                            width: E + 4, height: H,
+                            cursor: bettingOpen ? 'pointer' : 'default',
+                            zIndex: 3,
+                            borderRadius: '3px',
+                            background: hasBet ? 'rgba(212,175,55,0.3)' : 'transparent'
+                          }}
+                          title={`Split ${n1}/${n2} (17:1)`}
+                        >
+                          {hasBet > 0 && chipDot(betKey)}
+                        </div>
+                      );
+                    })
+                  ).flat()}
+                  
+                  {/* Vertical splits (between rows: top-bottom neighbors) */}
+                  {[0, 1].map(ri =>
+                    rows[ri].map((num, ci) => {
+                      const n1 = num.toString();
+                      const n2 = rows[ri + 1][ci].toString();
+                      const sorted = [n1, n2].sort((a, b) => parseInt(a) - parseInt(b)).join(',');
+                      const betKey = `split-${sorted}`;
+                      const hasBet = currentBets[betKey] || activeBets[betKey];
+                      const left = ci * (W + E);
+                      const top = (ri + 1) * (H + E) - E / 2 - E / 2;
+                      return (
+                        <div key={`vsplit-${n1}-${n2}`}
+                          onClick={() => placeBet('split', sorted)}
+                          style={{
+                            position: 'absolute',
+                            left: left, top: top,
+                            width: W, height: E + 4,
+                            cursor: bettingOpen ? 'pointer' : 'default',
+                            zIndex: 3,
+                            borderRadius: '3px',
+                            background: hasBet ? 'rgba(212,175,55,0.3)' : 'transparent'
+                          }}
+                          title={`Split ${n1}/${n2} (17:1)`}
+                        >
+                          {hasBet > 0 && chipDot(betKey)}
+                        </div>
+                      );
+                    })
+                  ).flat()}
+                  
+                  {/* Corner zones (intersection of 4 numbers) */}
+                  {[0, 1].map(ri =>
+                    rows[ri].slice(0, -1).map((num, ci) => {
+                      const tl = num;
+                      const tr = rows[ri][ci + 1];
+                      const bl = rows[ri + 1][ci];
+                      const br = rows[ri + 1][ci + 1];
+                      const sorted = [tl, tr, bl, br].sort((a, b) => a - b).map(String).join(',');
+                      const betKey = `corner-${sorted}`;
+                      const hasBet = currentBets[betKey] || activeBets[betKey];
+                      const left = (ci + 1) * (W + E) - E / 2 - E / 2;
+                      const top = (ri + 1) * (H + E) - E / 2 - E / 2;
+                      return (
+                        <div key={`corner-${sorted}`}
+                          onClick={() => placeBet('corner', sorted)}
+                          style={{
+                            position: 'absolute',
+                            left: left, top: top,
+                            width: E + 4, height: E + 4,
+                            cursor: bettingOpen ? 'pointer' : 'default',
+                            zIndex: 4,
+                            borderRadius: '50%',
+                            background: hasBet ? 'rgba(212,175,55,0.4)' : 'transparent'
+                          }}
+                          title={`Corner ${tl}/${tr}/${bl}/${br} (8:1)`}
+                        >
+                          {hasBet > 0 && chipDot(betKey)}
+                        </div>
+                      );
+                    })
+                  ).flat()}
+
+                  {/* Street bets (bottom edge of each column — covers all 3 in that column) */}
+                  {Array.from({length: 12}, (_, ci) => {
+                    const col = [rows[0][ci], rows[1][ci], rows[2][ci]];
+                    const sorted = col.sort((a, b) => a - b).map(String).join(',');
+                    const betKey = `street-${sorted}`;
+                    const hasBet = currentBets[betKey] || activeBets[betKey];
+                    const left = ci * (W + E);
+                    const top = 3 * (H + E) - E / 2;
+                    return (
+                      <div key={`street-${sorted}`}
+                        onClick={() => placeBet('street', sorted)}
+                        style={{
+                          position: 'absolute',
+                          left: left, top: top,
+                          width: W, height: E + 2,
+                          cursor: bettingOpen ? 'pointer' : 'default',
+                          zIndex: 3,
+                          borderRadius: '3px',
+                          background: hasBet ? 'rgba(212,175,55,0.3)' : 'rgba(255,255,255,0.05)'
+                        }}
+                        title={`Street ${col.join('/')} (11:1)`}
+                      >
+                        {hasBet > 0 && chipDot(betKey)}
+                      </div>
+                    );
+                  })}
+                </div>
+                
+                {/* Column bets on the right */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: `${E}px`, justifyContent: 'stretch' }}>
+                  {[3, 2, 1].map(col => {
+                    const betKey = `column-${col}`;
+                    const hasBet = currentBets[betKey] || activeBets[betKey];
+                    return (
+                      <div key={col} onClick={() => placeBet('column', col.toString())} style={{
+                        flex: 1, width: W, background: 'rgba(139,0,0,0.4)',
+                        border: '1px solid rgba(212, 175, 55, 0.4)', borderRadius: '6px',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        cursor: bettingOpen ? 'pointer' : 'not-allowed',
+                        position: 'relative', opacity: bettingOpen ? 1 : 0.5
+                      }}>
+                        <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#fff', writingMode: 'vertical-rl' }}>2:1</span>
+                        {hasBet > 0 && chipDot(betKey)}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Bet type legend */}
+          <div style={{
+            display: 'flex', gap: '15px', justifyContent: 'center', marginBottom: '15px',
+            fontSize: isMobile ? '7px' : '9px', color: '#aaa', flexWrap: 'wrap'
+          }}>
+            <span>Click number = Straight (35:1)</span>
+            <span>Click edge = Split (17:1)</span>
+            <span>Click corner = Corner (8:1)</span>
+            <span>Click bottom edge = Street (11:1)</span>
           </div>
 
-          {/* Betting Areas */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr auto 1fr',
-            gap: isMobile ? '10px' : '20px',
-            marginBottom: '20px',
-            alignItems: 'stretch'
-          }}>
-            {/* Player Bet */}
-            <div
-              onClick={() => bettingOpen && placeBet('player')}
-              style={{
-                background: currentBets.player + (activeBets.player || 0) > 0 
-                  ? 'linear-gradient(135deg, #2196f3 0%, #42a5f5 100%)'
-                  : 'rgba(33, 150, 243, 0.3)',
-                border: '3px solid #2196f3',
-                borderRadius: '15px',
-                padding: isMobile ? '25px 15px' : '40px 20px',
-                textAlign: 'center',
-                cursor: bettingOpen ? 'pointer' : 'not-allowed',
-                position: 'relative',
-                transition: 'all 0.2s',
-                opacity: bettingOpen ? 1 : 0.5
-              }}
-            >
-              <div style={{
-                fontSize: isMobile ? '18px' : '24px',
-                fontWeight: 'bold',
-                color: currentBets.player + (activeBets.player || 0) > 0 ? '#000' : '#fff',
-                marginBottom: '8px',
-                letterSpacing: '1.5px'
-              }}>
-                PLAYER
-              </div>
-              <div style={{
-                fontSize: '12px',
-                color: currentBets.player + (activeBets.player || 0) > 0 ? '#000' : 'rgba(255,255,255,0.7)'
-              }}>
-                Pays 1:1
-              </div>
-              {(currentBets.player + (activeBets.player || 0)) > 0 && (
-                <div style={{
-                  position: 'absolute', top: '-12px', right: '-12px',
-                  background: '#000', color: '#d4af37', borderRadius: '50%',
-                  width: '44px', height: '44px',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '13px', fontWeight: 'bold',
-                  border: '1px solid rgba(212, 175, 55, 0.4)', boxShadow: '0 4px 12px rgba(0,0,0,0.5)'
-                }}>
-                  ${currentBets.player + (activeBets.player || 0)}
-                </div>
-              )}
-            </div>
-
-            {/* Tie Bet */}
-            <div
-              onClick={() => bettingOpen && placeBet('tie')}
-              style={{
-                background: currentBets.tie + (activeBets.tie || 0) > 0 
-                  ? 'linear-gradient(135deg, #ffc107 0%, #ffd54f 100%)'
-                  : 'rgba(255, 193, 7, 0.3)',
-                border: '3px solid #ffc107',
-                borderRadius: '15px',
-                padding: isMobile ? '25px 20px' : '40px 30px',
-                textAlign: 'center',
-                cursor: bettingOpen ? 'pointer' : 'not-allowed',
-                position: 'relative',
-                transition: 'all 0.2s',
-                opacity: bettingOpen ? 1 : 0.5,
-                minWidth: isMobile ? '80px' : '120px'
-              }}
-            >
-              <div style={{
-                fontSize: isMobile ? '18px' : '24px',
-                fontWeight: 'bold',
-                color: currentBets.tie + (activeBets.tie || 0) > 0 ? '#000' : '#fff',
-                marginBottom: '8px',
-                letterSpacing: '1.5px'
-              }}>
-                TIE
-              </div>
-              <div style={{
-                fontSize: '12px',
-                color: currentBets.tie + (activeBets.tie || 0) > 0 ? '#000' : 'rgba(255,255,255,0.7)'
-              }}>
-                Pays 8:1
-              </div>
-              {(currentBets.tie + (activeBets.tie || 0)) > 0 && (
-                <div style={{
-                  position: 'absolute', top: '-12px', right: '-12px',
-                  background: '#000', color: '#d4af37', borderRadius: '50%',
-                  width: '44px', height: '44px',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '13px', fontWeight: 'bold',
-                  border: '1px solid rgba(212, 175, 55, 0.4)', boxShadow: '0 4px 12px rgba(0,0,0,0.5)'
-                }}>
-                  ${currentBets.tie + (activeBets.tie || 0)}
-                </div>
-              )}
-            </div>
-
-            {/* Banker Bet */}
-            <div
-              onClick={() => bettingOpen && placeBet('banker')}
-              style={{
-                background: currentBets.banker + (activeBets.banker || 0) > 0 
-                  ? 'linear-gradient(135deg, #f44336 0%, #ef5350 100%)'
-                  : 'rgba(244, 67, 54, 0.3)',
-                border: '3px solid #f44336',
-                borderRadius: '15px',
-                padding: isMobile ? '25px 15px' : '40px 20px',
-                textAlign: 'center',
-                cursor: bettingOpen ? 'pointer' : 'not-allowed',
-                position: 'relative',
-                transition: 'all 0.2s',
-                opacity: bettingOpen ? 1 : 0.5
-              }}
-            >
-              <div style={{
-                fontSize: isMobile ? '18px' : '24px',
-                fontWeight: 'bold',
-                color: currentBets.banker + (activeBets.banker || 0) > 0 ? '#000' : '#fff',
-                marginBottom: '8px',
-                letterSpacing: '1.5px'
-              }}>
-                BANKER
-              </div>
-              <div style={{
-                fontSize: '12px',
-                color: currentBets.banker + (activeBets.banker || 0) > 0 ? '#000' : 'rgba(255,255,255,0.7)'
-              }}>
-                Pays 0.95:1
-              </div>
-              {(currentBets.banker + (activeBets.banker || 0)) > 0 && (
-                <div style={{
-                  position: 'absolute', top: '-12px', right: '-12px',
-                  background: '#000', color: '#d4af37', borderRadius: '50%',
-                  width: '44px', height: '44px',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '13px', fontWeight: 'bold',
-                  border: '1px solid rgba(212, 175, 55, 0.4)', boxShadow: '0 4px 12px rgba(0,0,0,0.5)'
-                }}>
-                  ${currentBets.banker + (activeBets.banker || 0)}
-                </div>
-              )}
-            </div>
+          {/* Outside Bets */}
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(3, 1fr)' : 'repeat(6, 1fr)', gap: isMobile ? '6px' : '10px', marginBottom: '15px' }}>
+            <OutsideBetButton label="1-18" betType="low" betValue="low" />
+            <OutsideBetButton label="EVEN" betType="even" betValue="even" />
+            <OutsideBetButton label="RED" betType="red" betValue="red" color="#8b0000" />
+            <OutsideBetButton label="BLACK" betType="black" betValue="black" color="#000" />
+            <OutsideBetButton label="ODD" betType="odd" betValue="odd" />
+            <OutsideBetButton label="19-36" betType="high" betValue="high" />
           </div>
 
-          {/* Side Bets */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)',
-            gap: isMobile ? '8px' : '15px'
-          }}>
-            {/* Player Pair */}
-            <div
-              onClick={() => bettingOpen && placeBet('playerPair')}
-              style={{
-                background: currentBets.playerPair + (activeBets.playerPair || 0) > 0 
-                  ? '#9c27b0' 
-                  : 'rgba(156, 39, 176, 0.3)',
-                border: '2px solid #9c27b0',
-                borderRadius: '12px',
-                padding: '15px 10px',
-                textAlign: 'center',
-                cursor: bettingOpen ? 'pointer' : 'not-allowed',
-                position: 'relative',
-                fontSize: '11px',
-                fontWeight: 'bold',
-                color: currentBets.playerPair + (activeBets.playerPair || 0) > 0 ? '#fff' : 'rgba(255,255,255,0.8)',
-                opacity: bettingOpen ? 1 : 0.5
-              }}
-            >
-              <div>PLAYER PAIR</div>
-              <div style={{ fontSize: '9px', marginTop: '4px', opacity: 0.8 }}>11:1</div>
-              {(currentBets.playerPair + (activeBets.playerPair || 0)) > 0 && (
-                <div style={{
-                  position: 'absolute',
-                  top: '-10px',
-                  right: '-10px',
-                  background: '#000',
-                  color: '#d4af37',
-                  borderRadius: '50%',
-                  width: '30px',
-                  height: '30px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '10px',
-                  fontWeight: 'bold',
-                  border: '1px solid rgba(212, 175, 55, 0.4)'
-                }}>
-                  ${currentBets.playerPair + (activeBets.playerPair || 0)}
-                </div>
-              )}
-            </div>
-
-            {/* Banker Pair */}
-            <div
-              onClick={() => bettingOpen && placeBet('bankerPair')}
-              style={{
-                background: currentBets.bankerPair + (activeBets.bankerPair || 0) > 0 
-                  ? '#9c27b0' 
-                  : 'rgba(156, 39, 176, 0.3)',
-                border: '2px solid #9c27b0',
-                borderRadius: '12px',
-                padding: '15px 10px',
-                textAlign: 'center',
-                cursor: bettingOpen ? 'pointer' : 'not-allowed',
-                position: 'relative',
-                fontSize: '11px',
-                fontWeight: 'bold',
-                color: currentBets.bankerPair + (activeBets.bankerPair || 0) > 0 ? '#fff' : 'rgba(255,255,255,0.8)',
-                opacity: bettingOpen ? 1 : 0.5
-              }}
-            >
-              <div>BANKER PAIR</div>
-              <div style={{ fontSize: '9px', marginTop: '4px', opacity: 0.8 }}>11:1</div>
-              {(currentBets.bankerPair + (activeBets.bankerPair || 0)) > 0 && (
-                <div style={{
-                  position: 'absolute',
-                  top: '-10px',
-                  right: '-10px',
-                  background: '#000',
-                  color: '#d4af37',
-                  borderRadius: '50%',
-                  width: '30px',
-                  height: '30px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '10px',
-                  fontWeight: 'bold',
-                  border: '1px solid rgba(212, 175, 55, 0.4)'
-                }}>
-                  ${currentBets.bankerPair + (activeBets.bankerPair || 0)}
-                </div>
-              )}
-            </div>
-
-            {/* Dragon Bonus */}
-            <div
-              onClick={() => bettingOpen && placeBet('dragon')}
-              style={{
-                background: currentBets.dragon + (activeBets.dragon || 0) > 0 
-                  ? 'linear-gradient(135deg, #ff5722 0%, #ff7043 100%)' 
-                  : 'rgba(255, 87, 34, 0.3)',
-                border: '2px solid #ff5722',
-                borderRadius: '12px',
-                padding: '15px 10px',
-                textAlign: 'center',
-                cursor: bettingOpen ? 'pointer' : 'not-allowed',
-                position: 'relative',
-                fontSize: '11px',
-                fontWeight: 'bold',
-                color: currentBets.dragon + (activeBets.dragon || 0) > 0 ? '#fff' : 'rgba(255,255,255,0.8)',
-                opacity: bettingOpen ? 1 : 0.5
-              }}
-            >
-              <div>🐉 DRAGON</div>
-              <div style={{ fontSize: '9px', marginTop: '4px', opacity: 0.8 }}>Nat 9 Win 30:1</div>
-              {(currentBets.dragon + (activeBets.dragon || 0)) > 0 && (
-                <div style={{
-                  position: 'absolute',
-                  top: '-10px',
-                  right: '-10px',
-                  background: '#000',
-                  color: '#d4af37',
-                  borderRadius: '50%',
-                  width: '30px',
-                  height: '30px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '10px',
-                  fontWeight: 'bold',
-                  border: '1px solid rgba(212, 175, 55, 0.4)'
-                }}>
-                  ${currentBets.dragon + (activeBets.dragon || 0)}
-                </div>
-              )}
-            </div>
-
-            {/* Panda Bonus */}
-            <div
-              onClick={() => bettingOpen && placeBet('panda')}
-              style={{
-                background: currentBets.panda + (activeBets.panda || 0) > 0 
-                  ? 'linear-gradient(135deg, #4caf50 0%, #66bb6a 100%)' 
-                  : 'rgba(76, 175, 80, 0.3)',
-                border: '2px solid #4caf50',
-                borderRadius: '12px',
-                padding: '15px 10px',
-                textAlign: 'center',
-                cursor: bettingOpen ? 'pointer' : 'not-allowed',
-                position: 'relative',
-                fontSize: '11px',
-                fontWeight: 'bold',
-                color: currentBets.panda + (activeBets.panda || 0) > 0 ? '#fff' : 'rgba(255,255,255,0.8)',
-                opacity: bettingOpen ? 1 : 0.5
-              }}
-            >
-              <div>🐼 PANDA</div>
-              <div style={{ fontSize: '9px', marginTop: '4px', opacity: 0.8 }}>Nat 8 Win 25:1</div>
-              {(currentBets.panda + (activeBets.panda || 0)) > 0 && (
-                <div style={{
-                  position: 'absolute',
-                  top: '-10px',
-                  right: '-10px',
-                  background: '#000',
-                  color: '#d4af37',
-                  borderRadius: '50%',
-                  width: '30px',
-                  height: '30px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '10px',
-                  fontWeight: 'bold',
-                  border: '1px solid rgba(212, 175, 55, 0.4)'
-                }}>
-                  ${currentBets.panda + (activeBets.panda || 0)}
-                </div>
-              )}
-            </div>
+          {/* Dozen Bets */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+            <OutsideBetButton label="1st 12" betType="dozen" betValue="1st" />
+            <OutsideBetButton label="2nd 12" betType="dozen" betValue="2nd" />
+            <OutsideBetButton label="3rd 12" betType="dozen" betValue="3rd" />
           </div>
         </div>
 
 
-        {/* Active Bets Summary */}
-        {Object.keys(activeBets).some(k => activeBets[k] > 0) && (
+        {/* Active Bets Summary — shown when player has bets */}
+        {(Object.keys(activeBets).length > 0 || Object.values(currentBets).some(v => v > 0)) && (
           <div style={{
             background: 'linear-gradient(135deg, #1c1e2a 0%, #252836 100%)',
             border: !bettingOpen ? '2px solid #f44336' : '2px solid #4caf50',
@@ -1402,16 +1204,26 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                 {!bettingOpen ? '🔒 Locked Bets' : '📋 Active Bets'}
               </div>
               <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#d4af37' }}>
-                Total: ${(Object.values(activeBets).filter(v => v > 0).reduce((s, v) => s + v, 0) + Object.values(currentBets).filter(v => v > 0).reduce((s, v) => s + v, 0)).toLocaleString()}
+                Total: ${(Object.values(activeBets).reduce((s, v) => s + v, 0) + Object.values(currentBets).reduce((s, v) => s + v, 0)).toLocaleString()}
               </div>
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-              {Object.entries(activeBets).filter(([_, v]) => v > 0).map(([key, amount]) => {
-                const label = key === 'player' ? '👤 Player'
-                  : key === 'banker' ? '🏦 Banker'
-                  : key === 'tie' ? '🤝 Tie'
-                  : key === 'playerPair' ? '👤 Pair'
-                  : key === 'bankerPair' ? '🏦 Pair'
+              {/* Locked bets (already confirmed) */}
+              {Object.entries(activeBets).filter(([,v]) => v > 0).map(([key, amount]) => {
+                const [type, value] = key.split('-');
+                const label = type === 'straight' ? `#${value}`
+                  : type === 'split' ? `Split ${value.replace(',','/')}`
+                  : type === 'corner' ? `Corner`
+                  : type === 'street' ? `Street`
+                  : type === 'line' ? `Line`
+                  : type === 'red' ? '🔴 Red'
+                  : type === 'black' ? '⚫ Black'
+                  : type === 'odd' ? 'Odd'
+                  : type === 'even' ? 'Even'
+                  : type === 'low' ? '1-18'
+                  : type === 'high' ? '19-36'
+                  : type === 'dozen' ? `${value} 12`
+                  : type === 'column' ? `Col ${value}`
                   : key;
                 return (
                   <div key={'locked-' + key} style={{
@@ -1426,12 +1238,22 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                   </div>
                 );
               })}
-              {Object.entries(currentBets).filter(([_, v]) => v > 0).map(([key, amount]) => {
-                const label = key === 'player' ? '👤 Player'
-                  : key === 'banker' ? '🏦 Banker'
-                  : key === 'tie' ? '🤝 Tie'
-                  : key === 'playerPair' ? '👤 Pair'
-                  : key === 'bankerPair' ? '🏦 Pair'
+              {/* Pending bets (can tap to remove) */}
+              {Object.entries(currentBets).filter(([,v]) => v > 0).map(([key, amount]) => {
+                const [type, value] = key.split('-');
+                const label = type === 'straight' ? `#${value}`
+                  : type === 'split' ? `Split ${value.replace(',','/')}`
+                  : type === 'corner' ? `Corner`
+                  : type === 'street' ? `Street`
+                  : type === 'line' ? `Line`
+                  : type === 'red' ? '🔴 Red'
+                  : type === 'black' ? '⚫ Black'
+                  : type === 'odd' ? 'Odd'
+                  : type === 'even' ? 'Even'
+                  : type === 'low' ? '1-18'
+                  : type === 'high' ? '19-36'
+                  : type === 'dozen' ? `${value} 12`
+                  : type === 'column' ? `Col ${value}`
                   : key;
                 return (
                   <div key={'pending-' + key} onClick={() => removeSingleBet(key)} style={{
@@ -1458,7 +1280,7 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
           bottom: isMobile ? 0 : 'auto',
           zIndex: isMobile ? 100 : 'auto',
           background: 'linear-gradient(135deg, #1c1e2a 0%, #252836 100%)',
-          border: '1px solid rgba(212, 175, 55, 0.4)',
+          border: '1px solid rgba(139, 0, 0, 0.3)',
           borderRadius: '12px',
           padding: '20px',
           marginBottom: '20px'
@@ -1472,6 +1294,7 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                 key={value}
                 onClick={() => setSelectedChip(value)}
                 disabled={bankroll < value}
+
                 style={{
                   width: isMobile ? '52px' : '68px',
                   height: isMobile ? '52px' : '68px',
@@ -1502,6 +1325,7 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
+                  backgroundClip: 'padding-box',
                   outline: selectedChip === value ? '2px dashed rgba(255,255,255,0.5)' : '2px dashed rgba(255,255,255,0.15)',
                   outlineOffset: '-7px',
                   transform: selectedChip === value ? 'scale(1.1)' : 'scale(1)',
@@ -1521,7 +1345,7 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                 flex: 1,
                 padding: '16px',
                 background: Object.values(currentBets).some(v => v > 0) && bettingOpen
-                  ? 'linear-gradient(135deg, #4caf50, #66bb6a)'
+                  ? 'linear-gradient(135deg, #8b0000, #b30000)'
                   : '#333',
                 border: 'none',
                 borderRadius: '8px',
@@ -1578,10 +1402,10 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
           </div>
         </div>
 
-        {/* Roadmap */}
+        {/* Spin History */}
         <div style={{
           background: 'linear-gradient(135deg, #1c1e2a 0%, #252836 100%)',
-          border: '1px solid rgba(212, 175, 55, 0.4)',
+          border: '1px solid rgba(139, 0, 0, 0.3)',
           borderRadius: '12px',
           padding: '20px',
           marginBottom: '20px'
@@ -1590,33 +1414,33 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
             fontSize: '11px',
             letterSpacing: '1px',
             textTransform: 'uppercase',
-            color: '#d4af37',
+            color: '#8b0000',
             marginBottom: '15px',
             fontWeight: 'bold'
           }}>
-            📊 Roadmap
+            🎲 Spin History
           </div>
-          {roadmap.length === 0 ? (
+          {spinHistory.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '20px', color: '#666', fontSize: '11px' }}>
-              No rounds yet
+              No spins yet
             </div>
           ) : (
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              {roadmap.map((result, idx) => (
+              {spinHistory.map((spin, idx) => (
                 <div key={idx} style={{
                   width: '40px',
                   height: '40px',
                   borderRadius: '50%',
-                  background: result === 'P' ? '#2196f3' : result === 'B' ? '#f44336' : '#ffc107',
+                  background: spin.color === 'green' ? '#0a6e0a' : spin.color === 'red' ? '#8b0000' : '#000',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontSize: '16px',
+                  fontSize: '14px',
                   fontWeight: 'bold',
                   color: '#fff',
-                  border: '2px solid rgba(255,255,255,0.3)'
+                  border: '1px solid rgba(212, 175, 55, 0.4)'
                 }}>
-                  {result}
+                  {spin.number}
                 </div>
               ))}
             </div>
@@ -1626,7 +1450,7 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
         {/* Session Stats */}
         <div style={{
           background: 'linear-gradient(135deg, #1c1e2a 0%, #252836 100%)',
-          border: '1px solid rgba(212, 175, 55, 0.4)',
+          border: '1px solid rgba(139, 0, 0, 0.3)',
           borderRadius: '12px',
           padding: '20px',
           marginBottom: '20px'
@@ -1635,7 +1459,7 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
             fontSize: '11px',
             letterSpacing: '1px',
             textTransform: 'uppercase',
-            color: '#d4af37',
+            color: '#8b0000',
             marginBottom: '15px',
             fontWeight: 'bold'
           }}>
@@ -1643,25 +1467,25 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : '1fr 1fr 1fr 1fr', gap: isMobile ? '8px' : '15px' }}>
             <div>
-              <div style={{ fontSize: '9px', color: '#888', marginBottom: '4px' }}>Total Wagered</div>
+              <div style={{ fontSize: isMobile ? '7px' : '9px', color: '#888', marginBottom: '4px' }}>Total Wagered</div>
               <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#fff' }}>
                 ${sessionStats.totalWagered.toLocaleString()}
               </div>
             </div>
             <div>
-              <div style={{ fontSize: '9px', color: '#888', marginBottom: '4px' }}>Biggest Win</div>
+              <div style={{ fontSize: isMobile ? '7px' : '9px', color: '#888', marginBottom: '4px' }}>Biggest Win</div>
               <div style={{ fontSize: '16px', fontWeight: 'bold', color: sessionStats.biggestWin > 0 ? '#4caf50' : '#888' }}>
                 ${sessionStats.biggestWin.toLocaleString()}
               </div>
             </div>
             <div>
-              <div style={{ fontSize: '9px', color: '#888', marginBottom: '4px' }}>Total Rounds</div>
+              <div style={{ fontSize: isMobile ? '7px' : '9px', color: '#888', marginBottom: '4px' }}>Total Spins</div>
               <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#fff' }}>
-                {sessionStats.totalRounds}
+                {sessionStats.totalSpins}
               </div>
             </div>
             <div>
-              <div style={{ fontSize: '9px', color: '#888', marginBottom: '4px' }}>Net P/L</div>
+              <div style={{ fontSize: isMobile ? '7px' : '9px', color: '#888', marginBottom: '4px' }}>Net P/L</div>
               <div style={{ fontSize: '16px', fontWeight: 'bold', color: bankroll - sessionStats.startingBankroll >= 0 ? '#4caf50' : '#f44336' }}>
                 {bankroll - sessionStats.startingBankroll >= 0 ? '+' : ''}${(bankroll - sessionStats.startingBankroll).toLocaleString()}
               </div>
@@ -1672,7 +1496,7 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
         {/* Leaderboard */}
         <div style={{
           background: 'linear-gradient(135deg, #1c1e2a 0%, #252836 100%)',
-          border: '1px solid rgba(212, 175, 55, 0.4)',
+          border: '1px solid rgba(139, 0, 0, 0.3)',
           borderRadius: '12px',
           padding: '20px',
           marginBottom: '20px'
@@ -1683,12 +1507,12 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
             gap: '10px',
             marginBottom: '18px'
           }}>
-            <Trophy size={18} color="#d4af37" />
+            <Trophy size={18} color="#8b0000" />
             <div style={{
               fontSize: '13px',
               letterSpacing: '1px',
               textTransform: 'uppercase',
-              color: '#d4af37',
+              color: '#8b0000',
               fontWeight: 'bold'
             }}>
               Top Players <span style={{ fontSize: '8px', color: '#4caf50', marginLeft: '8px', animation: 'pulse 2s infinite' }}>● LIVE</span>
@@ -1712,10 +1536,10 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                 gap: '12px',
                 padding: '12px',
                 background: player.userId === userId 
-                  ? 'rgba(212, 175, 55, 0.2)' 
+                  ? 'rgba(139, 0, 0, 0.2)' 
                   : 'rgba(0, 0, 0, 0.3)',
                 border: player.userId === userId 
-                  ? '2px solid #d4af37'
+                  ? '2px solid #8b0000'
                   : '1px solid rgba(255, 255, 255, 0.05)',
                 borderRadius: '8px',
                 marginBottom: '8px'
@@ -1742,7 +1566,7 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                   <div style={{
                     fontSize: '13px',
                     fontWeight: player.userId === userId ? 'bold' : 'normal',
-                    color: player.userId === userId ? '#d4af37' : '#fff',
+                    color: player.userId === userId ? '#8b0000' : '#fff',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap'
@@ -1763,56 +1587,80 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
           )}
         </div>
 
+
         {/* Bet History */}
         <div style={{
           background: 'linear-gradient(135deg, #1c1e2a 0%, #252836 100%)',
-          border: '1px solid rgba(212, 175, 55, 0.4)',
+          border: '1px solid rgba(139, 0, 0, 0.3)',
           borderRadius: '12px',
           padding: '20px',
           marginBottom: '20px'
         }}>
           <div
             onClick={() => setShowBetHistory(!showBetHistory)}
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              cursor: 'pointer'
+            }}
           >
-            <div style={{ fontSize: '11px', letterSpacing: '1px', textTransform: 'uppercase', color: '#d4af37', fontWeight: 'bold' }}>
+            <div style={{
+              fontSize: '11px',
+              letterSpacing: '1px',
+              textTransform: 'uppercase',
+              color: '#8b0000',
+              fontWeight: 'bold'
+            }}>
               📋 My Bet History ({betHistory.length})
             </div>
-            <div style={{ color: '#888', fontSize: '16px' }}>{showBetHistory ? '▲' : '▼'}</div>
+            <div style={{ color: '#888', fontSize: '16px' }}>
+              {showBetHistory ? '▲' : '▼'}
+            </div>
           </div>
           {showBetHistory && (
             <div style={{ marginTop: '15px' }}>
               {betHistory.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '20px', color: '#666', fontSize: '11px' }}>No bets placed yet</div>
+                <div style={{ textAlign: 'center', padding: '20px', color: '#666', fontSize: '11px' }}>
+                  No bets placed yet
+                </div>
               ) : (
                 betHistory.map((entry, idx) => (
                   <div key={idx} style={{
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
                     padding: '10px 12px',
                     background: entry.winnings >= 0 ? 'rgba(76, 175, 80, 0.1)' : 'rgba(244, 67, 54, 0.1)',
                     border: `1px solid ${entry.winnings >= 0 ? 'rgba(76, 175, 80, 0.3)' : 'rgba(244, 67, 54, 0.3)'}`,
-                    borderRadius: '8px', marginBottom: '6px'
+                    borderRadius: '8px',
+                    marginBottom: '6px'
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <div style={{
-                        padding: '6px 12px',
-                        background: entry.winner === 'player' ? 'rgba(33, 150, 243, 0.3)' : entry.winner === 'banker' ? 'rgba(244, 67, 54, 0.3)' : 'rgba(76, 175, 80, 0.3)',
-                        borderRadius: '6px', border: '1px solid rgba(255,255,255,0.2)'
+                        width: '30px', height: '30px', borderRadius: '50%',
+                        background: entry.color === 'green' ? '#0a6e0a' : entry.color === 'red' ? '#8b0000' : '#000',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: '11px', fontWeight: 'bold', color: '#fff',
+                        border: '1px solid rgba(212, 175, 55, 0.4)'
                       }}>
-                        <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#fff', textTransform: 'uppercase' }}>
-                          {entry.winner === 'player' ? 'P' : entry.winner === 'banker' ? 'B' : 'T'} {entry.playerScore}-{entry.bankerScore}
-                        </span>
+                        {entry.result}
                       </div>
                       <div>
                         <div style={{ fontSize: '11px', color: '#888' }}>Round #{entry.round}</div>
-                        <div style={{ fontSize: '10px', color: '#666' }}>Wagered: ${entry.totalWagered}</div>
+                        <div style={{ fontSize: '10px', color: '#666' }}>
+                          {Object.keys(entry.bets).map(k => k.replace('-', ' ')).join(', ')}
+                        </div>
                       </div>
                     </div>
-                    <div style={{
-                      fontSize: '14px', fontWeight: 'bold',
-                      color: entry.winnings >= 0 ? '#4caf50' : '#f44336'
-                    }}>
-                      {entry.winnings >= 0 ? '+' : ''}${entry.winnings.toLocaleString()}
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: '10px', color: '#888' }}>Wagered: ${entry.totalWagered}</div>
+                      <div style={{
+                        fontSize: '14px', fontWeight: 'bold',
+                        color: entry.winnings >= 0 ? '#4caf50' : '#f44336'
+                      }}>
+                        {entry.winnings >= 0 ? '+' : ''}${entry.winnings.toLocaleString()}
+                      </div>
                     </div>
                   </div>
                 ))
@@ -1820,11 +1668,10 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
             </div>
           )}
         </div>
-
         {/* Chat */}
         <div style={{
           background: 'linear-gradient(135deg, #1c1e2a 0%, #252836 100%)',
-          border: '1px solid rgba(212, 175, 55, 0.4)',
+          border: '1px solid rgba(139, 0, 0, 0.3)',
           borderRadius: '12px',
           padding: '20px',
           marginBottom: '20px'
@@ -1833,7 +1680,7 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
             fontSize: '11px',
             letterSpacing: '1px',
             textTransform: 'uppercase',
-            color: '#d4af37',
+            color: '#8b0000',
             marginBottom: '15px',
             fontWeight: 'bold'
           }}>
@@ -1858,13 +1705,13 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                   marginBottom: '10px',
                   padding: msg.userId === 'system' ? '10px 12px' : '8px',
                   background: msg.userId === 'system' ? 'rgba(212, 175, 55, 0.1)'
-                    : msg.userId === userId ? 'rgba(212, 175, 55, 0.1)' : 'rgba(255,255,255,0.05)',
+                    : msg.userId === userId ? 'rgba(139, 0, 0, 0.1)' : 'rgba(255,255,255,0.05)',
                   borderRadius: '6px',
                   borderLeft: msg.userId === 'system' ? '3px solid #d4af37'
-                    : `3px solid ${msg.userId === userId ? '#d4af37' : '#555'}`
+                    : `3px solid ${msg.userId === userId ? '#8b0000' : '#555'}`
                 }}>
                   {msg.userId !== 'system' && (
-                    <div style={{ fontSize: '10px', color: msg.userId === userId ? '#d4af37' : '#888', marginBottom: '4px' }}>
+                    <div style={{ fontSize: '10px', color: msg.userId === userId ? '#8b0000' : '#888', marginBottom: '4px' }}>
                       {msg.userName}
                     </div>
                   )}
@@ -1905,10 +1752,10 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
               disabled={!chatInput.trim()}
               style={{
                 padding: isMobile ? '8px 10px' : '12px 20px',
-                background: chatInput.trim() ? '#d4af37' : '#333',
+                background: chatInput.trim() ? '#8b0000' : '#333',
                 border: 'none',
                 borderRadius: '6px',
-                color: chatInput.trim() ? '#000' : '#666',
+                color: chatInput.trim() ? '#fff' : '#666',
                 fontSize: '12px',
                 fontWeight: 'bold',
                 cursor: chatInput.trim() ? 'pointer' : 'not-allowed',
@@ -1924,7 +1771,7 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
         {false && (
           <div style={{
             background: 'linear-gradient(135deg, #1c1e2a 0%, #252836 100%)',
-            border: '2px solid #2196f3',
+            border: '1px solid rgba(139, 0, 0, 0.3)',
             borderRadius: '12px',
             padding: '25px',
             marginBottom: '20px'
@@ -1933,7 +1780,7 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
               fontSize: '13px',
               letterSpacing: '1px',
               textTransform: 'uppercase',
-              color: '#2196f3',
+              color: '#ff6666',
               marginBottom: '20px',
               fontWeight: 'bold',
               display: 'flex',
@@ -1945,11 +1792,11 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
             </div>
             
             <div style={{
-              background: 'rgba(33, 150, 243, 0.1)',
+              background: 'rgba(139, 0, 0, 0.1)',
               padding: '15px',
               borderRadius: '8px',
               marginBottom: '20px',
-              border: '1px solid rgba(33, 150, 243, 0.2)'
+              border: '1px solid rgba(139, 0, 0, 0.2)'
             }}>
               <div style={{ fontSize: '10px', color: '#888', marginBottom: '8px' }}>
                 YOUR ACCOUNT
@@ -1957,7 +1804,7 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
               <div style={{ fontSize: '16px', color: '#fff', fontWeight: 'bold', marginBottom: '5px' }}>
                 {userName}
               </div>
-              <div style={{ fontSize: '12px', color: '#2196f3' }}>
+              <div style={{ fontSize: '12px', color: '#ff6666' }}>
                 Balance: ${Math.round(bankroll).toLocaleString()}
               </div>
             </div>
@@ -1974,7 +1821,7 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                 borderRadius: '8px',
                 textAlign: 'center'
               }}>
-                <div style={{ fontSize: '9px', color: '#888', marginBottom: '4px' }}>
+                <div style={{ fontSize: isMobile ? '7px' : '9px', color: '#888', marginBottom: '4px' }}>
                   Session P/L
                 </div>
                 <div style={{
@@ -1992,7 +1839,7 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                 borderRadius: '8px',
                 textAlign: 'center'
               }}>
-                <div style={{ fontSize: '9px', color: '#888', marginBottom: '4px' }}>
+                <div style={{ fontSize: isMobile ? '7px' : '9px', color: '#888', marginBottom: '4px' }}>
                   Total Wagered
                 </div>
                 <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#fff' }}>
@@ -2007,13 +1854,13 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                   setSessionStats({
                     totalWagered: 0,
                     biggestWin: 0,
-                    totalRounds: 0,
+                    totalSpins: 0,
                     startingBankroll: bankroll
                   });
                   saveUserData({ sessionStats: {
                     totalWagered: 0,
                     biggestWin: 0,
-                    totalRounds: 0,
+                    totalSpins: 0,
                     startingBankroll: bankroll
                   }});
                 }
@@ -2039,9 +1886,9 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
             <div style={{
               marginTop: '15px',
               padding: '12px',
-              background: 'rgba(33, 150, 243, 0.1)',
+              background: 'rgba(139, 0, 0, 0.1)',
               borderRadius: '8px',
-              border: '1px solid rgba(33, 150, 243, 0.2)',
+              border: '1px solid rgba(139, 0, 0, 0.2)',
               fontSize: '10px',
               color: '#888',
               lineHeight: '1.6'
@@ -2051,11 +1898,11 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
           </div>
         )}
 
-        {/* Admin / Dealer Controls */}
+        {/* Admin Controls */}
         {isAdmin && (
           <div style={{
             background: 'linear-gradient(135deg, #1c1e2a 0%, #252836 100%)',
-            border: '3px solid #9c27b0',
+            border: '1px solid rgba(139, 0, 0, 0.4)',
             borderRadius: '12px',
             padding: '25px'
           }}>
@@ -2063,11 +1910,11 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
               fontSize: '13px',
               letterSpacing: '1px',
               textTransform: 'uppercase',
-              color: '#ce93d8',
+              color: '#8b0000',
               marginBottom: '20px',
               fontWeight: 'bold'
             }}>
-              🎴 DEALER CONTROLS
+              🎰 DEALER CONTROLS
             </div>
             
             {/* Chip Management */}
@@ -2194,247 +2041,109 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
               </div>
             </div>
             
-            {/* Countdown Duration */}
-            <div style={{
-              background: 'rgba(0, 0, 0, 0.3)',
-              padding: '15px',
-              borderRadius: '8px',
-              marginBottom: '15px'
-            }}>
-              <div style={{ fontSize: '10px', color: '#888', marginBottom: '6px' }}>Countdown Duration (seconds)</div>
-              <div style={{ display: 'flex', gap: '6px' }}>
-                {[10, 15, 20, 30, 45, 60].map(sec => (
-                  <button key={sec} onClick={() => setCountdownDuration(sec)}
-                    style={{
-                      flex: 1, padding: '8px',
-                      background: countdownDuration === sec ? '#2196f3' : 'rgba(0,0,0,0.3)',
-                      border: `1px solid ${countdownDuration === sec ? '#2196f3' : '#555'}`,
-                      borderRadius: '6px', color: '#fff', fontSize: '11px', fontWeight: 'bold',
-                      cursor: 'pointer', fontFamily: 'inherit'
-                    }}>
-                    {sec}s
-                  </button>
-                ))}
-              </div>
-            </div>
-            
-            {/* Card Entry */}
             <div style={{
               background: 'rgba(0, 0, 0, 0.3)',
               padding: '18px',
               borderRadius: '8px',
               marginBottom: '15px'
             }}>
+              <div style={{ marginBottom: '15px' }}>
+                <div style={{ fontSize: '10px', color: '#888', marginBottom: '6px' }}>Countdown Duration (seconds)</div>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  {[10, 15, 20, 30, 45, 60].map(sec => (
+                    <button key={sec} onClick={() => setCountdownDuration(sec)}
+                      style={{
+                        flex: 1, padding: '8px',
+                        background: countdownDuration === sec ? '#8b0000' : 'rgba(0,0,0,0.3)',
+                        border: `1px solid ${countdownDuration === sec ? '#8b0000' : '#555'}`,
+                        borderRadius: '6px', color: '#fff', fontSize: '11px', fontWeight: 'bold',
+                        cursor: 'pointer', fontFamily: 'inherit'
+                      }}>
+                      {sec}s
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
               <div style={{ fontSize: '11px', color: '#888', marginBottom: '8px' }}>
-                Quick Pick Cards — tap value then suit
+                Quick Pick — tap a number, then SPIN
               </div>
-              {(() => {
-                const values = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
-                const suits = ['♠','♥','♦','♣'];
-                const applyCard = (val, suit) => {
-                  const card = val + suit;
-                  if (qpTarget === 'p1') setAdminPlayerCards([card, adminPlayerCards[1]]);
-                  else if (qpTarget === 'p2') setAdminPlayerCards([adminPlayerCards[0], card]);
-                  else if (qpTarget === 'p3') setAdminPlayerThird(card);
-                  else if (qpTarget === 'b1') setAdminBankerCards([card, adminBankerCards[1]]);
-                  else if (qpTarget === 'b2') setAdminBankerCards([adminBankerCards[0], card]);
-                  else if (qpTarget === 'b3') setAdminBankerThird(card);
-                };
-                return (
-                  <div style={{ marginBottom: '12px' }}>
-                    <div style={{ display: 'flex', gap: '4px', marginBottom: '6px', flexWrap: 'wrap' }}>
-                      {['p1','p2','p3','b1','b2','b3'].map(t => (
-                        <button key={t} onClick={() => setQpTarget(t)} style={{
-                          flex: 1, padding: '6px', fontSize: '9px', fontWeight: 'bold',
-                          background: qpTarget === t ? '#d4af37' : 'rgba(0,0,0,0.3)',
-                          color: qpTarget === t ? '#000' : '#888',
-                          border: `1px solid ${qpTarget === t ? '#d4af37' : '#555'}`,
-                          borderRadius: '4px', cursor: 'pointer', fontFamily: 'inherit'
-                        }}>
-                          {t.startsWith('p') ? `P${t[1]}` : `B${t[1]}`}
-                        </button>
-                      ))}
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '3px', marginBottom: '4px' }}>
-                      {values.map(v => (
-                        <button key={v} onClick={() => setQpValue(v)} style={{
-                          padding: '6px 0', fontSize: '11px', fontWeight: 'bold',
-                          background: qpValue === v ? '#d4af37' : 'rgba(33,150,243,0.2)',
-                          color: qpValue === v ? '#000' : '#fff',
-                          border: `1px solid ${qpValue === v ? '#d4af37' : '#2196f3'}`,
-                          borderRadius: '4px', cursor: 'pointer', fontFamily: 'inherit'
-                        }}>{v}</button>
-                      ))}
-                    </div>
-                    <div style={{ display: 'flex', gap: '4px' }}>
-                      {suits.map(s => (
-                        <button key={s} onClick={() => { if (qpValue) applyCard(qpValue, s); }} style={{
-                          flex: 1, padding: '8px', fontSize: '16px',
-                          background: 'rgba(33,150,243,0.2)',
-                          color: (s === '♥' || s === '♦') ? '#f44336' : '#fff',
-                          border: '1px solid #2196f3',
-                          borderRadius: '4px', cursor: qpValue ? 'pointer' : 'not-allowed',
-                          opacity: qpValue ? 1 : 0.4, fontFamily: 'inherit'
-                        }}>{s}</button>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })()}
-              <div style={{ fontSize: '11px', color: '#888', marginBottom: '12px' }}>
-                Player Cards
+              {/* Green numbers */}
+              <div style={{ display: 'flex', gap: '4px', marginBottom: '4px' }}>
+                {['0', '00'].map(n => (
+                  <button key={n} onClick={() => setAdminNumber(n)}
+                    style={{
+                      flex: 1, padding: '10px 0', borderRadius: '6px', fontSize: '13px', fontWeight: 'bold',
+                      background: adminNumber === n ? '#d4af37' : '#0a6e0a',
+                      color: adminNumber === n ? '#000' : '#fff',
+                      border: adminNumber === n ? '2px solid #d4af37' : '1px solid #333',
+                      cursor: 'pointer', fontFamily: 'inherit'
+                    }}>
+                    {n}
+                  </button>
+                ))}
               </div>
-              <div style={{ display: 'flex', gap: '10px', marginBottom: '12px' }}>
-                <input
-                  type="text"
-                  value={adminPlayerCards[0]}
-                  onChange={(e) => setAdminPlayerCards([e.target.value, adminPlayerCards[1]])}
-                  placeholder="Card 1"
-                  style={{
-                    flex: 1,
-                    padding: '12px',
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    border: '2px solid #2196f3',
-                    borderRadius: '8px',
-                    color: '#fff',
-                    fontSize: '16px',
-                    textAlign: 'center',
-                    fontFamily: 'inherit'
-                  }}
-                />
-                <input
-                  type="text"
-                  value={adminPlayerCards[1]}
-                  onChange={(e) => setAdminPlayerCards([adminPlayerCards[0], e.target.value])}
-                  placeholder="Card 2"
-                  style={{
-                    flex: 1,
-                    padding: '12px',
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    border: '2px solid #2196f3',
-                    borderRadius: '8px',
-                    color: '#fff',
-                    fontSize: '16px',
-                    textAlign: 'center',
-                    fontFamily: 'inherit'
-                  }}
-                />
-                <input
-                  type="text"
-                  value={adminPlayerThird}
-                  onChange={(e) => setAdminPlayerThird(e.target.value)}
-                  placeholder="3rd (opt)"
-                  style={{
-                    flex: 1,
-                    padding: '12px',
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    border: '2px solid #2196f3',
-                    borderRadius: '8px',
-                    color: '#fff',
-                    fontSize: '16px',
-                    textAlign: 'center',
-                    fontFamily: 'inherit'
-                  }}
-                />
+              {/* Number grid 1-36 */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '3px', marginBottom: '10px' }}>
+                {Array.from({length: 36}, (_, i) => String(i + 1)).map(n => {
+                  const redNums = ['1','3','5','7','9','12','14','16','18','19','21','23','25','27','30','32','34','36'];
+                  const isRed = redNums.includes(n);
+                  return (
+                    <button key={n} onClick={() => setAdminNumber(n)}
+                      style={{
+                        padding: '8px 0', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold',
+                        background: adminNumber === n ? '#d4af37' : isRed ? '#8b0000' : '#111',
+                        color: adminNumber === n ? '#000' : '#fff',
+                        border: adminNumber === n ? '2px solid #d4af37' : '1px solid #333',
+                        cursor: 'pointer', fontFamily: 'inherit'
+                      }}>
+                      {n}
+                    </button>
+                  );
+                })}
               </div>
-              
-              <div style={{ fontSize: '11px', color: '#888', marginBottom: '12px' }}>
-                Banker Cards
+              {/* Selected + Spin */}
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <div style={{
+                  flex: 1, padding: '12px', background: 'rgba(255,255,255,0.1)',
+                  border: '1px solid rgba(139, 0, 0, 0.3)', borderRadius: '8px',
+                  color: adminNumber ? '#d4af37' : '#666', fontSize: '18px', fontWeight: 'bold',
+                  textAlign: 'center', fontFamily: 'inherit'
+                }}>
+                  {adminNumber || '—'}
+                </div>
+                <button
+                  onClick={adminSpin}
+                  disabled={!adminNumber || isSpinning}
+                  style={{
+                    padding: '12px 30px',
+                    background: adminNumber && !isSpinning ? 'linear-gradient(135deg, #8b0000, #b30000)' : '#333',
+                    border: 'none', borderRadius: '8px', color: '#fff',
+                    fontSize: '13px', fontWeight: 'bold',
+                    cursor: adminNumber && !isSpinning ? 'pointer' : 'not-allowed',
+                    fontFamily: 'inherit', letterSpacing: '1px', textTransform: 'uppercase'
+                  }}
+                >
+                  {isSpinning ? 'Spinning...' : 'SPIN'}
+                </button>
               </div>
-              <div style={{ display: 'flex', gap: '10px', marginBottom: '12px' }}>
-                <input
-                  type="text"
-                  value={adminBankerCards[0]}
-                  onChange={(e) => setAdminBankerCards([e.target.value, adminBankerCards[1]])}
-                  placeholder="Card 1"
-                  style={{
-                    flex: 1,
-                    padding: '12px',
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    border: '2px solid #f44336',
-                    borderRadius: '8px',
-                    color: '#fff',
-                    fontSize: '16px',
-                    textAlign: 'center',
-                    fontFamily: 'inherit'
-                  }}
-                />
-                <input
-                  type="text"
-                  value={adminBankerCards[1]}
-                  onChange={(e) => setAdminBankerCards([adminBankerCards[0], e.target.value])}
-                  placeholder="Card 2"
-                  style={{
-                    flex: 1,
-                    padding: '12px',
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    border: '2px solid #f44336',
-                    borderRadius: '8px',
-                    color: '#fff',
-                    fontSize: '16px',
-                    textAlign: 'center',
-                    fontFamily: 'inherit'
-                  }}
-                />
-                <input
-                  type="text"
-                  value={adminBankerThird}
-                  onChange={(e) => setAdminBankerThird(e.target.value)}
-                  placeholder="3rd (opt)"
-                  style={{
-                    flex: 1,
-                    padding: '12px',
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    border: '2px solid #f44336',
-                    borderRadius: '8px',
-                    color: '#fff',
-                    fontSize: '16px',
-                    textAlign: 'center',
-                    fontFamily: 'inherit'
-                  }}
-                />
-              </div>
-              
-              <button
-                onClick={adminDealCards}
-                disabled={!adminPlayerCards[0] || !adminPlayerCards[1] || !adminBankerCards[0] || !adminBankerCards[1]}
-                style={{
-                  width: '100%',
-                  padding: '14px',
-                  background: adminPlayerCards[0] && adminPlayerCards[1] && adminBankerCards[0] && adminBankerCards[1]
-                    ? 'linear-gradient(135deg, #9c27b0, #ba68c8)'
-                    : '#333',
-                  border: 'none',
-                  borderRadius: '8px',
-                  color: '#fff',
-                  fontSize: '13px',
-                  fontWeight: 'bold',
-                  cursor: adminPlayerCards[0] && adminPlayerCards[1] && adminBankerCards[0] && adminBankerCards[1] ? 'pointer' : 'not-allowed',
-                  fontFamily: 'inherit',
-                  letterSpacing: '1px',
-                  textTransform: 'uppercase'
-                }}
-              >
-                Deal Cards
-              </button>
             </div>
             
-            {/* Controls */}
             {/* Betting Controls */}
             <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
               <button
                 onClick={adminOpenBetting}
-                disabled={bettingOpen}
+                disabled={bettingOpen || isSpinning}
                 style={{
                   flex: 1,
                   padding: '14px',
-                  background: !bettingOpen ? 'rgba(76, 175, 80, 0.3)' : '#333',
+                  background: !bettingOpen && !isSpinning ? 'rgba(76, 175, 80, 0.3)' : '#333',
                   border: '1px solid #4caf50',
                   borderRadius: '8px',
-                  color: !bettingOpen ? '#4caf50' : '#666',
+                  color: !bettingOpen && !isSpinning ? '#4caf50' : '#666',
                   fontSize: '11px',
                   fontWeight: 'bold',
-                  cursor: !bettingOpen ? 'pointer' : 'not-allowed',
+                  cursor: !bettingOpen && !isSpinning ? 'pointer' : 'not-allowed',
                   fontFamily: 'inherit',
                   textTransform: 'uppercase'
                 }}
@@ -2443,17 +2152,17 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
               </button>
               <button
                 onClick={adminCloseBetting}
-                disabled={!bettingOpen}
+                disabled={!bettingOpen || isSpinning}
                 style={{
                   flex: 1,
                   padding: '14px',
-                  background: bettingOpen ? 'rgba(255, 152, 0, 0.3)' : '#333',
+                  background: bettingOpen && !isSpinning ? 'rgba(255, 152, 0, 0.3)' : '#333',
                   border: '1px solid #ff9800',
                   borderRadius: '8px',
-                  color: bettingOpen ? '#ff9800' : '#666',
+                  color: bettingOpen && !isSpinning ? '#ff9800' : '#666',
                   fontSize: '11px',
                   fontWeight: 'bold',
-                  cursor: bettingOpen ? 'pointer' : 'not-allowed',
+                  cursor: bettingOpen && !isSpinning ? 'pointer' : 'not-allowed',
                   fontFamily: 'inherit',
                   textTransform: 'uppercase'
                 }}
@@ -2507,7 +2216,6 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
               </button>
             </div>
             
-            {/* Status */}
             <div style={{
               fontSize: '10px',
               color: '#888',
@@ -2518,11 +2226,13 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
               gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
               gap: '10px'
             }}>
-              <div>Active Players: <span style={{ color: '#d4af37' }}>{activeUsers}</span></div>
+              <div>Active Players: <span style={{ color: '#8b0000' }}>{activeUsers}</span></div>
               <div>Betting: <span style={{ color: bettingOpen ? '#4caf50' : '#f44336' }}>
                 {bettingOpen ? 'Open' : 'Closed'}
               </span></div>
-              <div>Phase: <span style={{ color: '#ce93d8' }}>{gamePhase === 'betting' ? 'Betting' : 'Dealt'}</span></div>
+              <div>Spinning: <span style={{ color: isSpinning ? '#ff9800' : '#888' }}>
+                {isSpinning ? 'Yes' : 'No'}
+              </span></div>
               <div>Round: <span style={{ color: '#ff9800' }}>#{roundNumber}</span></div>
             </div>
           </div>
@@ -2599,18 +2309,13 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
         )}
 
       <style>{`
-        @keyframes pulse {
-          0%, 100% { opacity: 1; transform: scale(1); }
-          50% { opacity: 0.8; transform: scale(0.98); }
-        }
-        
         * {
           box-sizing: border-box;
         }
         
         input:focus {
           outline: none;
-          border-color: #d4af37 !important;
+          border-color: #8b0000 !important;
         }
         
         button:hover:not(:disabled) {
@@ -2639,4 +2344,4 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
   );
 };
 
-export default BaccaratGame;
+export default RouletteGame;
