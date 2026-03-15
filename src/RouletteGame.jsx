@@ -589,7 +589,7 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontFamily: ''Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif',
+
         padding: '20px'
       }}>
         <div style={{
@@ -798,7 +798,7 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
       backgroundImage: `
         repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(0,0,0,.05) 10px, rgba(0,0,0,.05) 20px)
       `,
-      fontFamily: ''Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif',
+
       color: '#fff',
       paddingBottom: '20px',
       overflow: 'auto'
