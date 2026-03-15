@@ -1,5 +1,5 @@
 // App.jsx — Updated for Firebase real-time sync
-// Changes: 
+// Changes:
 //   1. Uses Firebase ref/set/onValue directly (fixes "Failed to set active game" error)
 //   2. Passes isDealerMode as prop to game components
 //   3. Dealer login is ONLY here — removed from individual games
@@ -247,7 +247,6 @@ const App = () => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontFamily: '"Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif',
         padding: '20px'
       }}>
         <div style={{
@@ -437,7 +436,6 @@ const App = () => {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          fontFamily: '"Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif',
           padding: '20px'
         }}>
           <div style={{
@@ -601,7 +599,6 @@ const App = () => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontFamily: '"Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif',
         padding: '20px'
       }}>
         <div style={{
@@ -854,7 +851,6 @@ const App = () => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontFamily: '"Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif',
         padding: '20px'
       }}>
         <div style={{ textAlign: 'center', maxWidth: '650px', width: '100%' }}>
@@ -984,7 +980,6 @@ const App = () => {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      fontFamily: '"Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif',
       padding: '20px'
     }}>
       <div style={{ maxWidth: '1200px', width: '100%' }}>
