@@ -1,5 +1,5 @@
 // App.jsx — Updated for Firebase real-time sync
-// Changes:
+// Changes: 
 //   1. Uses Firebase ref/set/onValue directly (fixes "Failed to set active game" error)
 //   2. Passes isDealerMode as prop to game components
 //   3. Dealer login is ONLY here — removed from individual games
