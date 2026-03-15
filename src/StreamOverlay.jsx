@@ -107,7 +107,7 @@ const StreamOverlay = () => {
         width: '100vw', height: '100vh',
         background: 'transparent',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontFamily: '"Courier New", monospace'
+
       }}>
         <div style={{
           background: 'rgba(0,0,0,0.85)',
@@ -132,7 +132,7 @@ const StreamOverlay = () => {
     <div style={{
       width: '100vw', height: '100vh',
       background: 'transparent',
-      fontFamily: '"Courier New", monospace',
+
       padding: '20px',
       display: 'flex',
       flexDirection: 'column',
