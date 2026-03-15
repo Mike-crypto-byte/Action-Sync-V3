@@ -931,7 +931,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontFamily: ''Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif',
+
         padding: '20px'
       }}>
         <div style={{
@@ -1092,7 +1092,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
         repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(0,0,0,.05) 10px, rgba(0,0,0,.05) 20px),
         radial-gradient(circle at 30% 50%, rgba(255,255,255,0.03) 0%, transparent 70%)
       `,
-      fontFamily: ''Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif',
+
       color: '#fff',
       paddingBottom: '20px',
       overflow: 'auto'
