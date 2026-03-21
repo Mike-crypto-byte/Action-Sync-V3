@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Users, Timer, Crown, Trophy, Settings, ArrowLeft } from 'lucide-react';
 // ========== FIREBASE: Import real-time sync hooks ==========
 import { database as db, ref, onValue, set as fbSet } from './firebase.js';
+import { useSettings, DEFAULT_ODDS, DEFAULT_VISIBILITY } from './useSettings';
 import {
   useGameState,
   useLeaderboard,
@@ -15,7 +16,11 @@ import {
 const GAME_NAME = 'roulette';
 
 const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: propPlayerName, skipRegistration = false, roomCode }) => {
-  // Mobile detection
+  // ── Settings (odds + bet visibility) — read once on mount ──────────────────
+  const { odds: settingsOdds, betVisibility: settingsVisibility } = useSettings(roomCode);
+  const gameOdds = settingsOdds.roulette;
+  const gameVis  = settingsVisibility.roulette;
+
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -344,85 +349,67 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
         case 'straight':
           if (betValue === numStr) {
             won = true;
-            payout = betAmount * 36; // 35:1
+            payout = betAmount * (gameOdds.straightUp + 1);
           }
           break;
         case 'split':
           const splitNums = betValue.split(',');
           if (splitNums.includes(numStr)) {
             won = true;
-            payout = betAmount * 18; // 17:1
+            payout = betAmount * (gameOdds.split + 1);
           }
           break;
         case 'street':
           const streetNums = betValue.split(',');
           if (streetNums.includes(numStr)) {
             won = true;
-            payout = betAmount * 12; // 11:1
+            payout = betAmount * (gameOdds.street + 1);
           }
           break;
         case 'corner':
           const cornerNums = betValue.split(',');
           if (cornerNums.includes(numStr)) {
             won = true;
-            payout = betAmount * 9; // 8:1
+            payout = betAmount * (gameOdds.corner + 1);
           }
           break;
         case 'line':
           const lineNums = betValue.split(',');
           if (lineNums.includes(numStr)) {
             won = true;
-            payout = betAmount * 6; // 5:1
+            payout = betAmount * (gameOdds.sixLine + 1);
           }
           break;
         case 'dozen':
           if (betValue === '1st' && numInt >= 1 && numInt <= 12) won = true;
           if (betValue === '2nd' && numInt >= 13 && numInt <= 24) won = true;
           if (betValue === '3rd' && numInt >= 25 && numInt <= 36) won = true;
-          if (won) payout = betAmount * 3; // 2:1
+          if (won) payout = betAmount * (gameOdds.dozen + 1);
           break;
         case 'column':
           const colNum = parseInt(betValue);
           if (numInt > 0 && (numInt - colNum) % 3 === 0) {
             won = true;
-            payout = betAmount * 3; // 2:1
+            payout = betAmount * (gameOdds.column + 1);
           }
           break;
         case 'red':
-          if (color === 'red') {
-            won = true;
-            payout = betAmount * 2; // 1:1
-          }
+          if (color === 'red') { won = true; payout = betAmount * (gameOdds.evenMoney + 1); }
           break;
         case 'black':
-          if (color === 'black') {
-            won = true;
-            payout = betAmount * 2; // 1:1
-          }
+          if (color === 'black') { won = true; payout = betAmount * (gameOdds.evenMoney + 1); }
           break;
         case 'even':
-          if (numInt > 0 && numInt % 2 === 0) {
-            won = true;
-            payout = betAmount * 2; // 1:1
-          }
+          if (numInt > 0 && numInt % 2 === 0) { won = true; payout = betAmount * (gameOdds.evenMoney + 1); }
           break;
         case 'odd':
-          if (numInt > 0 && numInt % 2 === 1) {
-            won = true;
-            payout = betAmount * 2; // 1:1
-          }
+          if (numInt > 0 && numInt % 2 === 1) { won = true; payout = betAmount * (gameOdds.evenMoney + 1); }
           break;
         case 'low':
-          if (numInt >= 1 && numInt <= 18) {
-            won = true;
-            payout = betAmount * 2; // 1:1
-          }
+          if (numInt >= 1 && numInt <= 18) { won = true; payout = betAmount * (gameOdds.evenMoney + 1); }
           break;
         case 'high':
-          if (numInt >= 19 && numInt <= 36) {
-            won = true;
-            payout = betAmount * 2; // 1:1
-          }
+          if (numInt >= 19 && numInt <= 36) { won = true; payout = betAmount * (gameOdds.evenMoney + 1); }
           break;
       }
       
@@ -1168,21 +1155,25 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
           </div>
 
           {/* Outside Bets */}
-          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(3, 1fr)' : 'repeat(6, 1fr)', gap: isMobile ? '6px' : '10px', marginBottom: '15px' }}>
-            <OutsideBetButton label="1-18" betType="low" betValue="low" />
-            <OutsideBetButton label="EVEN" betType="even" betValue="even" />
-            <OutsideBetButton label="RED" betType="red" betValue="red" color="#8b0000" />
-            <OutsideBetButton label="BLACK" betType="black" betValue="black" color="#000" />
-            <OutsideBetButton label="ODD" betType="odd" betValue="odd" />
-            <OutsideBetButton label="19-36" betType="high" betValue="high" />
-          </div>
+          {gameVis.evenMoney && (
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(3, 1fr)' : 'repeat(6, 1fr)', gap: isMobile ? '6px' : '10px', marginBottom: '15px' }}>
+              <OutsideBetButton label="1-18" betType="low" betValue="low" />
+              <OutsideBetButton label="EVEN" betType="even" betValue="even" />
+              <OutsideBetButton label="RED" betType="red" betValue="red" color="#8b0000" />
+              <OutsideBetButton label="BLACK" betType="black" betValue="black" color="#000" />
+              <OutsideBetButton label="ODD" betType="odd" betValue="odd" />
+              <OutsideBetButton label="19-36" betType="high" betValue="high" />
+            </div>
+          )}
 
           {/* Dozen Bets */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
-            <OutsideBetButton label="1st 12" betType="dozen" betValue="1st" />
-            <OutsideBetButton label="2nd 12" betType="dozen" betValue="2nd" />
-            <OutsideBetButton label="3rd 12" betType="dozen" betValue="3rd" />
-          </div>
+          {gameVis.dozen && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+              <OutsideBetButton label="1st 12" betType="dozen" betValue="1st" />
+              <OutsideBetButton label="2nd 12" betType="dozen" betValue="2nd" />
+              <OutsideBetButton label="3rd 12" betType="dozen" betValue="3rd" />
+            </div>
+          )}
         </div>
 
 
