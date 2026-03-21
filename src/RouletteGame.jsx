@@ -14,7 +14,7 @@ import {
 
 const GAME_NAME = 'roulette';
 
-const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: propPlayerName, skipRegistration = false }) => {
+const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: propPlayerName, skipRegistration = false, roomCode }) => {
   // Mobile detection
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   useEffect(() => {
@@ -58,7 +58,7 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
     spinResult: null, isSpinning: false, roundNumber: 0,
     bettingOpen: false, countdown: 0, spinHistory: []
   };
-  const { gameState, updateGameState } = useGameState(GAME_NAME, defaultGameState);
+  const { gameState, updateGameState } = useGameState(roomCode, GAME_NAME, defaultGameState);
 
   // Game state
   // FIREBASE: spinResult now comes from gameState
@@ -127,21 +127,21 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
   });
   
   // ========== FIREBASE: Leaderboard from real-time listener ==========
-  const { leaderboard, updateLeaderboardEntry, clearLeaderboard } = useLeaderboard();
+  const { leaderboard, updateLeaderboardEntry, clearLeaderboard } = useLeaderboard(roomCode);
   
   // Admin state
   const [adminNumber, setAdminNumber] = useState('');
   // FIREBASE: activeUsers from presence tracking
-  const activeUsers = usePresence(isRegistered ? userId : null, userName);
+  const activeUsers = usePresence(roomCode, isRegistered ? userId : null, userName);
   const [showSettings, setShowSettings] = useState(false);
   
   // ========== FIREBASE: Chat from real-time listener ==========
-  const { chatMessages, sendMessage: fbSendMessage, clearChat } = useChat();
+  const { chatMessages, sendMessage: fbSendMessage, clearChat } = useChat(roomCode);
   const [chatInput, setChatInput] = useState('');
   const chatEndRef = useRef(null);
   
   // ========== FIREBASE: User data from real-time listener ==========
-  const { userData, saveUserData: fbSaveUserData } = useUserData(userId);
+  const { userData, saveUserData: fbSaveUserData } = useUserData(roomCode, userId);
 
   // Roulette numbers configuration
   const numbers = {
@@ -158,7 +158,8 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
 
   // Read startingChips from Firebase settings
   useEffect(() => {
-    const chipsRef = ref(db, 'session/settings/startingChips');
+    if (!roomCode) return;
+    const chipsRef = ref(db, `rooms/${roomCode}/session/settings/startingChips`);
     const unsub = onValue(chipsRef, (snapshot) => {
       if (snapshot.exists()) {
         setStartingChips(snapshot.val());
@@ -515,7 +516,7 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
     if (bonusChipsAmount <= 0) { alert('Please enter a valid bonus amount'); return; }
     const targetName = bonusRecipient === 'all' ? `ALL ${leaderboard.length} players` : leaderboard.find(p => p.userId === bonusRecipient)?.name || 'Unknown';
     if (confirm(`Give $${bonusChipsAmount.toLocaleString()} to ${targetName}?`)) {
-      await fbDistributeBonusChips(leaderboard, bonusRecipient, bonusChipsAmount, userId, setBankroll);
+      await fbDistributeBonusChips(roomCode, leaderboard, bonusRecipient, bonusChipsAmount, userId, setBankroll);
       alert(`✅ Distributed $${bonusChipsAmount.toLocaleString()} to ${targetName}!`);
       setBonusChipsAmount(0);
     }
@@ -525,7 +526,7 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
   const adminResetSession = async () => {
     if (confirm('Reset entire session? This will clear all user data.')) {
       try {
-        await resetSession(GAME_NAME);
+        await resetSession(roomCode, GAME_NAME);
         setBankroll(startingChips); setCurrentBets({}); setActiveBets({});
         setSessionStats({ totalWagered: 0, biggestWin: 0, totalSpins: 0, startingBankroll: startingChips });
         await saveUserData({ bankroll: startingChips, activeBets: {}, sessionStats: { totalWagered: 0, biggestWin: 0, totalSpins: 0, startingBankroll: startingChips }});
