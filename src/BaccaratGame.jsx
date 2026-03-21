@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Users, Timer, Crown, Trophy, Settings, ArrowLeft } from 'lucide-react';
 // ========== FIREBASE: Import real-time sync hooks ==========
 import { database as db, ref, onValue, set as fbSet } from './firebase.js';
+import { useSettings, DEFAULT_ODDS, DEFAULT_VISIBILITY } from './useSettings';
 import {
   useGameState,
   useLeaderboard,
@@ -15,6 +16,11 @@ import {
 const GAME_NAME = 'baccarat';
 
 const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: propPlayerName, skipRegistration = false, roomCode }) => {
+  // ── Settings (odds + bet visibility) — read once on mount ──────────────────
+  const { odds: settingsOdds, betVisibility: settingsVisibility } = useSettings(roomCode);
+  const gameOdds = settingsOdds.baccarat;
+  const gameVis  = settingsVisibility.baccarat;
+
   // Mobile detection
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   useEffect(() => {
@@ -387,10 +393,10 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
     let roundWinnings = 0;
     const newActiveBets = { ...activeBets };
     
-    // Player bet (1:1)
+    // Player bet
     if (newActiveBets.player > 0) {
       if (roundWinner === 'player') {
-        const payout = newActiveBets.player * 2;
+        const payout = newActiveBets.player * (gameOdds.player + 1);
         winnings += payout;
         roundWinnings += payout - newActiveBets.player;
       } else {
@@ -398,11 +404,11 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
       }
       newActiveBets.player = 0;
     }
-    
-    // Banker bet (0.95:1 - 5% commission)
+
+    // Banker bet (5% commission applied on top of configured odds)
     if (newActiveBets.banker > 0) {
       if (roundWinner === 'banker') {
-        const payout = Math.round(newActiveBets.banker + (newActiveBets.banker * 0.95));
+        const payout = Math.round(newActiveBets.banker + (newActiveBets.banker * gameOdds.banker * 0.95));
         winnings += payout;
         roundWinnings += payout - newActiveBets.banker;
       } else {
@@ -410,11 +416,11 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
       }
       newActiveBets.banker = 0;
     }
-    
-    // Tie bet (8:1)
+
+    // Tie bet
     if (newActiveBets.tie > 0) {
       if (roundWinner === 'tie') {
-        const payout = newActiveBets.tie * 9;
+        const payout = newActiveBets.tie * (gameOdds.tie + 1);
         winnings += payout;
         roundWinnings += payout - newActiveBets.tie;
       } else {
@@ -422,11 +428,11 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
       }
       newActiveBets.tie = 0;
     }
-    
-    // Player Pair (11:1)
+
+    // Player Pair
     if (newActiveBets.playerPair > 0) {
       if (isPair(pCards[0], pCards[1])) {
-        const payout = newActiveBets.playerPair * 12;
+        const payout = newActiveBets.playerPair * (gameOdds.playerPair + 1);
         winnings += payout;
         roundWinnings += payout - newActiveBets.playerPair;
       } else {
@@ -434,11 +440,11 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
       }
       newActiveBets.playerPair = 0;
     }
-    
-    // Banker Pair (11:1)
+
+    // Banker Pair
     if (newActiveBets.bankerPair > 0) {
       if (isPair(bCards[0], bCards[1])) {
-        const payout = newActiveBets.bankerPair * 12;
+        const payout = newActiveBets.bankerPair * (gameOdds.bankerPair + 1);
         winnings += payout;
         roundWinnings += payout - newActiveBets.bankerPair;
       } else {
@@ -446,14 +452,13 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
       }
       newActiveBets.bankerPair = 0;
     }
-    
-    // Dragon Bonus (Natural 9 wins by 4+)
+
+    // Dragon Bonus
     if (newActiveBets.dragon > 0) {
       const isNatural = pCards.length === 2 && bCards.length === 2;
       const margin = Math.abs(pScore - bScore);
-      
       if (isNatural && ((pScore === 9 && margin >= 4) || (bScore === 9 && margin >= 4))) {
-        const payout = newActiveBets.dragon * 31; // 30:1
+        const payout = newActiveBets.dragon * (gameOdds.dragon + 1);
         winnings += payout;
         roundWinnings += payout - newActiveBets.dragon;
       } else {
@@ -461,13 +466,12 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
       }
       newActiveBets.dragon = 0;
     }
-    
-    // Panda Bonus (Natural 8 winner)
+
+    // Panda Bonus
     if (newActiveBets.panda > 0) {
       const isNatural = pCards.length === 2 && bCards.length === 2;
-      
       if (isNatural && (pScore === 8 || bScore === 8) && roundWinner !== 'tie') {
-        const payout = newActiveBets.panda * 26; // 25:1
+        const payout = newActiveBets.panda * (gameOdds.panda + 1);
         winnings += payout;
         roundWinnings += payout - newActiveBets.panda;
       } else {
@@ -1064,7 +1068,7 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
             alignItems: 'stretch'
           }}>
             {/* Player Bet */}
-            <div
+            {gameVis.player && <div
               onClick={() => bettingOpen && placeBet('player')}
               style={{
                 background: currentBets.player + (activeBets.player || 0) > 0 
@@ -1107,10 +1111,10 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                   ${currentBets.player + (activeBets.player || 0)}
                 </div>
               )}
-            </div>
+            </div>}
 
             {/* Tie Bet */}
-            <div
+            {gameVis.tie && <div
               onClick={() => bettingOpen && placeBet('tie')}
               style={{
                 background: currentBets.tie + (activeBets.tie || 0) > 0 
@@ -1154,10 +1158,10 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                   ${currentBets.tie + (activeBets.tie || 0)}
                 </div>
               )}
-            </div>
+            </div>}
 
             {/* Banker Bet */}
-            <div
+            {gameVis.banker && <div
               onClick={() => bettingOpen && placeBet('banker')}
               style={{
                 background: currentBets.banker + (activeBets.banker || 0) > 0 
@@ -1200,7 +1204,7 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                   ${currentBets.banker + (activeBets.banker || 0)}
                 </div>
               )}
-            </div>
+            </div>}
           </div>
 
           {/* Side Bets */}
@@ -1210,7 +1214,7 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
             gap: isMobile ? '8px' : '15px'
           }}>
             {/* Player Pair */}
-            <div
+            {gameVis.playerPair && <div
               onClick={() => bettingOpen && placeBet('playerPair')}
               style={{
                 background: currentBets.playerPair + (activeBets.playerPair || 0) > 0 
@@ -1250,10 +1254,10 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                   ${currentBets.playerPair + (activeBets.playerPair || 0)}
                 </div>
               )}
-            </div>
+            </div>}
 
             {/* Banker Pair */}
-            <div
+            {gameVis.bankerPair && <div
               onClick={() => bettingOpen && placeBet('bankerPair')}
               style={{
                 background: currentBets.bankerPair + (activeBets.bankerPair || 0) > 0 
@@ -1293,10 +1297,10 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                   ${currentBets.bankerPair + (activeBets.bankerPair || 0)}
                 </div>
               )}
-            </div>
+            </div>}
 
             {/* Dragon Bonus */}
-            <div
+            {gameVis.dragon && <div
               onClick={() => bettingOpen && placeBet('dragon')}
               style={{
                 background: currentBets.dragon + (activeBets.dragon || 0) > 0 
@@ -1336,10 +1340,10 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                   ${currentBets.dragon + (activeBets.dragon || 0)}
                 </div>
               )}
-            </div>
+            </div>}
 
             {/* Panda Bonus */}
-            <div
+            {gameVis.panda && <div
               onClick={() => bettingOpen && placeBet('panda')}
               style={{
                 background: currentBets.panda + (activeBets.panda || 0) > 0 
@@ -1379,7 +1383,7 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                   ${currentBets.panda + (activeBets.panda || 0)}
                 </div>
               )}
-            </div>
+            </div>}
           </div>
         </div>
 
