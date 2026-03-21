@@ -10,6 +10,7 @@ import CrapsGame from './CrapsGame';
 import BaccaratGame from './BaccaratGame';
 import RouletteGame from './RouletteGame';
 import StreamOverlay from './StreamOverlay';
+import SettingsPanel from './SettingsPanel';
 
 // ── URL helpers ────────────────────────────────────────────────────────────────
 // Dealer shares join link:  ?dealer={dealerUid}  OR  ?room=VANITYCODE
@@ -68,7 +69,8 @@ const App = () => {
   }, []);
 
   const [selectedGame, setSelectedGame]             = useState(null);
-  const [sessionStatus, setSessionStatus]           = useState('waiting'); // 'waiting' | 'active' | 'ended'
+  const [sessionStatus, setSessionStatus]           = useState('waiting');
+  const [hubTab, setHubTab]                         = useState('games'); // 'games' | 'settings'
   const [startingChips, setStartingChips]           = useState(1000);
   const [sessionLeaderboard, setSessionLeaderboard] = useState(null);
   const [showSessionSummary, setShowSessionSummary] = useState(false);
@@ -592,8 +594,41 @@ const App = () => {
               {sessionStatus === 'active' ? '🟢 STREAM LIVE' : '⏸ STREAM NOT STARTED'}
             </span>
           </div>
+
+          {/* Hub tab navigation */}
+          <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginTop: '24px' }}>
+            {[
+              { id: 'games',    label: '🎮 Games' },
+              { id: 'settings', label: '⚙️ Settings' },
+            ].map(t => (
+              <button
+                key={t.id}
+                onClick={() => setHubTab(t.id)}
+                style={{
+                  padding: '10px 28px',
+                  background: hubTab === t.id ? 'rgba(212,175,55,0.15)' : 'transparent',
+                  border: `1px solid ${hubTab === t.id ? 'rgba(212,175,55,0.5)' : 'rgba(255,255,255,0.1)'}`,
+                  borderRadius: '8px',
+                  color: hubTab === t.id ? '#d4af37' : '#555',
+                  fontSize: '13px',
+                  fontWeight: hubTab === t.id ? 'bold' : 'normal',
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  letterSpacing: '0.5px',
+                  transition: 'all 0.15s',
+                }}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
         </div>
 
+        {/* Tab content */}
+        {hubTab === 'settings' ? (
+          <SettingsPanel dealerUid={dealerUid} />
+        ) : (
+          <>
         {/* Session controls */}
         <div style={{ display: 'flex', gap: '14px', justifyContent: 'center', marginBottom: '40px', flexWrap: 'wrap' }}>
           {sessionStatus !== 'active' ? (
@@ -755,9 +790,11 @@ const App = () => {
             </div>
           </div>
         )}
+          </>
+        )}
 
         {/* Footer */}
-        <div style={{ padding: '24px', background: 'rgba(0,0,0,.3)', borderRadius: '14px', border: '1px solid rgba(255,255,255,.08)', textAlign: 'center' }}>
+        <div style={{ padding: '24px', background: 'rgba(0,0,0,.3)', borderRadius: '14px', border: '1px solid rgba(255,255,255,.08)', textAlign: 'center', marginTop: '20px' }}>
           <button onClick={signOut} style={{ padding: '10px 28px', background: 'transparent', border: '1px solid #444', borderRadius: '7px', color: '#666', fontSize: '12px', cursor: 'pointer', fontFamily: 'inherit', marginBottom: '16px' }}>
             Sign Out
           </button>
