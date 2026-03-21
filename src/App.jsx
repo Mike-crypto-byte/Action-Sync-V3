@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Dice1, Spade, ArrowLeft, Circle } from 'lucide-react';
 import { database as db, ref, onValue, set } from './firebase.js';
 import { useAuth } from './useAuth.js';
-import { startNewSession, useSessionHistory, resolveRoomCode, normaliseCode, changeRoomCode, isRoomCodeAvailable } from './useFirebaseSync.js';
+import { startNewSession, startStream, switchGame, useSessionHistory, resolveRoomCode, normaliseCode, changeRoomCode, isRoomCodeAvailable } from './useFirebaseSync.js';
 
 // Import your game components
 import CrapsGame from './CrapsGame';
@@ -68,6 +68,7 @@ const App = () => {
   }, []);
 
   const [selectedGame, setSelectedGame]             = useState(null);
+  const [sessionStatus, setSessionStatus]           = useState('waiting'); // 'waiting' | 'active' | 'ended'
   const [startingChips, setStartingChips]           = useState(1000);
   const [sessionLeaderboard, setSessionLeaderboard] = useState(null);
   const [showSessionSummary, setShowSessionSummary] = useState(false);
@@ -125,72 +126,80 @@ const App = () => {
     }
   }, [isDealer, user]);
 
-  // ── Active game listener (players) ───────────────────────────────────────────
-  useEffect(() => {
-    if (!isPlayer || !dealerUid) return;
-    const unsub = onValue(ref(db, `rooms/${dealerUid}/session/activeGame`), (snap) => {
-      if (snap.exists() && snap.val()) {
-        setSelectedGame(snap.val());
-        setShowSessionSummary(false);
-      } else {
-        setSelectedGame(null);
-      }
-    });
-    return () => unsub();
-  }, [isPlayer, dealerUid]);
-
-  // ── End-of-session listener (players) ────────────────────────────────────────
+  // ── Session listener (players) — watches activeGame + status together ────────
   useEffect(() => {
     if (!isPlayer || !dealerUid) return;
     const unsub = onValue(ref(db, `rooms/${dealerUid}/session`), (snap) => {
       if (snap.exists()) {
         const session = snap.val();
+        setSessionStatus(session.status || 'waiting');
+        setSelectedGame(session.activeGame || null);
+        // End-of-session summary
         if (session.status === 'ended' && session.finalLeaderboard) {
           const players = Object.values(session.finalLeaderboard)
             .sort((a, b) => b.bankroll - a.bankroll);
           setSessionLeaderboard(players);
           setShowSessionSummary(true);
         }
+      } else {
+        setSessionStatus('waiting');
+        setSelectedGame(null);
       }
     });
     return () => unsub();
   }, [isPlayer, dealerUid]);
 
-  // ── Dealer: set active game ───────────────────────────────────────────────────
+  // ── Dealer: switch active game (session stays alive) ─────────────────────────
   const setActiveGame = async (game) => {
     if (!dealerUid) return;
     try {
-      await set(ref(db, `rooms/${dealerUid}/session/activeGame`), game);
+      // If session is still waiting, go active first
+      if (sessionStatus === 'waiting') await startStream(dealerUid);
+      await switchGame(dealerUid, game);
       setSelectedGame(game);
     } catch (e) {
-      console.error('Failed to set active game:', e);
-      alert('Failed to set active game: ' + e.message);
+      console.error('Failed to switch game:', e);
+      alert('Failed to switch game: ' + e.message);
     }
   };
 
-  // ── Dealer: deactivate game without ending session ────────────────────────────
+  // ── Dealer: end current game, return to lobby (session stays alive) ───────────
+  // Players see "Game over — next game coming up" not the session summary.
   const deactivateGame = async () => {
     if (!dealerUid) return;
     try {
-      await set(ref(db, `rooms/${dealerUid}/session/activeGame`), null);
+      await switchGame(dealerUid, null); // null = between games, session still active
       setSelectedGame(null);
     } catch (e) {
       console.error('Failed to deactivate game:', e);
     }
   };
 
-  // ── Dealer: start new stream session ─────────────────────────────────────────
+  // ── Dealer: end stream — show summary then archive ───────────────────────────
   const handleStartNewSession = async () => {
     setNewSessionLoading(true);
     try {
+      // 1. Snapshot leaderboard and write to session so players see the summary
+      const lbSnap = await new Promise(resolve =>
+        onValue(ref(db, `rooms/${dealerUid}/session/leaderboard`), resolve, { onlyOnce: true })
+      );
+      if (lbSnap.exists()) {
+        const finalLeaderboard = lbSnap.val();
+        const players = Object.values(finalLeaderboard).sort((a, b) => b.bankroll - a.bankroll);
+        // Mark session ended with snapshot so player screens update immediately
+        await set(ref(db, `rooms/${dealerUid}/session/status`), 'ended');
+        await set(ref(db, `rooms/${dealerUid}/session/finalLeaderboard`), finalLeaderboard);
+        setSessionLeaderboard(players);
+        setShowSessionSummary(true);
+      }
+      // 2. Archive + reset in background (startNewSession reads the leaderboard again)
       await startNewSession(dealerUid, startingChips);
       setShowNewSessionConfirm(false);
-      setShowSessionSummary(false);
-      setSessionLeaderboard(null);
       setSelectedGame(null);
+      setSessionStatus('waiting');
     } catch (e) {
       console.error('Failed to start new session:', e);
-      alert('Failed to start new session: ' + e.message);
+      alert('Failed to end session: ' + e.message);
     } finally {
       setNewSessionLoading(false);
     }
@@ -472,16 +481,34 @@ const App = () => {
               <div style={{ display: 'flex', justifyContent: 'center', gap: '10px' }}>
                 {[0,1,2].map(i => <div key={i} style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#d4af37', animation: `pulse 1.5s ease-in-out ${i*0.2}s infinite` }} />)}
               </div>
-            </>
-          ) : (
+            </>\n          ) : (
             <>
-              <div style={{ fontSize: '64px', marginBottom: '20px' }}>⏳</div>
-              <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#d4af37', marginBottom: '15px', letterSpacing: '1.5px' }}>WAITING FOR DEALER</div>
-              <div style={{ color: '#888', fontSize: '16px', marginBottom: '8px' }}>Welcome, <span style={{ color: '#d4af37' }}>{playerName}</span>!</div>
-              <div style={{ color: '#888', fontSize: '14px', marginBottom: '30px' }}>No game is active. The page will update automatically when the dealer starts one.</div>
-              <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginBottom: '30px' }}>
-                {[0,1,2].map(i => <div key={i} style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#d4af37', animation: `pulse 1.5s ease-in-out ${i*0.2}s infinite` }} />)}
-              </div>
+              {sessionStatus === 'active' ? (
+                // Session is live but dealer is between games
+                <>
+                  <div style={{ fontSize: '64px', marginBottom: '20px' }}>🎰</div>
+                  <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#d4af37', marginBottom: '12px', letterSpacing: '1.5px' }}>GAME OVER</div>
+                  <div style={{ color: '#888', fontSize: '16px', marginBottom: '8px' }}>Welcome, <span style={{ color: '#d4af37' }}>{playerName}</span>!</div>
+                  <div style={{ color: '#888', fontSize: '14px', marginBottom: '30px' }}>The stream is live. Next game starting soon — hold tight.</div>
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginBottom: '30px' }}>
+                    {[0,1,2].map(i => <div key={i} style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#4caf50', animation: `pulse 1.5s ease-in-out ${i*0.2}s infinite` }} />)}
+                  </div>
+                  <div style={{ padding: '14px 20px', background: 'rgba(76,175,80,.1)', border: '1px solid rgba(76,175,80,.3)', borderRadius: '10px', color: '#4caf50', fontSize: '12px' }}>
+                    🟢 Stream is live
+                  </div>
+                </>
+              ) : (
+                // Session hasn't started yet — waiting for dealer
+                <>
+                  <div style={{ fontSize: '64px', marginBottom: '20px' }}>⏳</div>
+                  <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#d4af37', marginBottom: '15px', letterSpacing: '1.5px' }}>WAITING FOR DEALER</div>
+                  <div style={{ color: '#888', fontSize: '16px', marginBottom: '8px' }}>Welcome, <span style={{ color: '#d4af37' }}>{playerName}</span>!</div>
+                  <div style={{ color: '#888', fontSize: '14px', marginBottom: '30px' }}>Stream hasn't started yet. This page will update automatically when it does.</div>
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginBottom: '30px' }}>
+                    {[0,1,2].map(i => <div key={i} style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#d4af37', animation: `pulse 1.5s ease-in-out ${i*0.2}s infinite` }} />)}
+                  </div>
+                </>
+              )}
 
               {/* Session history for player */}
               {sessionHistory.length > 0 && (
@@ -541,33 +568,48 @@ const App = () => {
           <div style={{ color: '#888', fontSize: '14px', letterSpacing: '4px', textTransform: 'uppercase', marginBottom: '12px' }}>
             Dealer Mode · {user?.displayName || user?.email}
           </div>
-          <div style={{ display: 'inline-block', padding: '8px 18px', background: 'rgba(76,175,80,.2)', border: '1px solid #4caf50', borderRadius: '8px' }}>
-            <span style={{ color: '#4caf50', fontSize: '12px', fontWeight: 'bold' }}>✅ DEALER MODE ACTIVE</span>
+          <div style={{ display: 'inline-block', padding: '8px 18px', background: sessionStatus === 'active' ? 'rgba(76,175,80,.2)' : 'rgba(212,175,55,.15)', border: `1px solid ${sessionStatus === 'active' ? '#4caf50' : '#d4af37'}`, borderRadius: '8px' }}>
+            <span style={{ color: sessionStatus === 'active' ? '#4caf50' : '#d4af37', fontSize: '12px', fontWeight: 'bold' }}>
+              {sessionStatus === 'active' ? '🟢 STREAM LIVE' : '⏸ STREAM NOT STARTED'}
+            </span>
           </div>
         </div>
 
-        {/* Start New Stream button — prominent at top */}
-        <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-          <button onClick={() => setShowNewSessionConfirm(true)} style={{ padding: '18px 50px', background: 'linear-gradient(135deg,#d4af37 0%,#f4e5a1 100%)', border: 'none', borderRadius: '10px', color: '#000', fontSize: '16px', fontWeight: 'bold', letterSpacing: '1.5px', cursor: 'pointer', fontFamily: 'inherit', textTransform: 'uppercase', boxShadow: '0 4px 24px rgba(212,175,55,.4)' }}>
-            🎬 Start New Stream Session
-          </button>
-          <div style={{ color: '#555', fontSize: '11px', marginTop: '8px' }}>Archives current session · resets all bankrolls · clears leaderboard</div>
+        {/* Session controls */}
+        <div style={{ display: 'flex', gap: '14px', justifyContent: 'center', marginBottom: '40px', flexWrap: 'wrap' }}>
+          {sessionStatus !== 'active' ? (
+            // Go Live — starts the session without resetting anything
+            <div style={{ textAlign: 'center' }}>
+              <button onClick={async () => { await startStream(dealerUid); setSessionStatus('active'); }} style={{ padding: '18px 50px', background: 'linear-gradient(135deg,#4caf50,#81c784)', border: 'none', borderRadius: '10px', color: '#000', fontSize: '16px', fontWeight: 'bold', letterSpacing: '1.5px', cursor: 'pointer', fontFamily: 'inherit', textTransform: 'uppercase', boxShadow: '0 4px 24px rgba(76,175,80,.4)' }}>
+                🟢 Go Live
+              </button>
+              <div style={{ color: '#555', fontSize: '11px', marginTop: '8px' }}>Opens the session for players · select a game below to start</div>
+            </div>
+          ) : (
+            // End Stream — archives session, resets bankrolls
+            <div style={{ textAlign: 'center' }}>
+              <button onClick={() => setShowNewSessionConfirm(true)} style={{ padding: '18px 50px', background: 'linear-gradient(135deg,#d4af37,#f4e5a1)', border: 'none', borderRadius: '10px', color: '#000', fontSize: '16px', fontWeight: 'bold', letterSpacing: '1.5px', cursor: 'pointer', fontFamily: 'inherit', textTransform: 'uppercase', boxShadow: '0 4px 24px rgba(212,175,55,.3)' }}>
+                🏁 End Stream
+              </button>
+              <div style={{ color: '#555', fontSize: '11px', marginTop: '8px' }}>Shows final leaderboard · archives session · resets bankrolls</div>
+            </div>
+          )}
         </div>
 
-        {/* Confirm modal */}
+        {/* End stream confirm modal */}
         {showNewSessionConfirm && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
             <div style={{ background: '#1c1e2a', border: '1px solid rgba(212,175,55,.4)', borderRadius: '16px', padding: '40px', maxWidth: '420px', width: '100%', textAlign: 'center' }}>
-              <div style={{ fontSize: '40px', marginBottom: '16px' }}>🎬</div>
-              <div style={{ color: '#d4af37', fontSize: '20px', fontWeight: 'bold', marginBottom: '12px' }}>Start New Stream?</div>
+              <div style={{ fontSize: '40px', marginBottom: '16px' }}>🏁</div>
+              <div style={{ color: '#d4af37', fontSize: '20px', fontWeight: 'bold', marginBottom: '12px' }}>End Stream?</div>
               <div style={{ color: '#888', fontSize: '13px', lineHeight: '1.8', marginBottom: '10px' }}>
-                This will archive the current session and reset all player bankrolls to <strong style={{ color: '#fff' }}>${startingChips.toLocaleString()}</strong>.
+                This will show the final leaderboard and reset all bankrolls to <strong style={{ color: '#fff' }}>${startingChips.toLocaleString()}</strong> for the next stream.
               </div>
               <div style={{ color: '#555', fontSize: '12px', marginBottom: '28px' }}>Player accounts and session history are preserved.</div>
               <div style={{ display: 'flex', gap: '12px' }}>
                 <button onClick={() => setShowNewSessionConfirm(false)} style={{ flex: 1, padding: '14px', background: 'transparent', border: '1px solid #444', borderRadius: '8px', color: '#888', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
                 <button onClick={handleStartNewSession} disabled={newSessionLoading} style={{ flex: 1, padding: '14px', background: newSessionLoading ? '#333' : 'linear-gradient(135deg,#d4af37,#f4e5a1)', border: 'none', borderRadius: '8px', color: newSessionLoading ? '#666' : '#000', fontSize: '13px', fontWeight: 'bold', cursor: newSessionLoading ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
-                  {newSessionLoading ? 'Starting...' : '✅ Start Stream'}
+                  {newSessionLoading ? 'Ending...' : '🏁 End Stream'}
                 </button>
               </div>
             </div>
