@@ -14,7 +14,7 @@ import {
 
 const GAME_NAME = 'baccarat';
 
-const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: propPlayerName, skipRegistration = false }) => {
+const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: propPlayerName, skipRegistration = false, roomCode }) => {
   // Mobile detection
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   useEffect(() => {
@@ -59,7 +59,7 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
     playerScore: 0, bankerScore: 0, winner: null,
     roundNumber: 0, bettingOpen: false, countdown: 0, roadmap: []
   };
-  const { gameState, updateGameState } = useGameState(GAME_NAME, defaultGameState);
+  const { gameState, updateGameState } = useGameState(roomCode, GAME_NAME, defaultGameState);
   
   // Game state (synced from Firebase)
   // FIREBASE: gamePhase, playerCards, bankerCards, etc. come from gameState
@@ -140,7 +140,7 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
   });
   
   // ========== FIREBASE: Leaderboard ==========
-  const { leaderboard, updateLeaderboardEntry, clearLeaderboard } = useLeaderboard();
+  const { leaderboard, updateLeaderboardEntry, clearLeaderboard } = useLeaderboard(roomCode);
   
   // Admin state
   const [adminPlayerCards, setAdminPlayerCards] = useState(['', '']);
@@ -150,12 +150,12 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
   const [qpValue, setQpValue] = useState('');
   const [qpTarget, setQpTarget] = useState('p1');
   // FIREBASE: activeUsers from presence
-  const activeUsers = usePresence(isRegistered ? userId : null, userName);
+  const activeUsers = usePresence(roomCode, isRegistered ? userId : null, userName);
   const [showSettings, setShowSettings] = useState(false);
   
   // ========== FIREBASE: Chat + User hooks ==========
-  const { chatMessages, sendMessage: fbSendMessage, clearChat } = useChat();
-  const { userData, saveUserData: fbSaveUserData } = useUserData(userId);
+  const { chatMessages, sendMessage: fbSendMessage, clearChat } = useChat(roomCode);
+  const { userData, saveUserData: fbSaveUserData } = useUserData(roomCode, userId);
   const [chatInput, setChatInput] = useState('');
   const chatEndRef = useRef(null);
 
@@ -179,7 +179,8 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
 
   // Read startingChips from Firebase settings
   useEffect(() => {
-    const chipsRef = ref(db, 'session/settings/startingChips');
+    if (!roomCode) return;
+    const chipsRef = ref(db, `rooms/${roomCode}/session/settings/startingChips`);
     const unsub = onValue(chipsRef, (snapshot) => {
       if (snapshot.exists()) {
         setStartingChips(snapshot.val());
@@ -584,7 +585,7 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
     if (bonusChipsAmount <= 0) { alert('Please enter a valid bonus amount'); return; }
     const targetName = bonusRecipient === 'all' ? `ALL ${leaderboard.length} players` : leaderboard.find(p => p.userId === bonusRecipient)?.name || 'Unknown';
     if (confirm(`Give $${bonusChipsAmount.toLocaleString()} to ${targetName}?`)) {
-      await fbDistributeBonusChips(leaderboard, bonusRecipient, bonusChipsAmount, userId, setBankroll);
+      await fbDistributeBonusChips(roomCode, leaderboard, bonusRecipient, bonusChipsAmount, userId, setBankroll);
       alert(`Distributed $${bonusChipsAmount.toLocaleString()} to ${targetName}!`);
       setBonusChipsAmount(0);
     }
@@ -594,7 +595,7 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
   const adminResetSession = async () => {
     if (confirm('Reset entire session?')) {
       try {
-        await resetSession(GAME_NAME);
+        await resetSession(roomCode, GAME_NAME);
         setBankroll(startingChips); clearAllBets(); setActiveBets({});
         setSessionStats({ totalWagered: 0, biggestWin: 0, totalRounds: 0, startingBankroll: startingChips });
         await saveUserData({ bankroll: startingChips, activeBets: {}, sessionStats: { totalWagered: 0, biggestWin: 0, totalRounds: 0, startingBankroll: startingChips }});
