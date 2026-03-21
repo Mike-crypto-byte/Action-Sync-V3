@@ -1,7 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { database as db, ref, onValue } from './firebase.js';
+import { resolveRoomCode } from './useFirebaseSync.js';
 
-const StreamOverlay = ({ roomCode }) => {
+const StreamOverlay = ({ dealerUidFromUrl, roomCodeFromUrl }) => {
+  // Resolve dealerUid from either the direct uid param or the vanity code param
+  const [dealerUid, setDealerUid] = useState(dealerUidFromUrl || null);
+
+  useEffect(() => {
+    if (dealerUidFromUrl) {
+      setDealerUid(dealerUidFromUrl);
+    } else if (roomCodeFromUrl) {
+      resolveRoomCode(roomCodeFromUrl).then(uid => {
+        if (uid) setDealerUid(uid);
+      });
+    }
+  }, [dealerUidFromUrl, roomCodeFromUrl]);
+
+  // Keep internal alias so all existing listeners below use `roomCode` unchanged
+  const roomCode = dealerUid;
+
   const [activeGame, setActiveGame] = useState(null);
   const [gameState, setGameState] = useState({});
   const [leaderboard, setLeaderboard] = useState([]);
