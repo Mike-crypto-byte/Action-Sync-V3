@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { database as db, ref, onValue } from './firebase.js';
 
-const StreamOverlay = () => {
+const StreamOverlay = ({ roomCode }) => {
   const [activeGame, setActiveGame] = useState(null);
   const [gameState, setGameState] = useState({});
   const [leaderboard, setLeaderboard] = useState([]);
@@ -10,7 +10,8 @@ const StreamOverlay = () => {
 
   // Listen to active game
   useEffect(() => {
-    const unsub = onValue(ref(db, 'activeGame'), (snap) => {
+    if (!roomCode) return;
+    const unsub = onValue(ref(db, `rooms/${roomCode}/activeGame`), (snap) => {
       if (snap.exists()) {
         const data = snap.val();
         setActiveGame(data.game || null);
@@ -23,8 +24,8 @@ const StreamOverlay = () => {
 
   // Listen to game state
   useEffect(() => {
-    if (!activeGame) return;
-    const unsub = onValue(ref(db, `games/${activeGame}/state`), (snap) => {
+    if (!activeGame || !roomCode) return;
+    const unsub = onValue(ref(db, `rooms/${roomCode}/games/${activeGame}/state`), (snap) => {
       if (snap.exists()) setGameState(snap.val());
     });
     return () => unsub();
@@ -32,7 +33,8 @@ const StreamOverlay = () => {
 
   // Listen to leaderboard
   useEffect(() => {
-    const unsub = onValue(ref(db, 'session/leaderboard'), (snap) => {
+    if (!roomCode) return;
+    const unsub = onValue(ref(db, `rooms/${roomCode}/session/leaderboard`), (snap) => {
       if (snap.exists()) {
         const data = snap.val();
         const sorted = Object.values(data)
@@ -46,7 +48,8 @@ const StreamOverlay = () => {
 
   // Listen to presence
   useEffect(() => {
-    const unsub = onValue(ref(db, 'session/presence'), (snap) => {
+    if (!roomCode) return;
+    const unsub = onValue(ref(db, `rooms/${roomCode}/session/presence`), (snap) => {
       if (snap.exists()) {
         const data = snap.val();
         const now = Date.now();
@@ -59,7 +62,8 @@ const StreamOverlay = () => {
 
   // Listen to starting chips
   useEffect(() => {
-    const unsub = onValue(ref(db, 'session/settings/startingChips'), (snap) => {
+    if (!roomCode) return;
+    const unsub = onValue(ref(db, `rooms/${roomCode}/session/settings/startingChips`), (snap) => {
       if (snap.exists()) setStartingChips(snap.val());
     });
     return () => unsub();
