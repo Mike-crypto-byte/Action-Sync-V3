@@ -14,7 +14,7 @@ import {
 
 const GAME_NAME = 'craps';
 
-const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: propPlayerName, skipRegistration = false }) => {
+const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: propPlayerName, skipRegistration = false, roomCode }) => {
   // Mobile detection
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   useEffect(() => {
@@ -58,7 +58,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
     gamePhase: 'come-out', point: null, rollNumber: 0,
     lastRoll: null, bettingOpen: false, countdown: 0, rollHistory: []
   };
-  const { gameState, updateGameState } = useGameState(GAME_NAME, defaultGameState);
+  const { gameState, updateGameState } = useGameState(roomCode, GAME_NAME, defaultGameState);
   
   // Game state (local UI)
   const [gameMode, setGameMode] = useState('standard'); // 'standard' or 'crapless'
@@ -163,9 +163,9 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
   const chatEndRef = useRef(null);
   
   // ========== FIREBASE: Chat + User data hooks ==========
-  const { chatMessages: fbChatMessages, sendMessage: fbSendMessage, clearChat } = useChat();
+  const { chatMessages: fbChatMessages, sendMessage: fbSendMessage, clearChat } = useChat(roomCode);
   const chatMessages = fbChatMessages;
-  const { userData, saveUserData: fbSaveUserData } = useUserData(userId);
+  const { userData, saveUserData: fbSaveUserData } = useUserData(roomCode, userId);
   
   const [sessionStats, setSessionStats] = useState({
     totalWagered: 0,
@@ -175,18 +175,19 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
   });
   
   // ========== FIREBASE: Leaderboard ==========
-  const { leaderboard, updateLeaderboardEntry, clearLeaderboard } = useLeaderboard();
+  const { leaderboard, updateLeaderboardEntry, clearLeaderboard } = useLeaderboard(roomCode);
   
   // Admin state
   const [adminDice1, setAdminDice1] = useState('');
   const [adminDice2, setAdminDice2] = useState('');
   // FIREBASE: activeUsers from presence
-  const activeUsers = usePresence(isRegistered ? userId : null, userName);
+  const activeUsers = usePresence(roomCode, isRegistered ? userId : null, userName);
   const [showSettings, setShowSettings] = useState(false);
 
   // Read startingChips from Firebase settings
   useEffect(() => {
-    const chipsRef = ref(db, 'session/settings/startingChips');
+    if (!roomCode) return;
+    const chipsRef = ref(db, `rooms/${roomCode}/session/settings/startingChips`);
     const unsub = onValue(chipsRef, (snapshot) => {
       if (snapshot.exists()) {
         setStartingChips(snapshot.val());
@@ -888,7 +889,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
     if (bonusChipsAmount <= 0) { alert('Please enter a valid bonus amount'); return; }
     const targetName = bonusRecipient === 'all' ? `ALL ${leaderboard.length} players` : leaderboard.find(p => p.userId === bonusRecipient)?.name || 'Unknown';
     if (confirm(`Give $${bonusChipsAmount.toLocaleString()} to ${targetName}?`)) {
-      await fbDistributeBonusChips(leaderboard, bonusRecipient, bonusChipsAmount, userId, setBankroll);
+      await fbDistributeBonusChips(roomCode, leaderboard, bonusRecipient, bonusChipsAmount, userId, setBankroll);
       alert(`Distributed $${bonusChipsAmount.toLocaleString()} to ${targetName}!`);
       setBonusChipsAmount(0);
     }
@@ -898,7 +899,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
   const adminResetSession = async () => {
     if (confirm('Reset entire session?')) {
       try {
-        await resetSession(GAME_NAME);
+        await resetSession(roomCode, GAME_NAME);
         setBankroll(startingChips);
         clearAllBets();
         setActiveBets({});
