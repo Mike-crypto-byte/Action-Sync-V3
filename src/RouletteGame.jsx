@@ -159,7 +159,7 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
   // Read startingChips from Firebase settings
   useEffect(() => {
     if (!roomCode) return;
-    const chipsRef = ref(db, `rooms/${roomCode}/session/settings/startingChips`);
+    const chipsRef = ref(db, `rooms/${roomCode}/settings/startingChips`);
     const unsub = onValue(chipsRef, (snapshot) => {
       if (snapshot.exists()) {
         setStartingChips(snapshot.val());
