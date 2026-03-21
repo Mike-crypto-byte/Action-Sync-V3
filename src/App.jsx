@@ -1,9 +1,9 @@
-// App.jsx — Phase 2: Firebase Auth + persistent sessions
+// App.jsx — Phase 3: Multi-streamer, vanity room codes
 import React, { useState, useEffect } from 'react';
 import { Dice1, Spade, ArrowLeft, Circle } from 'lucide-react';
 import { database as db, ref, onValue, set } from './firebase.js';
 import { useAuth } from './useAuth.js';
-import { startNewSession, useSessionHistory } from './useFirebaseSync.js';
+import { startNewSession, useSessionHistory, resolveRoomCode, normaliseCode, changeRoomCode, isRoomCodeAvailable } from './useFirebaseSync.js';
 
 // Import your game components
 import CrapsGame from './CrapsGame';
@@ -12,26 +12,52 @@ import RouletteGame from './RouletteGame';
 import StreamOverlay from './StreamOverlay';
 
 // ── URL helpers ────────────────────────────────────────────────────────────────
-// Dealer shares:  ?dealer={dealerUid}
-// Overlay URL:    ?dealer={dealerUid}#overlay
+// Dealer shares join link:  ?dealer={dealerUid}  OR  ?room=VANITYCODE
+// Overlay URL:              ?dealer={dealerUid}#overlay
+// Players can also type the vanity code manually in the join form.
 const getDealerUidFromUrl = () =>
   new URLSearchParams(window.location.search).get('dealer') || null;
 
+const getRoomCodeFromUrl = () =>
+  new URLSearchParams(window.location.search).get('room') || null;
+
 const App = () => {
-  // ── Overlay route ────────────────────────────────────────────────────────────
+  // ── Overlay route — supports both ?dealer=uid and ?room=VANITYCODE ───────────
   if (window.location.hash === '#overlay' || window.location.pathname === '/overlay') {
-    return <StreamOverlay roomCode={getDealerUidFromUrl()} />;
+    return <StreamOverlay dealerUidFromUrl={getDealerUidFromUrl()} roomCodeFromUrl={getRoomCodeFromUrl()} />;
   }
 
   // ── Auth ─────────────────────────────────────────────────────────────────────
   const {
     user, role, authLoading, authError, setAuthError,
+    needsRoomCode, handleClaimRoomCode,
     dealerSignIn, dealerSignUp, playerSignIn, playerSignUp,
     signOut, isDealer, isPlayer,
   } = useAuth();
 
-  // dealerUid is the permanent room ID — from URL for players, from auth for dealer
-  const dealerUid = isDealer ? user?.uid : getDealerUidFromUrl();
+  // ── Resolved dealerUid ───────────────────────────────────────────────────────
+  // For dealers: their own uid. For players: resolved from URL or code entry.
+  const [resolvedDealerUid, setResolvedDealerUid] = useState(getDealerUidFromUrl());
+  const [resolveError, setResolveError]           = useState(null);
+  const [resolving, setResolving]                 = useState(false);
+
+  // If URL has ?room=CODE instead of ?dealer=uid, resolve it once on mount
+  useEffect(() => {
+    const codeFromUrl = getRoomCodeFromUrl();
+    if (codeFromUrl && !getDealerUidFromUrl()) {
+      setResolving(true);
+      resolveRoomCode(codeFromUrl).then(uid => {
+        if (uid) {
+          setResolvedDealerUid(uid);
+        } else {
+          setResolveError(`Room "${codeFromUrl}" not found. Check the code and try again.`);
+        }
+        setResolving(false);
+      });
+    }
+  }, []);
+
+  const dealerUid = isDealer ? user?.uid : resolvedDealerUid;
 
   // ── UI state ─────────────────────────────────────────────────────────────────
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -48,15 +74,36 @@ const App = () => {
   const [showNewSessionConfirm, setShowNewSessionConfirm] = useState(false);
   const [newSessionLoading, setNewSessionLoading]   = useState(false);
 
+  // Phase 3 — vanity code state
+  const [dealerRoomCode, setDealerRoomCode]         = useState(''); // current claimed code
+  const [codeInput, setCodeInput]                   = useState(''); // claim/change form input
+  const [codeLoading, setCodeLoading]               = useState(false);
+  const [codeError, setCodeError]                   = useState(null);
+  const [codeSuccess, setCodeSuccess]               = useState(null);
+  const [showChangeCode, setShowChangeCode]         = useState(false);
+  // Player join: manual code entry (when no URL param present)
+  const [joinCodeInput, setJoinCodeInput]           = useState('');
+  const [joinCodeLoading, setJoinCodeLoading]       = useState(false);
+
   // Auth form state
   const [authMode, setAuthMode]         = useState('playerSignIn'); // 'playerSignIn' | 'playerSignUp' | 'dealerSignIn' | 'dealerSignUp'
   const [formEmail, setFormEmail]       = useState('');
   const [formPassword, setFormPassword] = useState('');
   const [formName, setFormName]         = useState('');
+  const [formRoomCode, setFormRoomCode] = useState(''); // dealer sign-up vanity code
   const [formLoading, setFormLoading]   = useState(false);
 
   // Session history for the running leaderboard panel
   const sessionHistory = useSessionHistory(dealerUid);
+
+  // ── Read dealer's current room code from settings ─────────────────────────────
+  useEffect(() => {
+    if (!isDealer || !user?.uid) return;
+    const unsub = onValue(ref(db, `rooms/${user.uid}/settings/roomCode`), (snap) => {
+      if (snap.exists()) setDealerRoomCode(snap.val());
+    });
+    return () => unsub();
+  }, [isDealer, user?.uid]);
 
   // ── Read dealer settings (startingChips) ─────────────────────────────────────
   useEffect(() => {
@@ -182,22 +229,63 @@ const App = () => {
       if (authMode === 'dealerSignIn') {
         await dealerSignIn(formEmail, formPassword);
       } else if (authMode === 'dealerSignUp') {
-        await dealerSignUp(formEmail, formPassword, formName || 'Dealer');
+        await dealerSignUp(formEmail, formPassword, formName || 'Dealer', formRoomCode || null);
       } else if (authMode === 'playerSignIn') {
-        if (!dealerUid) throw new Error('No dealer room found. Make sure you have the correct join link.');
+        if (!dealerUid) throw new Error('Enter a room code above to find your dealer.');
         await playerSignIn(formEmail, formPassword, dealerUid, startingChips);
       } else if (authMode === 'playerSignUp') {
-        if (!dealerUid) throw new Error('No dealer room found. Make sure you have the correct join link.');
+        if (!dealerUid) throw new Error('Enter a room code above to find your dealer.');
         if (!formName.trim()) throw new Error('Display name is required.');
         await playerSignUp(formEmail, formPassword, formName.trim(), dealerUid, startingChips);
       }
-      setFormEmail(''); setFormPassword(''); setFormName('');
+      setFormEmail(''); setFormPassword(''); setFormName(''); setFormRoomCode('');
     } catch (e) {
       // authError is set inside useAuth, no extra action needed
     } finally {
       setFormLoading(false);
     }
   };
+
+  // ── Player: manual room code entry ────────────────────────────────────────────
+  const handleJoinByCode = async () => {
+    if (!joinCodeInput.trim()) return;
+    setJoinCodeLoading(true);
+    setResolveError(null);
+    try {
+      const uid = await resolveRoomCode(joinCodeInput.trim());
+      if (uid) {
+        setResolvedDealerUid(uid);
+        // Update URL so refreshes preserve the room
+        const params = new URLSearchParams(window.location.search);
+        params.set('dealer', uid);
+        params.delete('room');
+        window.history.replaceState({}, '', `?${params.toString()}`);
+        setJoinCodeInput('');
+      } else {
+        setResolveError(`Room "${normaliseCode(joinCodeInput)}" not found. Check the code and try again.`);
+      }
+    } finally {
+      setJoinCodeLoading(false);
+    }
+  };
+
+  // ── Dealer: claim / change vanity code ───────────────────────────────────────
+  const handleClaimCode = async () => {
+    if (!codeInput.trim() || !user?.uid) return;
+    setCodeLoading(true);
+    setCodeError(null);
+    setCodeSuccess(null);
+    const result = await handleClaimRoomCode(user.uid, codeInput.trim());
+    if (result.success) {
+      setCodeSuccess(`Room code set to ${result.code}`);
+      setCodeInput('');
+      setShowChangeCode(false);
+    } else {
+      setCodeError(result.error);
+    }
+    setCodeLoading(false);
+  };
+
   // ── Loading splash while Firebase auth restores ───────────────────────────────
   if (authLoading) {
     return (
@@ -210,70 +298,74 @@ const App = () => {
     );
   }
 
+
   // ── Not signed in → show auth form ───────────────────────────────────────────
   if (!user) {
-    const isSignUp    = authMode === 'playerSignUp' || authMode === 'dealerSignUp';
-    const isDealerForm = authMode === 'dealerSignIn' || authMode === 'dealerSignUp';
-    const needsDealer = !isDealerForm && !getDealerUidFromUrl();
+    const isSignUp     = authMode === 'playerSignUp' || authMode === 'dealerSignUp';
+    const isDealerForm = authMode === 'dealerSignIn'  || authMode === 'dealerSignUp';
+    const canSubmit    = isDealerForm || !!dealerUid;
 
     return (
       <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0a0e27 0%, #1a1f3a 50%, #0f1829 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-        <div style={{ background: 'linear-gradient(135deg, #1c1e2a 0%, #252836 100%)', border: '1px solid rgba(212,175,55,0.4)', borderRadius: '15px', padding: isMobile ? '30px 20px' : '50px 40px', maxWidth: '450px', width: '100%', boxShadow: '0 12px 40px rgba(0,0,0,0.4)' }}>
-
-          {/* Logo */}
-          <div style={{ textAlign: 'center', marginBottom: '35px' }}>
-            <div style={{ fontSize: isMobile ? '36px' : '48px', fontWeight: 'bold', background: 'linear-gradient(135deg, #d4af37 0%, #ffd700 50%, #d4af37 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '1.5px', marginBottom: '8px' }}>
-              ACTION SYNC
-            </div>
-            <div style={{ color: '#d4af37', fontSize: '11px', letterSpacing: '2px', textTransform: 'uppercase' }}>
-              {isDealerForm ? '🎰 Dealer Portal' : '🎲 Join the Action'}
-            </div>
+        <div style={{ background: 'linear-gradient(135deg, #1c1e2a 0%, #252836 100%)', border: '1px solid rgba(212,175,55,0.4)', borderRadius: '15px', padding: isMobile ? '30px 20px' : '50px 40px', maxWidth: '460px', width: '100%', boxShadow: '0 12px 40px rgba(0,0,0,0.4)' }}>
+          <div style={{ textAlign: 'center', marginBottom: '28px' }}>
+            <div style={{ fontSize: isMobile ? '34px' : '44px', fontWeight: 'bold', background: 'linear-gradient(135deg, #d4af37 0%, #ffd700 50%, #d4af37 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '1.5px', marginBottom: '6px' }}>ACTION SYNC</div>
+            <div style={{ color: '#d4af37', fontSize: '11px', letterSpacing: '2px', textTransform: 'uppercase' }}>{isDealerForm ? '🎰 Dealer Portal' : '🎲 Join the Action'}</div>
           </div>
 
-          {/* No dealer link warning */}
-          {needsDealer && (
-            <div style={{ background: 'rgba(244,67,54,0.1)', border: '1px solid rgba(244,67,54,0.4)', borderRadius: '8px', padding: '12px 16px', marginBottom: '20px', color: '#f44336', fontSize: '12px', textAlign: 'center' }}>
-              ⚠️ You need a dealer's join link to play.<br />
-              <span style={{ color: '#888', fontSize: '11px' }}>Ask your streamer for the link, or log in as a dealer below.</span>
+          {/* Player: room code entry */}
+          {!isDealerForm && (
+            <div style={{ marginBottom: '18px' }}>
+              <div style={{ color: '#d4af37', fontSize: '11px', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '8px', fontWeight: 'bold' }}>Room Code</div>
+              {dealerUid ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', background: 'rgba(76,175,80,0.1)', border: '1px solid #4caf50', borderRadius: '8px' }}>
+                  <span style={{ color: '#4caf50', fontSize: '13px', flex: 1 }}>✅ Room found</span>
+                  <button onClick={() => { setResolvedDealerUid(null); setJoinCodeInput(''); }} style={{ background: 'none', border: 'none', color: '#555', fontSize: '11px', cursor: 'pointer', fontFamily: 'inherit' }}>Change</button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input type="text" value={joinCodeInput} onChange={e => { setJoinCodeInput(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,'')); setResolveError(null); }} onKeyPress={e => e.key === 'Enter' && handleJoinByCode()} placeholder="e.g. MIKECASINO" maxLength={16} style={{ flex: 1, padding: '12px 14px', background: '#0a0a0a', border: '2px solid #444', borderRadius: '8px', color: '#fff', fontSize: '14px', outline: 'none', fontFamily: 'inherit', letterSpacing: '2px' }} />
+                  <button onClick={handleJoinByCode} disabled={joinCodeLoading || !joinCodeInput.trim()} style={{ padding: '12px 16px', background: joinCodeInput.trim() ? '#d4af37' : '#333', border: 'none', borderRadius: '8px', color: joinCodeInput.trim() ? '#000' : '#666', fontWeight: 'bold', fontSize: '13px', cursor: joinCodeInput.trim() ? 'pointer' : 'not-allowed', fontFamily: 'inherit' }}>
+                    {joinCodeLoading ? '...' : 'Find'}
+                  </button>
+                </div>
+              )}
+              {resolveError && <div style={{ color: '#f44336', fontSize: '11px', marginTop: '6px' }}>{resolveError}</div>}
+              {!dealerUid && !resolveError && <div style={{ color: '#555', fontSize: '10px', marginTop: '5px' }}>Enter the code from your streamer, or use their join link directly.</div>}
             </div>
           )}
 
           {/* Form fields */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '20px' }}>
-            {isSignUp && (
-              <input type="text" value={formName} onChange={e => setFormName(e.target.value)} placeholder={isDealerForm ? 'Dealer display name' : 'Your display name'} style={{ width: '100%', padding: '14px', background: '#0a0a0a', border: '2px solid #444', borderRadius: '8px', color: '#fff', fontSize: '15px', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
+            {isSignUp && <input type="text" value={formName} onChange={e => setFormName(e.target.value)} placeholder={isDealerForm ? 'Your display name' : 'Display name (shown on leaderboard)'} style={{ width: '100%', padding: '13px', background: '#0a0a0a', border: '2px solid #444', borderRadius: '8px', color: '#fff', fontSize: '15px', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />}
+            <input type="email" value={formEmail} onChange={e => setFormEmail(e.target.value)} placeholder="Email address" style={{ width: '100%', padding: '13px', background: '#0a0a0a', border: '2px solid #444', borderRadius: '8px', color: '#fff', fontSize: '15px', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />
+            <input type="password" value={formPassword} onChange={e => setFormPassword(e.target.value)} onKeyPress={e => e.key === 'Enter' && handleAuthSubmit()} placeholder="Password" style={{ width: '100%', padding: '13px', background: '#0a0a0a', border: '2px solid #444', borderRadius: '8px', color: '#fff', fontSize: '15px', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />
+            {authMode === 'dealerSignUp' && (
+              <div>
+                <input type="text" value={formRoomCode} onChange={e => setFormRoomCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,''))} placeholder="Choose your room code (e.g. MIKECASINO)" maxLength={16} style={{ width: '100%', padding: '13px', background: '#0a0a0a', border: '2px solid #444', borderRadius: '8px', color: '#fff', fontSize: '14px', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', letterSpacing: '1px' }} />
+                <div style={{ color: '#555', fontSize: '10px', marginTop: '5px' }}>3–16 characters · letters and numbers only · players use this to find your room</div>
+              </div>
             )}
-            <input type="email" value={formEmail} onChange={e => setFormEmail(e.target.value)} placeholder="Email address" style={{ width: '100%', padding: '14px', background: '#0a0a0a', border: '2px solid #444', borderRadius: '8px', color: '#fff', fontSize: '15px', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />
-            <input type="password" value={formPassword} onChange={e => setFormPassword(e.target.value)} onKeyPress={e => e.key === 'Enter' && handleAuthSubmit()} placeholder="Password" style={{ width: '100%', padding: '14px', background: '#0a0a0a', border: '2px solid #444', borderRadius: '8px', color: '#fff', fontSize: '15px', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />
           </div>
 
-          {/* Error */}
-          {authError && (
-            <div style={{ background: 'rgba(244,67,54,0.1)', border: '1px solid rgba(244,67,54,0.3)', borderRadius: '8px', padding: '10px 14px', marginBottom: '16px', color: '#f44336', fontSize: '12px' }}>
-              {authError}
-            </div>
-          )}
+          {authError && <div style={{ background: 'rgba(244,67,54,0.1)', border: '1px solid rgba(244,67,54,0.3)', borderRadius: '8px', padding: '10px 14px', marginBottom: '14px', color: '#f44336', fontSize: '12px' }}>{authError}</div>}
 
-          {/* Submit */}
-          <button onClick={handleAuthSubmit} disabled={formLoading || needsDealer} style={{ width: '100%', padding: '16px', background: (!formLoading && !needsDealer) ? 'linear-gradient(135deg, #d4af37 0%, #f4e5a1 100%)' : '#333', border: 'none', borderRadius: '8px', color: (!formLoading && !needsDealer) ? '#000' : '#666', fontSize: '15px', fontWeight: 'bold', letterSpacing: '1px', cursor: (!formLoading && !needsDealer) ? 'pointer' : 'not-allowed', fontFamily: 'inherit', textTransform: 'uppercase', marginBottom: '16px' }}>
+          <button onClick={handleAuthSubmit} disabled={formLoading || !canSubmit} style={{ width: '100%', padding: '15px', background: (canSubmit && !formLoading) ? 'linear-gradient(135deg, #d4af37 0%, #f4e5a1 100%)' : '#333', border: 'none', borderRadius: '8px', color: (canSubmit && !formLoading) ? '#000' : '#666', fontSize: '15px', fontWeight: 'bold', letterSpacing: '1px', cursor: (canSubmit && !formLoading) ? 'pointer' : 'not-allowed', fontFamily: 'inherit', textTransform: 'uppercase', marginBottom: '14px' }}>
             {formLoading ? 'Please wait...' : isSignUp ? 'Create Account' : 'Sign In'}
           </button>
 
-          {/* Toggle sign in / sign up */}
-          <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+          <div style={{ textAlign: 'center', marginBottom: '14px' }}>
             <button onClick={() => { setAuthError(null); setAuthMode(isDealerForm ? (isSignUp ? 'dealerSignIn' : 'dealerSignUp') : (isSignUp ? 'playerSignIn' : 'playerSignUp')); }} style={{ background: 'none', border: 'none', color: '#d4af37', fontSize: '12px', cursor: 'pointer', fontFamily: 'inherit' }}>
               {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Create one"}
             </button>
           </div>
 
-          {/* Dealer / Player toggle */}
-          <div style={{ textAlign: 'center', borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: '16px' }}>
-            <button onClick={() => { setAuthError(null); setAuthMode(isDealerForm ? 'playerSignIn' : 'dealerSignIn'); }} style={{ padding: '8px 20px', background: 'transparent', border: '1px solid #444', borderRadius: '6px', color: '#666', fontSize: '10px', cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '1px', textTransform: 'uppercase' }}>
+          <div style={{ textAlign: 'center', borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: '14px' }}>
+            <button onClick={() => { setAuthError(null); setResolveError(null); setAuthMode(isDealerForm ? 'playerSignIn' : 'dealerSignIn'); }} style={{ padding: '8px 20px', background: 'transparent', border: '1px solid #444', borderRadius: '6px', color: '#666', fontSize: '10px', cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '1px', textTransform: 'uppercase' }}>
               {isDealerForm ? '🎲 Player Login' : '🔐 Dealer Login'}
             </button>
           </div>
-
-          <div style={{ marginTop: '20px', padding: '10px', background: 'rgba(212,175,55,0.07)', borderRadius: '8px', textAlign: 'center' }}>
+          <div style={{ marginTop: '16px', padding: '10px', background: 'rgba(212,175,55,0.07)', borderRadius: '8px', textAlign: 'center' }}>
             <div style={{ color: '#666', fontSize: '10px', lineHeight: '1.6' }}>Virtual entertainment only · No real money · 18+ only</div>
           </div>
         </div>
@@ -281,9 +373,33 @@ const App = () => {
     );
   }
 
+  // ── Dealer: claim room code screen ────────────────────────────────────────────
+  if (isDealer && needsRoomCode) {
+    return (
+      <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0a0e27 0%, #1a1f3a 50%, #0f1829 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+        <div style={{ background: 'linear-gradient(135deg, #1c1e2a 0%, #252836 100%)', border: '1px solid rgba(212,175,55,0.4)', borderRadius: '15px', padding: isMobile ? '30px 20px' : '50px 40px', maxWidth: '460px', width: '100%', textAlign: 'center', boxShadow: '0 12px 40px rgba(0,0,0,0.4)' }}>
+          <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎰</div>
+          <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#d4af37', marginBottom: '10px', letterSpacing: '1px' }}>Claim Your Room Code</div>
+          <div style={{ color: '#888', fontSize: '13px', lineHeight: '1.8', marginBottom: '28px' }}>
+            Players type this to find your room. Pick something memorable.<br />
+            <span style={{ color: '#555', fontSize: '11px' }}>3–16 chars · letters and numbers only · can be changed later</span>
+          </div>
+          <input type="text" value={codeInput} onChange={e => { setCodeInput(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,'')); setCodeError(null); }} onKeyPress={e => e.key === 'Enter' && handleClaimCode()} placeholder="e.g. MIKECASINO" maxLength={16} autoFocus style={{ width: '100%', padding: '16px', background: '#0a0a0a', border: '2px solid #444', borderRadius: '8px', color: '#fff', fontSize: '18px', outline: 'none', fontFamily: 'inherit', textAlign: 'center', letterSpacing: '3px', marginBottom: '12px', boxSizing: 'border-box' }} />
+          {codeError && <div style={{ color: '#f44336', fontSize: '12px', marginBottom: '12px' }}>{codeError}</div>}
+          <button onClick={handleClaimCode} disabled={codeLoading || codeInput.length < 3} style={{ width: '100%', padding: '15px', background: codeInput.length >= 3 ? 'linear-gradient(135deg,#d4af37,#f4e5a1)' : '#333', border: 'none', borderRadius: '8px', color: codeInput.length >= 3 ? '#000' : '#666', fontSize: '15px', fontWeight: 'bold', cursor: codeInput.length >= 3 ? 'pointer' : 'not-allowed', fontFamily: 'inherit', textTransform: 'uppercase' }}>
+            {codeLoading ? 'Checking...' : 'Claim Room Code'}
+          </button>
+          <button onClick={signOut} style={{ marginTop: '14px', padding: '8px 20px', background: 'transparent', border: 'none', color: '#444', fontSize: '11px', cursor: 'pointer', fontFamily: 'inherit' }}>Sign out</button>
+        </div>
+      </div>
+    );
+  }
+
   // ── Signed in — route to correct game ────────────────────────────────────────
-  const playerName = user.displayName || user.email;
-  const playerUid  = user.uid;
+  const playerName   = user.displayName || user.email;
+  const playerUid    = user.uid;
+  const isDealerMode = isDealer;
+
   const isDealerMode = isDealer;
 
   if (selectedGame === 'craps') {
@@ -409,8 +525,9 @@ const App = () => {
   }
 
   // ── Dealer hub ────────────────────────────────────────────────────────────────
-  const joinLink    = `${window.location.origin}${window.location.pathname}?dealer=${dealerUid}`;
-  const overlayLink = `${joinLink}#overlay`;
+  const joinLink       = `${window.location.origin}${window.location.pathname}?dealer=${dealerUid}`;
+  const vanityJoinLink = dealerRoomCode ? `${window.location.origin}${window.location.pathname}?room=${dealerRoomCode}` : null;
+  const overlayLink    = `${joinLink}#overlay`;
 
   return (
     <div style={{ minHeight: '100vh', background: `radial-gradient(circle at 20% 30%,rgba(212,175,55,.15) 0%,transparent 50%),radial-gradient(circle at 80% 70%,rgba(33,150,243,.1) 0%,transparent 50%),linear-gradient(135deg,#0a0e27 0%,#1a1f3a 50%,#0f1829 100%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
@@ -493,15 +610,46 @@ const App = () => {
             </button>
           </div>
 
-          {/* Share link */}
+          {/* Share link + room code management */}
           <div style={{ padding: '24px', background: 'rgba(0,0,0,.3)', borderRadius: '14px', border: '1px solid rgba(212,175,55,.2)' }}>
-            <div style={{ color: '#d4af37', fontSize: '12px', fontWeight: 'bold', letterSpacing: '1px', marginBottom: '14px' }}>🔗 SHARE WITH PLAYERS</div>
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
-              <code style={{ flex: 1, background: 'rgba(0,0,0,.4)', color: '#fff', fontSize: '11px', padding: '10px 12px', borderRadius: '6px', wordBreak: 'break-all', fontFamily: 'monospace' }}>{joinLink}</code>
-              <button onClick={() => { navigator.clipboard.writeText(joinLink); alert('✅ Link copied!'); }} style={{ padding: '10px 14px', background: '#d4af37', border: 'none', borderRadius: '6px', color: '#000', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>Copy</button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <div style={{ color: '#d4af37', fontSize: '12px', fontWeight: 'bold', letterSpacing: '1px' }}>🔗 SHARE WITH PLAYERS</div>
+              {dealerRoomCode && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ color: '#fff', fontSize: '16px', fontWeight: 'bold', letterSpacing: '3px', fontFamily: 'monospace' }}>{dealerRoomCode}</span>
+                  <button onClick={() => { setShowChangeCode(!showChangeCode); setCodeError(null); setCodeSuccess(null); setCodeInput(''); }} style={{ padding: '4px 10px', background: 'transparent', border: '1px solid #555', borderRadius: '5px', color: '#888', fontSize: '10px', cursor: 'pointer', fontFamily: 'inherit' }}>Change</button>
+                </div>
+              )}
             </div>
-            <div style={{ color: '#555', fontSize: '10px' }}>
-              Overlay URL: <code style={{ color: '#777', fontFamily: 'monospace' }}>{overlayLink}</code>
+
+            {/* Change code inline form */}
+            {showChangeCode && (
+              <div style={{ marginBottom: '14px', padding: '14px', background: 'rgba(212,175,55,.07)', borderRadius: '8px', border: '1px solid rgba(212,175,55,.2)' }}>
+                <div style={{ color: '#888', fontSize: '11px', marginBottom: '10px' }}>New room code (old one will be released)</div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input type="text" value={codeInput} onChange={e => { setCodeInput(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,'')); setCodeError(null); }} placeholder="New code" maxLength={16} style={{ flex: 1, padding: '10px 12px', background: '#0a0a0a', border: '1px solid #444', borderRadius: '6px', color: '#fff', fontSize: '14px', outline: 'none', fontFamily: 'inherit', letterSpacing: '2px' }} />
+                  <button onClick={handleClaimCode} disabled={codeLoading || codeInput.length < 3} style={{ padding: '10px 14px', background: codeInput.length >= 3 ? '#d4af37' : '#333', border: 'none', borderRadius: '6px', color: codeInput.length >= 3 ? '#000' : '#666', fontWeight: 'bold', fontSize: '12px', cursor: codeInput.length >= 3 ? 'pointer' : 'not-allowed', fontFamily: 'inherit' }}>{codeLoading ? '...' : 'Save'}</button>
+                  <button onClick={() => setShowChangeCode(false)} style={{ padding: '10px 12px', background: 'transparent', border: '1px solid #333', borderRadius: '6px', color: '#555', fontSize: '12px', cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+                </div>
+                {codeError   && <div style={{ color: '#f44336', fontSize: '11px', marginTop: '6px' }}>{codeError}</div>}
+                {codeSuccess  && <div style={{ color: '#4caf50', fontSize: '11px', marginTop: '6px' }}>✅ {codeSuccess}</div>}
+              </div>
+            )}
+
+            {/* Vanity link — primary share option */}
+            {vanityJoinLink && (
+              <div style={{ marginBottom: '10px' }}>
+                <div style={{ color: '#888', fontSize: '10px', marginBottom: '5px', letterSpacing: '1px' }}>ROOM LINK (share this)</div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <code style={{ flex: 1, background: 'rgba(0,0,0,.4)', color: '#fff', fontSize: '11px', padding: '10px 12px', borderRadius: '6px', wordBreak: 'break-all', fontFamily: 'monospace' }}>{vanityJoinLink}</code>
+                  <button onClick={() => { navigator.clipboard.writeText(vanityJoinLink); alert('✅ Link copied!'); }} style={{ padding: '10px 14px', background: '#d4af37', border: 'none', borderRadius: '6px', color: '#000', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>Copy</button>
+                </div>
+              </div>
+            )}
+
+            <div style={{ color: '#444', fontSize: '10px', lineHeight: '1.7' }}>
+              Players can also type <span style={{ color: '#666', fontFamily: 'monospace' }}>{dealerRoomCode}</span> directly on the join screen.
+              <br />Overlay: <code style={{ color: '#555', fontFamily: 'monospace', fontSize: '10px' }}>{overlayLink}</code>
             </div>
           </div>
         </div>
