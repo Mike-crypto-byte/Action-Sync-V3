@@ -13,10 +13,18 @@ import BaccaratGame from './BaccaratGame';
 import RouletteGame from './RouletteGame';
 import StreamOverlay from './StreamOverlay';
 
+// ── Room code helpers ──────────────────────────────────────────────────────────
+// Dealer generates a code on login; players + overlay read it from ?room=XXXXXX
+const getRoomCodeFromUrl = () =>
+  new URLSearchParams(window.location.search).get('room') || null;
+
+const generateRoomCode = () =>
+  Math.random().toString(36).substr(2, 6).toUpperCase();
+
 const App = () => {
-  // Check for overlay route
+  // Check for overlay route — pass roomCode through
   if (window.location.hash === '#overlay' || window.location.pathname === '/overlay') {
-    return <StreamOverlay />;
+    return <StreamOverlay roomCode={getRoomCodeFromUrl()} />;
   }
 
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -27,6 +35,8 @@ const App = () => {
   }, []);
   const [selectedGame, setSelectedGame] = useState(null);
   const [isDealerMode, setIsDealerMode] = useState(false);
+  // roomCode — null until dealer logs in (generates) or player loads via URL
+  const [roomCode, setRoomCode] = useState(() => getRoomCodeFromUrl());
   const [dealerPassword, setDealerPassword] = useState('');
   const [dealerName, setDealerName] = useState('Dealer');
   const [startingChips, setStartingChips] = useState(1000);
@@ -45,8 +55,8 @@ const App = () => {
   
   // Check if player already exists in shared session
   useEffect(() => {
-    if (isDealerMode) return;
-    const userRef = ref(db, `session/users/${userId}`);
+    if (isDealerMode || !roomCode) return;
+    const userRef = ref(db, `rooms/${roomCode}/session/users/${userId}`);
     const unsub = onValue(userRef, (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.val();
@@ -60,18 +70,18 @@ const App = () => {
   }, [userId, isDealerMode]);
   
   const registerPlayer = async () => {
-    if (!playerName.trim()) return;
+    if (!playerName.trim() || !roomCode) return;
     // Read startingChips from Firebase (set by dealer) or default to 1000
     let chips = 1000;
     try {
-      const chipsRef = ref(db, 'session/settings/startingChips');
+      const chipsRef = ref(db, `rooms/${roomCode}/session/settings/startingChips`);
       const snap = await new Promise((resolve) => {
         onValue(chipsRef, (snapshot) => resolve(snapshot), { onlyOnce: true });
       });
       if (snap.exists()) chips = snap.val();
     } catch (e) { /* use default */ }
     
-    const userRef = ref(db, `session/users/${userId}`);
+    const userRef = ref(db, `rooms/${roomCode}/session/users/${userId}`);
     await set(userRef, {
       name: playerName.trim(),
       bankroll: chips,
@@ -79,7 +89,7 @@ const App = () => {
       isAdmin: false,
       lastActive: Date.now()
     });
-    const lbRef = ref(db, `session/leaderboard/${userId}`);
+    const lbRef = ref(db, `rooms/${roomCode}/session/leaderboard/${userId}`);
     await set(lbRef, {
       userId: userId,
       name: playerName.trim(),
@@ -93,8 +103,8 @@ const App = () => {
 
   // Listen to active game from Firebase in real-time
   useEffect(() => {
-    if (!isDealerMode) {
-      const dbRef = ref(db, 'activeGame');
+    if (!isDealerMode && roomCode) {
+      const dbRef = ref(db, `rooms/${roomCode}/activeGame`);
       const unsub = onValue(dbRef, (snapshot) => {
         if (snapshot.exists()) {
           const data = snapshot.val();
@@ -114,8 +124,8 @@ const App = () => {
   
   // Listen for end-of-session leaderboard (players)
   useEffect(() => {
-    if (!isDealerMode) {
-      const summaryRef = ref(db, 'session/endOfSession');
+    if (!isDealerMode && roomCode) {
+      const summaryRef = ref(db, `rooms/${roomCode}/session/endOfSession`);
       const unsub = onValue(summaryRef, (snapshot) => {
         if (snapshot.exists()) {
           const data = snapshot.val();
@@ -135,12 +145,12 @@ const App = () => {
     console.log('🎮 Dealer selecting game:', game);
     try {
       // Clear end-of-session summary
-      const summaryRef = ref(db, 'session/endOfSession');
+      const summaryRef = ref(db, `rooms/${roomCode}/session/endOfSession`);
       await set(summaryRef, null);
       setShowSessionSummary(false);
       setSessionLeaderboard(null);
       
-      const dbRef = ref(db, 'activeGame');
+      const dbRef = ref(db, `rooms/${roomCode}/activeGame`);
       await set(dbRef, { game, timestamp: Date.now() });
       console.log('✅ Saved to Firebase');
       setSelectedGame(game);
@@ -152,13 +162,18 @@ const App = () => {
 
   const handleDealerLogin = async () => {
     if (dealerPassword === DEALER_PASSWORD) {
+      // Generate a fresh room code for this session and write it to the URL
+      const newRoomCode = generateRoomCode();
+      setRoomCode(newRoomCode);
+      window.history.replaceState({}, '', `?room=${newRoomCode}`);
+
       setIsDealerMode(true);
       setShowDealerLogin(false);
       setDealerPassword('');
       setPlayerName(dealerName.trim() || 'Dealer');
       
       // Register dealer in session
-      const userRef = ref(db, `session/users/${userId}`);
+      const userRef = ref(db, `rooms/${newRoomCode}/session/users/${userId}`);
       await set(userRef, {
         name: dealerName.trim() || 'Dealer',
         bankroll: startingChips,
@@ -167,8 +182,8 @@ const App = () => {
         lastActive: Date.now()
       });
       
-      // Add dealer to leaderboard so they appear in rankings
-      const lbRef = ref(db, `session/leaderboard/${userId}`);
+      // Add dealer to leaderboard
+      const lbRef = ref(db, `rooms/${newRoomCode}/session/leaderboard/${userId}`);
       await set(lbRef, {
         userId: userId,
         name: dealerName.trim() || 'Dealer',
@@ -178,7 +193,7 @@ const App = () => {
       });
       
       // Save starting chips setting
-      const chipsRef = ref(db, 'session/settings/startingChips');
+      const chipsRef = ref(db, `rooms/${newRoomCode}/session/settings/startingChips`);
       await set(chipsRef, startingChips);
       
       setIsPlayerRegistered(true);
@@ -192,7 +207,7 @@ const App = () => {
   const deactivateGame = async () => {
     try {
       // Grab leaderboard snapshot before deactivating
-      const lbRef = ref(db, 'session/leaderboard');
+      const lbRef = ref(db, `rooms/${roomCode}/session/leaderboard`);
       const lbSnap = await new Promise((resolve) => {
         onValue(lbRef, (snapshot) => resolve(snapshot), { onlyOnce: true });
       });
@@ -203,8 +218,7 @@ const App = () => {
           .sort((a, b) => b.bankroll - a.bankroll);
         
         if (players.length > 0) {
-          // Save snapshot to Firebase so players can see it
-          const summaryRef = ref(db, 'session/endOfSession');
+          const summaryRef = ref(db, `rooms/${roomCode}/session/endOfSession`);
           await set(summaryRef, {
             players: players,
             startingChips: startingChips,
@@ -216,7 +230,7 @@ const App = () => {
         }
       }
       
-      const dbRef = ref(db, 'activeGame');
+      const dbRef = ref(db, `rooms/${roomCode}/activeGame`);
       await set(dbRef, null);
       setSelectedGame(null);
       console.log('🛑 Game deactivated — players return to session summary');
@@ -227,15 +241,15 @@ const App = () => {
 
   // ========== Render selected game — pass isDealerMode as prop ==========
   if (selectedGame === 'craps') {
-    return <CrapsGame onBack={() => isDealerMode ? deactivateGame() : null} isDealerMode={isDealerMode} playerUserId={userId} playerName={playerName} skipRegistration={isPlayerRegistered} />;
+    return <CrapsGame onBack={() => isDealerMode ? deactivateGame() : null} isDealerMode={isDealerMode} playerUserId={userId} playerName={playerName} skipRegistration={isPlayerRegistered} roomCode={roomCode} />;
   }
 
   if (selectedGame === 'baccarat') {
-    return <BaccaratGame onBack={() => isDealerMode ? deactivateGame() : null} isDealerMode={isDealerMode} playerUserId={userId} playerName={playerName} skipRegistration={isPlayerRegistered} />;
+    return <BaccaratGame onBack={() => isDealerMode ? deactivateGame() : null} isDealerMode={isDealerMode} playerUserId={userId} playerName={playerName} skipRegistration={isPlayerRegistered} roomCode={roomCode} />;
   }
 
   if (selectedGame === 'roulette') {
-    return <RouletteGame onBack={() => isDealerMode ? deactivateGame() : null} isDealerMode={isDealerMode} playerUserId={userId} playerName={playerName} skipRegistration={isPlayerRegistered} />;
+    return <RouletteGame onBack={() => isDealerMode ? deactivateGame() : null} isDealerMode={isDealerMode} playerUserId={userId} playerName={playerName} skipRegistration={isPlayerRegistered} roomCode={roomCode} />;
   }
 
   // Dealer Login Screen
@@ -427,6 +441,48 @@ const App = () => {
 
   // Player Registration + Waiting Screen
   if (!isDealerMode && !selectedGame) {
+    // If no room code in URL, show a friendly error — player needs the dealer's link
+    if (!roomCode) {
+      return (
+        <div style={{
+          minHeight: '100vh',
+          background: 'linear-gradient(135deg, #0a0e27 0%, #1a1f3a 50%, #0f1829 100%)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px'
+        }}>
+          <div style={{
+            background: 'linear-gradient(135deg, #1c1e2a 0%, #252836 100%)',
+            border: '1px solid rgba(212, 175, 55, 0.4)',
+            borderRadius: '15px', padding: '50px 40px',
+            maxWidth: '450px', width: '100%', textAlign: 'center',
+            boxShadow: '0 12px 40px rgba(0,0,0,0.4)'
+          }}>
+            <div style={{ fontSize: '48px', marginBottom: '20px' }}>🔗</div>
+            <div style={{
+              fontSize: '22px', fontWeight: 'bold', color: '#d4af37',
+              marginBottom: '12px', letterSpacing: '1px'
+            }}>
+              Room Link Required
+            </div>
+            <div style={{ color: '#888', fontSize: '14px', lineHeight: '1.8', marginBottom: '30px' }}>
+              You need a room link from the dealer to join a session.<br />
+              Ask your streamer/dealer for the invite link.
+            </div>
+            <button
+              onClick={() => setShowDealerLogin(true)}
+              style={{
+                padding: '10px 24px', background: 'transparent',
+                border: '1px solid #444', borderRadius: '6px',
+                color: '#666', fontSize: '11px', cursor: 'pointer',
+                fontFamily: 'inherit', letterSpacing: '1px', textTransform: 'uppercase'
+              }}
+            >
+              🔐 Dealer Login
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     // Show registration first if player hasn't registered
     if (!isPlayerRegistered) {
       return (
@@ -1349,7 +1405,7 @@ const App = () => {
                 key={amount}
                 onClick={async () => {
                   setStartingChips(amount);
-                  const chipsRef = ref(db, 'session/settings/startingChips');
+                  const chipsRef = ref(db, `rooms/${roomCode}/session/settings/startingChips`);
                   await set(chipsRef, amount);
                 }}
                 style={{
@@ -1373,17 +1429,16 @@ const App = () => {
           <button
             onClick={async () => {
               if (confirm(`Reset ALL players and yourself to $${startingChips.toLocaleString()}?`)) {
-                // Read all users and reset their bankroll
-                const usersRef = ref(db, 'session/users');
+                const usersRef = ref(db, `rooms/${roomCode}/session/users`);
                 const snap = await new Promise((resolve) => {
                   onValue(usersRef, (snapshot) => resolve(snapshot), { onlyOnce: true });
                 });
                 if (snap.exists()) {
                   const users = snap.val();
                   for (const uid of Object.keys(users)) {
-                    const userRef = ref(db, `session/users/${uid}`);
+                    const userRef = ref(db, `rooms/${roomCode}/session/users/${uid}`);
                     await set(userRef, { ...users[uid], bankroll: startingChips });
-                    const lbRef = ref(db, `session/leaderboard/${uid}`);
+                    const lbRef = ref(db, `rooms/${roomCode}/session/leaderboard/${uid}`);
                     await set(lbRef, { userId: uid, name: users[uid].name, bankroll: startingChips, isAdmin: users[uid].isAdmin || false, timestamp: Date.now() });
                   }
                 }
@@ -1451,6 +1506,50 @@ const App = () => {
           }}>
             🎮 DEALER INSTRUCTIONS
           </div>
+          
+          {/* Room join link */}
+          {roomCode && (
+            <div style={{
+              background: 'rgba(212,175,55,0.1)',
+              border: '1px solid rgba(212,175,55,0.4)',
+              borderRadius: '10px',
+              padding: '14px 18px',
+              marginBottom: '16px',
+              textAlign: 'left'
+            }}>
+              <div style={{ color: '#d4af37', fontSize: '10px', letterSpacing: '2px', marginBottom: '8px', fontWeight: 'bold' }}>
+                🔗 SHARE WITH PLAYERS
+              </div>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap'
+              }}>
+                <code style={{
+                  color: '#fff', fontSize: '13px', fontFamily: 'monospace',
+                  background: 'rgba(0,0,0,0.4)', padding: '6px 12px', borderRadius: '6px',
+                  flex: 1, wordBreak: 'break-all'
+                }}>
+                  {`${window.location.origin}${window.location.pathname}?room=${roomCode}`}
+                </code>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}?room=${roomCode}`);
+                    alert('✅ Link copied!');
+                  }}
+                  style={{
+                    padding: '8px 14px', background: '#d4af37', border: 'none',
+                    borderRadius: '6px', color: '#000', fontSize: '11px', fontWeight: 'bold',
+                    cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap'
+                  }}
+                >
+                  Copy Link
+                </button>
+              </div>
+              <div style={{ color: '#666', fontSize: '10px', marginTop: '6px' }}>
+                Room Code: <span style={{ color: '#d4af37', fontWeight: 'bold', letterSpacing: '2px' }}>{roomCode}</span>
+                {' · '}Overlay: <code style={{ color: '#888', fontSize: '10px' }}>{`?room=${roomCode}#overlay`}</code>
+              </div>
+            </div>
+          )}
           <div style={{
             color: '#fff',
             fontSize: '12px',
