@@ -894,7 +894,7 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
       </div>
 
       {/* Main Container */}
-      <div style={{ maxWidth: '1400px', margin: '20px auto', padding: isMobile ? '0 8px' : '0 20px' }}>
+      <div style={{ maxWidth: '1400px', margin: '20px auto', padding: isMobile ? '0 6px' : '0 20px', overflow: 'hidden' }}>
         
         {/* Status Bar */}
         <div style={{
@@ -961,8 +961,8 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
           {/* Card Display Area */}
           <div style={{
             display: 'grid',
-            gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
-            gap: isMobile ? '20px' : '40px',
+            gridTemplateColumns: isMobile ? '1fr 1fr' : '1fr 1fr',
+            gap: isMobile ? '10px' : '40px',
             marginBottom: isMobile ? '20px' : '40px'
           }}>
             {/* Player Side */}
@@ -1057,9 +1057,9 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
           {/* Betting Areas */}
           <div style={{
             display: 'grid',
-            gridTemplateColumns: '1fr auto 1fr',
-            gap: isMobile ? '10px' : '20px',
-            marginBottom: '20px',
+            gridTemplateColumns: isMobile ? '1fr 1fr 1fr' : '1fr auto 1fr',
+            gap: isMobile ? '6px' : '20px',
+            marginBottom: '15px',
             alignItems: 'stretch'
           }}>
             {/* Player Bet */}
@@ -1071,7 +1071,7 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                   : 'rgba(33, 150, 243, 0.3)',
                 border: '3px solid #2196f3',
                 borderRadius: '15px',
-                padding: isMobile ? '25px 15px' : '40px 20px',
+                padding: isMobile ? '15px 6px' : '40px 20px',
                 textAlign: 'center',
                 cursor: bettingOpen ? 'pointer' : 'not-allowed',
                 position: 'relative',
@@ -1080,7 +1080,7 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
               }}
             >
               <div style={{
-                fontSize: isMobile ? '18px' : '24px',
+                fontSize: isMobile ? '13px' : '24px',
                 fontWeight: 'bold',
                 color: currentBets.player + (activeBets.player || 0) > 0 ? '#000' : '#fff',
                 marginBottom: '8px',
@@ -1117,13 +1117,13 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                   : 'rgba(255, 193, 7, 0.3)',
                 border: '3px solid #ffc107',
                 borderRadius: '15px',
-                padding: isMobile ? '25px 20px' : '40px 30px',
+                padding: isMobile ? '15px 6px' : '40px 30px',
                 textAlign: 'center',
                 cursor: bettingOpen ? 'pointer' : 'not-allowed',
                 position: 'relative',
                 transition: 'all 0.2s',
                 opacity: bettingOpen ? 1 : 0.5,
-                minWidth: isMobile ? '80px' : '120px'
+                minWidth: isMobile ? 'auto' : '120px'
               }}
             >
               <div style={{
@@ -1164,7 +1164,7 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                   : 'rgba(244, 67, 54, 0.3)',
                 border: '3px solid #f44336',
                 borderRadius: '15px',
-                padding: isMobile ? '25px 15px' : '40px 20px',
+                padding: isMobile ? '15px 6px' : '40px 20px',
                 textAlign: 'center',
                 cursor: bettingOpen ? 'pointer' : 'not-allowed',
                 position: 'relative',
@@ -1173,7 +1173,7 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
               }}
             >
               <div style={{
-                fontSize: isMobile ? '18px' : '24px',
+                fontSize: isMobile ? '13px' : '24px',
                 fontWeight: 'bold',
                 color: currentBets.banker + (activeBets.banker || 0) > 0 ? '#000' : '#fff',
                 marginBottom: '8px',
@@ -1217,11 +1217,11 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                   : 'rgba(156, 39, 176, 0.3)',
                 border: '2px solid #9c27b0',
                 borderRadius: '12px',
-                padding: '15px 10px',
+                padding: isMobile ? '10px 6px' : '15px 10px',
                 textAlign: 'center',
                 cursor: bettingOpen ? 'pointer' : 'not-allowed',
                 position: 'relative',
-                fontSize: '11px',
+                fontSize: isMobile ? '9px' : '11px',
                 fontWeight: 'bold',
                 color: currentBets.playerPair + (activeBets.playerPair || 0) > 0 ? '#fff' : 'rgba(255,255,255,0.8)',
                 opacity: bettingOpen ? 1 : 0.5
@@ -1260,11 +1260,11 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                   : 'rgba(156, 39, 176, 0.3)',
                 border: '2px solid #9c27b0',
                 borderRadius: '12px',
-                padding: '15px 10px',
+                padding: isMobile ? '10px 6px' : '15px 10px',
                 textAlign: 'center',
                 cursor: bettingOpen ? 'pointer' : 'not-allowed',
                 position: 'relative',
-                fontSize: '11px',
+                fontSize: isMobile ? '9px' : '11px',
                 fontWeight: 'bold',
                 color: currentBets.bankerPair + (activeBets.bankerPair || 0) > 0 ? '#fff' : 'rgba(255,255,255,0.8)',
                 opacity: bettingOpen ? 1 : 0.5
@@ -1303,11 +1303,11 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                   : 'rgba(255, 87, 34, 0.3)',
                 border: '2px solid #ff5722',
                 borderRadius: '12px',
-                padding: '15px 10px',
+                padding: isMobile ? '10px 6px' : '15px 10px',
                 textAlign: 'center',
                 cursor: bettingOpen ? 'pointer' : 'not-allowed',
                 position: 'relative',
-                fontSize: '11px',
+                fontSize: isMobile ? '9px' : '11px',
                 fontWeight: 'bold',
                 color: currentBets.dragon + (activeBets.dragon || 0) > 0 ? '#fff' : 'rgba(255,255,255,0.8)',
                 opacity: bettingOpen ? 1 : 0.5
@@ -1346,11 +1346,11 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                   : 'rgba(76, 175, 80, 0.3)',
                 border: '2px solid #4caf50',
                 borderRadius: '12px',
-                padding: '15px 10px',
+                padding: isMobile ? '10px 6px' : '15px 10px',
                 textAlign: 'center',
                 cursor: bettingOpen ? 'pointer' : 'not-allowed',
                 position: 'relative',
-                fontSize: '11px',
+                fontSize: isMobile ? '9px' : '11px',
                 fontWeight: 'bold',
                 color: currentBets.panda + (activeBets.panda || 0) > 0 ? '#fff' : 'rgba(255,255,255,0.8)',
                 opacity: bettingOpen ? 1 : 0.5
