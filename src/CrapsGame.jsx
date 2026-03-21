@@ -187,7 +187,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
   // Read startingChips from Firebase settings
   useEffect(() => {
     if (!roomCode) return;
-    const chipsRef = ref(db, `rooms/${roomCode}/session/settings/startingChips`);
+    const chipsRef = ref(db, `rooms/${roomCode}/settings/startingChips`);
     const unsub = onValue(chipsRef, (snapshot) => {
       if (snapshot.exists()) {
         setStartingChips(snapshot.val());
