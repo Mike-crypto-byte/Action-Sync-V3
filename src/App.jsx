@@ -115,6 +115,25 @@ const App = () => {
     return () => unsub();
   }, [dealerUid]);
 
+  // ── Sync sessionStatus from Firebase (dealer) — survives page refresh ─────────
+  useEffect(() => {
+    if (!isDealer || !dealerUid) return;
+    const unsub = onValue(ref(db, `rooms/${dealerUid}/session/status`), (snap) => {
+      if (snap.exists()) setSessionStatus(snap.val());
+      else setSessionStatus('waiting');
+    });
+    return () => unsub();
+  }, [isDealer, dealerUid]);
+
+  // ── Sync dealer's active game from Firebase — survives page refresh ───────────
+  useEffect(() => {
+    if (!isDealer || !dealerUid) return;
+    const unsub = onValue(ref(db, `rooms/${dealerUid}/session/activeGame`), (snap) => {
+      setSelectedGame(snap.exists() && snap.val() ? snap.val() : null);
+    });
+    return () => unsub();
+  }, [isDealer, dealerUid]);
+
   // ── Write dealerUid to URL when dealer logs in ────────────────────────────────
   useEffect(() => {
     if (isDealer && user) {
@@ -743,7 +762,7 @@ const App = () => {
             Sign Out
           </button>
           <div style={{ color: '#555', fontSize: '11px', lineHeight: '1.7' }}>
-            Select a game above to push it to all players · Switch games at any time · Use "Start New Stream" before each broadcast
+            Select a game above to push it to all players · Switch games freely mid-session · Use "Go Live" to start each stream · "End Stream" to archive and reset
             <br /><span style={{ color: '#444', fontSize: '10px' }}>Virtual entertainment only · No real money · 18+ only</span>
           </div>
         </div>
