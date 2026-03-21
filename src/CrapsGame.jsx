@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Users, Timer, Crown, Trophy, Settings, ArrowLeft } from 'lucide-react';
 // ========== FIREBASE: Import real-time sync hooks ==========
 import { database as db, ref, onValue, set as fbSet } from './firebase.js';
+import { useSettings, DEFAULT_ODDS, DEFAULT_VISIBILITY } from './useSettings';
 import {
   useGameState,
   useLeaderboard,
@@ -15,6 +16,11 @@ import {
 const GAME_NAME = 'craps';
 
 const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: propPlayerName, skipRegistration = false, roomCode }) => {
+  // ── Settings (odds + bet visibility) — read once on mount ──────────────────
+  const { odds: settingsOdds, betVisibility: settingsVisibility } = useSettings(roomCode);
+  const gameOdds = settingsOdds.craps;
+  const gameVis  = settingsVisibility.craps;
+
   // Mobile detection
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   useEffect(() => {
@@ -422,122 +428,97 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
     
     // === ONE ROLL BETS ===
     
-    // Field bet (2,3,4,9,10,11,12 - pays 2x on 2,12)
+    // Field bet (2,3,4,9,10,11,12)
     if (newActiveBets.field > 0) {
       if ([2, 3, 4, 9, 10, 11, 12].includes(total)) {
-        if (total === 2 || total === 12) {
-          const payout = newActiveBets.field * 3; // 2:1 payout
-          winnings += payout;
-          rollWinnings += payout - newActiveBets.field;
+        if (total === 2) {
+          const payout = newActiveBets.field * (gameOdds.field2 + 1);
+          winnings += payout; rollWinnings += payout - newActiveBets.field;
+        } else if (total === 12) {
+          const payout = newActiveBets.field * (gameOdds.field12 + 1);
+          winnings += payout; rollWinnings += payout - newActiveBets.field;
         } else {
-          const payout = newActiveBets.field * 2; // 1:1 payout
-          winnings += payout;
-          rollWinnings += payout - newActiveBets.field;
+          const payout = newActiveBets.field * 2; // 1:1 always
+          winnings += payout; rollWinnings += payout - newActiveBets.field;
         }
       } else {
         rollWinnings -= newActiveBets.field;
       }
       newActiveBets.field = 0;
     }
-    
+
     // Any 7
     if (newActiveBets.any7 > 0) {
       if (total === 7) {
-        const payout = newActiveBets.any7 * 5; // 4:1 payout
-        winnings += payout;
-        rollWinnings += payout - newActiveBets.any7;
-      } else {
-        rollWinnings -= newActiveBets.any7;
-      }
+        const payout = newActiveBets.any7 * (gameOdds.anySeven + 1);
+        winnings += payout; rollWinnings += payout - newActiveBets.any7;
+      } else { rollWinnings -= newActiveBets.any7; }
       newActiveBets.any7 = 0;
     }
-    
+
     // Any Craps (2,3,12)
     if (newActiveBets.anyCraps > 0) {
       if ([2, 3, 12].includes(total)) {
-        const payout = newActiveBets.anyCraps * 8; // 7:1 payout
-        winnings += payout;
-        rollWinnings += payout - newActiveBets.anyCraps;
-      } else {
-        rollWinnings -= newActiveBets.anyCraps;
-      }
+        const payout = newActiveBets.anyCraps * (gameOdds.anyCraps + 1);
+        winnings += payout; rollWinnings += payout - newActiveBets.anyCraps;
+      } else { rollWinnings -= newActiveBets.anyCraps; }
       newActiveBets.anyCraps = 0;
     }
-    
-    // Individual prop bets
+
+    // Individual prop bets (ace2, ace12, three, yo11 use hop odds)
     if (newActiveBets.ace2 > 0) {
       if (total === 2) {
-        const payout = newActiveBets.ace2 * 31; // 30:1
-        winnings += payout;
-        rollWinnings += payout - newActiveBets.ace2;
-      } else {
-        rollWinnings -= newActiveBets.ace2;
-      }
+        const payout = newActiveBets.ace2 * (gameOdds.hop + 1);
+        winnings += payout; rollWinnings += payout - newActiveBets.ace2;
+      } else { rollWinnings -= newActiveBets.ace2; }
       newActiveBets.ace2 = 0;
     }
     if (newActiveBets.ace12 > 0) {
       if (total === 12) {
-        const payout = newActiveBets.ace12 * 31; // 30:1
-        winnings += payout;
-        rollWinnings += payout - newActiveBets.ace12;
-      } else {
-        rollWinnings -= newActiveBets.ace12;
-      }
+        const payout = newActiveBets.ace12 * (gameOdds.hop + 1);
+        winnings += payout; rollWinnings += payout - newActiveBets.ace12;
+      } else { rollWinnings -= newActiveBets.ace12; }
       newActiveBets.ace12 = 0;
     }
     if (newActiveBets.three > 0) {
       if (total === 3) {
-        const payout = newActiveBets.three * 16; // 15:1
-        winnings += payout;
-        rollWinnings += payout - newActiveBets.three;
-      } else {
-        rollWinnings -= newActiveBets.three;
-      }
+        const payout = newActiveBets.three * (gameOdds.hop + 1);
+        winnings += payout; rollWinnings += payout - newActiveBets.three;
+      } else { rollWinnings -= newActiveBets.three; }
       newActiveBets.three = 0;
     }
     if (newActiveBets.yo11 > 0) {
       if (total === 11) {
-        const payout = newActiveBets.yo11 * 16; // 15:1
-        winnings += payout;
-        rollWinnings += payout - newActiveBets.yo11;
-      } else {
-        rollWinnings -= newActiveBets.yo11;
-      }
+        const payout = newActiveBets.yo11 * (gameOdds.hop + 1);
+        winnings += payout; rollWinnings += payout - newActiveBets.yo11;
+      } else { rollWinnings -= newActiveBets.yo11; }
       newActiveBets.yo11 = 0;
     }
-    
+
     // Horn Bet (2, 3, 11, 12)
     if (newActiveBets.horn > 0) {
       if (total === 2 || total === 12) {
-        const payout = newActiveBets.horn * 7.5; // 30:1 on winner minus 3 losers
-        winnings += payout;
-        rollWinnings += payout - newActiveBets.horn;
+        const payout = newActiveBets.horn * 7.5;
+        winnings += payout; rollWinnings += payout - newActiveBets.horn;
       } else if (total === 3 || total === 11) {
-        const payout = newActiveBets.horn * 4; // 15:1 on winner minus 3 losers
-        winnings += payout;
-        rollWinnings += payout - newActiveBets.horn;
-      } else {
-        rollWinnings -= newActiveBets.horn;
-      }
+        const payout = newActiveBets.horn * 4;
+        winnings += payout; rollWinnings += payout - newActiveBets.horn;
+      } else { rollWinnings -= newActiveBets.horn; }
       newActiveBets.horn = 0;
     }
-    
+
     // C&E (Any Craps + Eleven)
     if (newActiveBets.ce > 0) {
       if ([2, 3, 12].includes(total)) {
-        const payout = newActiveBets.ce * 1.5; // 3:1 on craps half minus eleven half
-        winnings += payout;
-        rollWinnings += payout - newActiveBets.ce;
+        const payout = newActiveBets.ce * 1.5;
+        winnings += payout; rollWinnings += payout - newActiveBets.ce;
       } else if (total === 11) {
-        const payout = newActiveBets.ce * 3.5; // 7:1 on eleven half minus craps half
-        winnings += payout;
-        rollWinnings += payout - newActiveBets.ce;
-      } else {
-        rollWinnings -= newActiveBets.ce;
-      }
+        const payout = newActiveBets.ce * 3.5;
+        winnings += payout; rollWinnings += payout - newActiveBets.ce;
+      } else { rollWinnings -= newActiveBets.ce; }
       newActiveBets.ce = 0;
     }
-    
+
     // Hop Bets (one roll)
     const hopBets = [
       'hop11', 'hop22', 'hop33', 'hop44', 'hop55', 'hop66',
@@ -546,29 +527,29 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
       'hop34', 'hop35', 'hop36',
       'hop45', 'hop46', 'hop56'
     ];
-    
+
     hopBets.forEach(hopBet => {
       if (newActiveBets[hopBet] > 0) {
         const hopCombo = hopBet.substring(3);
         const isHardHop = hopCombo[0] === hopCombo[1];
-        
         if (diceCombo === hopCombo) {
-          const payout = isHardHop 
-            ? newActiveBets[hopBet] * 31  // 30:1 for hard hops
-            : newActiveBets[hopBet] * 16; // 15:1 for easy hops
+          const payout = isHardHop
+            ? newActiveBets[hopBet] * (gameOdds.hop + 1)
+            : newActiveBets[hopBet] * (gameOdds.hop + 1);
           winnings += payout;
           rollWinnings += payout - newActiveBets[hopBet];
-        } else {
-          rollWinnings -= newActiveBets[hopBet];
-        }
+        } else { rollWinnings -= newActiveBets[hopBet]; }
         newActiveBets[hopBet] = 0;
       }
     });
-    
-    // === MULTI-ROLL BETS ===
-    
-    // Hard ways (lose on easy way or 7)
-    const hardWayPayouts = { 4: 8, 6: 10, 8: 10, 10: 8 }; // 7:1 and 9:1
+
+    // Hard ways — use settings odds
+    const hardWayPayouts = {
+      4:  gameOdds.hardWay4_10 + 1,
+      10: gameOdds.hardWay4_10 + 1,
+      6:  gameOdds.hardWay6_8  + 1,
+      8:  gameOdds.hardWay6_8  + 1,
+    };
     [4, 6, 8, 10].forEach(num => {
       const betKey = `hard${num}`;
       if (newActiveBets[betKey] > 0) {
@@ -583,9 +564,16 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
         }
       }
     });
-    
-    // Place bets (standard craps)
-    const placePayouts = { 4: 1.8, 5: 1.4, 6: 1.16667, 8: 1.16667, 9: 1.4, 10: 1.8 };
+
+    // Place bets — use settings odds (stored as numerator, denominator varies by number)
+    const placePayouts = {
+      4:  gameOdds.place4_10 / 5,
+      10: gameOdds.place4_10 / 5,
+      5:  gameOdds.place5_9  / 5,
+      9:  gameOdds.place5_9  / 5,
+      6:  gameOdds.place6_8  / 6,
+      8:  gameOdds.place6_8  / 6,
+    };
     [4, 5, 6, 8, 9, 10].forEach(num => {
       const betKey = `place${num}`;
       if (newActiveBets[betKey] > 0) {
@@ -1222,7 +1210,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
         }}>
           
           {/* Top Section - Proposition Bets */}
-          <div style={{
+          {gameVis.proposition && <div style={{
             display: 'grid',
             gridTemplateColumns: isMobile ? '1fr' : '1fr 2fr 1fr',
             gap: '10px',
@@ -1338,10 +1326,10 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
                 disabled={!bettingOpen}
               />
             </div>
-          </div>
+          </div>}
 
           {/* Hop Bets Overlay */}
-          {showHopBets && (
+          {gameVis.hop && showHopBets && (
             <div style={{
               marginBottom: '15px',
               padding: '15px',
@@ -1492,7 +1480,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
               )}
 
               {/* Place Bets / Crapless Numbers */}
-              <div style={{ 
+              {gameVis.place && <div style={{ 
                 display: 'grid', 
                 gridTemplateColumns: gameMode === 'crapless' ? (isMobile ? 'repeat(5, 1fr)' : 'repeat(10, 1fr)') : (isMobile ? 'repeat(3, 1fr)' : 'repeat(6, 1fr)'),
                 gap: '8px',
@@ -1606,7 +1594,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
                     />
                   </>
                 )}
-              </div>
+              </div>}
 
               {/* COME area */}
               <CrapsBetArea 
@@ -1624,7 +1612,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
               />
 
               {/* Field */}
-              <CrapsBetArea 
+              {gameVis.field && <CrapsBetArea 
                 label="FIELD • 2 3 4 9 10 11 12 • (2:1 on 2,12)" 
                 value={currentBets.field + (activeBets.field || 0)}
                 onClick={() => placeBet('field')}
@@ -1635,7 +1623,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
                   border: '3px solid #fff',
                   fontSize: '10px'
                 }}
-              />
+              />}
             </div>
 
             {/* Right - Don't Come and Fire Bet */}
@@ -1667,7 +1655,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
               </div>
               
               {/* Fire Bet Section */}
-              <div style={{
+              {gameVis.fireBet && <div style={{
                 background: 'rgba(255, 0, 0, 0.2)',
                 border: '2px solid #ff4444',
                 borderRadius: '8px',
@@ -1721,7 +1709,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
                     }}
                   />
                 </div>
-              </div>
+              </div>}
             </div>
           </div>
         </div>
