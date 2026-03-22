@@ -328,19 +328,22 @@ export async function startNewSession(dealerUid, startingChips) {
     }
   }
 
-  // Reset session fields individually — a full set() on 'session' is blocked
-  // by Firebase rules because child nodes (leaderboard, presence, chat) have
-  // their own rules and a parent overwrite is denied.
-  await set(rr(dealerUid, 'session/status'),        'waiting');
-  await set(rr(dealerUid, 'session/sessionNumber'),  newNumber);
-  await set(rr(dealerUid, 'session/startedAt'),      Date.now());
-  await set(rr(dealerUid, 'session/activeGame'),     null);
-  await set(rr(dealerUid, 'session/finalLeaderboard'), null);
-  // Clear live session data from previous stream
-  await set(rr(dealerUid, 'session/leaderboard'),   null);
-  await set(rr(dealerUid, 'session/presence'),      null);
-  await set(rr(dealerUid, 'session/chat'),          null);
-  await set(rr(dealerUid, 'session/games'),         null);
+  // Reset session atomically using update() with explicit null values to clear children.
+  // We cannot set() the parent session node because Firebase rules evaluate each
+  // child path individually — leaderboard/presence/chat have their own rules.
+  // Using update() on the parent with null values for children is allowed because
+  // it doesn't cascade permission checks the same way set() does.
+  await update(rr(dealerUid, 'session'), {
+    status:           'waiting',
+    sessionNumber:     newNumber,
+    startedAt:         Date.now(),
+    activeGame:        null,
+    finalLeaderboard:  null,
+    leaderboard:       null,
+    presence:          null,
+    chat:              null,
+    games:             null,
+  });
 
   // Persist updated settings
   await update(rr(dealerUid, 'settings'), {
