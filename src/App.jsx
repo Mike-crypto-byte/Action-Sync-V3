@@ -430,8 +430,6 @@ const App = () => {
   const playerUid    = user.uid;
   const isDealerMode = isDealer;
 
-  const isDealerMode = isDealer;
-
   if (selectedGame === 'craps') {
     return <CrapsGame onBack={deactivateGame} isDealerMode={isDealerMode} playerUserId={playerUid} playerName={playerName} skipRegistration={true} roomCode={dealerUid} />;
 
@@ -502,7 +500,8 @@ const App = () => {
               <div style={{ display: 'flex', justifyContent: 'center', gap: '10px' }}>
                 {[0,1,2].map(i => <div key={i} style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#d4af37', animation: `pulse 1.5s ease-in-out ${i*0.2}s infinite` }} />)}
               </div>
-            </>\n          ) : (
+            </>
+          ) : (
             <>
               {sessionStatus === 'active' ? (
                 // Session is live but dealer is between games
@@ -814,4 +813,4 @@ const App = () => {
   );
 };
 
-export default App; 
+export default App;
