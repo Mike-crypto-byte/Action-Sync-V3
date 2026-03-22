@@ -328,13 +328,19 @@ export async function startNewSession(dealerUid, startingChips) {
     }
   }
 
-  // Wipe live session — status "waiting" means lobby, no game running yet
-  await set(rr(dealerUid, 'session'), {
-    status:        'waiting',
-    sessionNumber:  newNumber,
-    startedAt:      Date.now(),
-    activeGame:     null,
-  });
+  // Reset session fields individually — a full set() on 'session' is blocked
+  // by Firebase rules because child nodes (leaderboard, presence, chat) have
+  // their own rules and a parent overwrite is denied.
+  await set(rr(dealerUid, 'session/status'),        'waiting');
+  await set(rr(dealerUid, 'session/sessionNumber'),  newNumber);
+  await set(rr(dealerUid, 'session/startedAt'),      Date.now());
+  await set(rr(dealerUid, 'session/activeGame'),     null);
+  await set(rr(dealerUid, 'session/finalLeaderboard'), null);
+  // Clear live session data from previous stream
+  await set(rr(dealerUid, 'session/leaderboard'),   null);
+  await set(rr(dealerUid, 'session/presence'),      null);
+  await set(rr(dealerUid, 'session/chat'),          null);
+  await set(rr(dealerUid, 'session/games'),         null);
 
   // Persist updated settings
   await update(rr(dealerUid, 'settings'), {
