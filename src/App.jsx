@@ -339,7 +339,7 @@ const App = () => {
       <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0a0e27 0%, #1a1f3a 50%, #0f1829 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
         <div style={{ background: 'linear-gradient(135deg, #1c1e2a 0%, #252836 100%)', border: '1px solid rgba(212,175,55,0.4)', borderRadius: '15px', padding: isMobile ? '30px 20px' : '50px 40px', maxWidth: '460px', width: '100%', boxShadow: '0 12px 40px rgba(0,0,0,0.4)' }}>
           <div style={{ textAlign: 'center', marginBottom: '28px' }}>
-            <div style={{ fontSize: isMobile ? '34px' : '44px', fontWeight: 'bold', background: 'linear-gradient(135deg, #d4af37 0%, #ffd700 50%, #d4af37 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '1.5px', marginBottom: '6px' }}>ACTION SYNC</div>
+            <div style={{ fontSize: isMobile ? '34px' : '44px', fontWeight: 'bold', color: '#d4af37', letterSpacing: '1.5px', marginBottom: '6px', textShadow: '0 0 20px rgba(212,175,55,0.3)' }}>ACTION SYNC</div>
             <div style={{ color: '#d4af37', fontSize: '11px', letterSpacing: '2px', textTransform: 'uppercase' }}>{isDealerForm ? '🎰 Dealer Portal' : '🎲 Join the Action'}</div>
           </div>
 
@@ -583,7 +583,7 @@ const App = () => {
 
         {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: '50px' }}>
-          <div style={{ fontSize: '64px', fontWeight: 'bold', background: 'linear-gradient(135deg,#d4af37 0%,#ffd700 50%,#d4af37 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '8px', marginBottom: '10px' }}>
+          <div style={{ fontSize: '64px', fontWeight: 'bold', color: '#d4af37', letterSpacing: '8px', marginBottom: '10px', textShadow: '0 0 40px rgba(212,175,55,0.4)' }}>
             ACTION SYNC
           </div>
           <div style={{ color: '#888', fontSize: '14px', letterSpacing: '4px', textTransform: 'uppercase', marginBottom: '12px' }}>
