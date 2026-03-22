@@ -368,4 +368,4 @@ const SettingsPanel = ({ dealerUid }) => {
   );
 };
 
-export default SettingsPanel;
+export default SettingsPanel; 
