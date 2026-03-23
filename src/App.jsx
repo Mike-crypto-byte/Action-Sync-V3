@@ -1,7 +1,7 @@
 // App.jsx — Phase 3: Multi-streamer, vanity room codes
 import React, { useState, useEffect } from 'react';
 import { Dice1, Spade, ArrowLeft, Circle } from 'lucide-react';
-import { database as db, ref, onValue, set } from './firebase.js';
+import { database as db, ref, onValue, set, auth } from './firebase.js';
 import { useAuth } from './useAuth.js';
 import { startNewSession, startStream, switchGame, useSessionHistory, resolveRoomCode, normaliseCode, changeRoomCode, isRoomCodeAvailable } from './useFirebaseSync.js';
 
@@ -210,6 +210,8 @@ const App = () => {
       return;
     }
     setNewSessionLoading(true);
+    // Force token refresh to ensure Firebase auth is live before writing
+    try { if (auth.currentUser) await auth.currentUser.getIdToken(true); } catch(e) { console.warn('Token refresh failed:', e); }
     try {
       // 1. Snapshot leaderboard
       const lbSnap = await new Promise(resolve =>
