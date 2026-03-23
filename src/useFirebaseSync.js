@@ -328,21 +328,27 @@ export async function startNewSession(dealerUid, startingChips) {
     }
   }
 
-  // Write each session field individually — Firebase rules block any parent-level
-  // set/update that touches child paths with their own rules (leaderboard, presence, chat).
-  // Writing directly to each authorized path bypasses this restriction.
-  const sessionWrites = [
-    set(rr(dealerUid, 'session/status'),           'waiting'),
-    set(rr(dealerUid, 'session/sessionNumber'),     newNumber),
-    set(rr(dealerUid, 'session/startedAt'),         Date.now()),
-    set(rr(dealerUid, 'session/activeGame'),        null),
-    set(rr(dealerUid, 'session/finalLeaderboard'),  null),
-    set(rr(dealerUid, 'session/leaderboard'),       null),
-    set(rr(dealerUid, 'session/presence'),          null),
-    set(rr(dealerUid, 'session/chat'),              null),
-    set(rr(dealerUid, 'session/games'),             null),
+  // Write each session field individually with per-path error logging
+  const paths = [
+    ['session/status',          'waiting'],
+    ['session/sessionNumber',    newNumber],
+    ['session/startedAt',        Date.now()],
+    ['session/activeGame',       null],
+    ['session/finalLeaderboard', null],
+    ['session/leaderboard',      null],
+    ['session/presence',         null],
+    ['session/chat',             null],
+    ['session/games',            null],
   ];
-  await Promise.all(sessionWrites);
+  for (const [path, value] of paths) {
+    try {
+      await set(rr(dealerUid, path), value);
+      console.log('✅ wrote:', path);
+    } catch (e) {
+      console.error('❌ FAILED:', path, e.code, e.message);
+      throw e;
+    }
+  }
 
   // Persist updated settings
   await update(rr(dealerUid, 'settings'), {
