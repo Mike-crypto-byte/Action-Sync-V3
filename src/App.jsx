@@ -58,7 +58,12 @@ const App = () => {
     }
   }, []);
 
-  const dealerUid = isDealer ? user?.uid : resolvedDealerUid;
+  // dealerUid must be stable across async function closures — use useMemo
+  // so handlers like handleStartNewSession always see the current value.
+  const dealerUid = React.useMemo(
+    () => isDealer ? user?.uid : resolvedDealerUid,
+    [isDealer, user?.uid, resolvedDealerUid]
+  );
 
   // ── UI state ─────────────────────────────────────────────────────────────────
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -172,11 +177,11 @@ const App = () => {
 
   // ── Dealer: switch active game (session stays alive) ─────────────────────────
   const setActiveGame = async (game) => {
-    if (!dealerUid) return;
+    const uid = user?.uid;
+    if (!uid) return;
     try {
-      // If session is still waiting, go active first
-      if (sessionStatus === 'waiting') await startStream(dealerUid);
-      await switchGame(dealerUid, game);
+      if (sessionStatus === 'waiting') await startStream(uid);
+      await switchGame(uid, game);
       setSelectedGame(game);
     } catch (e) {
       console.error('Failed to switch game:', e);
@@ -185,11 +190,11 @@ const App = () => {
   };
 
   // ── Dealer: end current game, return to lobby (session stays alive) ───────────
-  // Players see "Game over — next game coming up" not the session summary.
   const deactivateGame = async () => {
-    if (!dealerUid) return;
+    const uid = user?.uid;
+    if (!uid) return;
     try {
-      await switchGame(dealerUid, null); // null = between games, session still active
+      await switchGame(uid, null);
       setSelectedGame(null);
     } catch (e) {
       console.error('Failed to deactivate game:', e);
@@ -198,29 +203,35 @@ const App = () => {
 
   // ── Dealer: end stream — show summary then archive ───────────────────────────
   const handleStartNewSession = async () => {
+    // Read dealerUid directly — don't rely on closure which may be stale
+    const currentDealerUid = user?.uid;
+    if (!currentDealerUid) {
+      alert('Not logged in as dealer. Please refresh and try again.');
+      return;
+    }
     setNewSessionLoading(true);
     try {
       // 1. Snapshot leaderboard
       const lbSnap = await new Promise(resolve =>
-        onValue(ref(db, `rooms/${dealerUid}/session/leaderboard`), resolve, { onlyOnce: true })
+        onValue(ref(db, `rooms/${currentDealerUid}/session/leaderboard`), resolve, { onlyOnce: true })
       );
       if (lbSnap.exists()) {
         const finalLeaderboard = lbSnap.val();
         const players = Object.values(finalLeaderboard).sort((a, b) => b.bankroll - a.bankroll);
-        try { await set(ref(db, `rooms/${dealerUid}/session/status`), 'ended'); }
+        try { await set(ref(db, `rooms/${currentDealerUid}/session/status`), 'ended'); }
         catch(e) { console.error('FAILED: session/status', e.code, e.message); throw e; }
-        try { await set(ref(db, `rooms/${dealerUid}/session/finalLeaderboard`), finalLeaderboard); }
+        try { await set(ref(db, `rooms/${currentDealerUid}/session/finalLeaderboard`), finalLeaderboard); }
         catch(e) { console.error('FAILED: session/finalLeaderboard', e.code, e.message); throw e; }
         setSessionLeaderboard(players);
         setShowSessionSummary(true);
       }
       // 2. Archive + reset
-      await startNewSession(dealerUid, startingChips);
+      await startNewSession(currentDealerUid, startingChips);
       setShowNewSessionConfirm(false);
       setSelectedGame(null);
       setSessionStatus('waiting');
     } catch (e) {
-      console.error('Failed to start new session:', e.code, e.message);
+      console.error('Failed to start new session:', e.code, e.message, e);
       alert('Failed to end session: ' + e.message + ' (code: ' + e.code + ')');
     } finally {
       setNewSessionLoading(false);
@@ -230,22 +241,24 @@ const App = () => {
   // ── Dealer: update starting chips ────────────────────────────────────────────
   const handleSetStartingChips = async (amount) => {
     setStartingChips(amount);
-    if (dealerUid) {
-      await set(ref(db, `rooms/${dealerUid}/settings/startingChips`), amount);
+    const uid = user?.uid;
+    if (uid) {
+      await set(ref(db, `rooms/${uid}/settings/startingChips`), amount);
     }
   };
 
   // ── Dealer: reset all bankrolls mid-session ───────────────────────────────────
   const handleResetAllBankrolls = async () => {
-    if (!dealerUid || !confirm(`Reset ALL players to $${startingChips.toLocaleString()}?`)) return;
+    const uid = user?.uid;
+    if (!uid || !confirm(`Reset ALL players to $${startingChips.toLocaleString()}?`)) return;
     const playersSnap = await new Promise((resolve) =>
-      onValue(ref(db, `rooms/${dealerUid}/players`), resolve, { onlyOnce: true })
+      onValue(ref(db, `rooms/${uid}/players`), resolve, { onlyOnce: true })
     );
     if (playersSnap.exists()) {
       const players = playersSnap.val();
-      for (const uid of Object.keys(players)) {
-        await set(ref(db, `rooms/${dealerUid}/players/${uid}/bankroll`), startingChips);
-        await set(ref(db, `rooms/${dealerUid}/session/leaderboard/${uid}/bankroll`), startingChips);
+      for (const pUid of Object.keys(players)) {
+        await set(ref(db, `rooms/${uid}/players/${pUid}/bankroll`), startingChips);
+        await set(ref(db, `rooms/${uid}/session/leaderboard/${pUid}/bankroll`), startingChips);
       }
     }
     alert(`✅ All players reset to $${startingChips.toLocaleString()}`);
