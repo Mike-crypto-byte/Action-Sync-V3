@@ -200,27 +200,28 @@ const App = () => {
   const handleStartNewSession = async () => {
     setNewSessionLoading(true);
     try {
-      // 1. Snapshot leaderboard and write to session so players see the summary
+      // 1. Snapshot leaderboard
       const lbSnap = await new Promise(resolve =>
         onValue(ref(db, `rooms/${dealerUid}/session/leaderboard`), resolve, { onlyOnce: true })
       );
       if (lbSnap.exists()) {
         const finalLeaderboard = lbSnap.val();
         const players = Object.values(finalLeaderboard).sort((a, b) => b.bankroll - a.bankroll);
-        // Mark session ended with snapshot so player screens update immediately
-        await set(ref(db, `rooms/${dealerUid}/session/status`), 'ended');
-        await set(ref(db, `rooms/${dealerUid}/session/finalLeaderboard`), finalLeaderboard);
+        try { await set(ref(db, `rooms/${dealerUid}/session/status`), 'ended'); }
+        catch(e) { console.error('FAILED: session/status', e.code, e.message); throw e; }
+        try { await set(ref(db, `rooms/${dealerUid}/session/finalLeaderboard`), finalLeaderboard); }
+        catch(e) { console.error('FAILED: session/finalLeaderboard', e.code, e.message); throw e; }
         setSessionLeaderboard(players);
         setShowSessionSummary(true);
       }
-      // 2. Archive + reset in background (startNewSession reads the leaderboard again)
+      // 2. Archive + reset
       await startNewSession(dealerUid, startingChips);
       setShowNewSessionConfirm(false);
       setSelectedGame(null);
       setSessionStatus('waiting');
     } catch (e) {
-      console.error('Failed to start new session:', e);
-      alert('Failed to end session: ' + e.message);
+      console.error('Failed to start new session:', e.code, e.message);
+      alert('Failed to end session: ' + e.message + ' (code: ' + e.code + ')');
     } finally {
       setNewSessionLoading(false);
     }
