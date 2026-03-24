@@ -285,29 +285,29 @@ export async function distributeBonusChips(dealerUid, leaderboard, recipientId, 
 // ============================================================
 export async function startNewSession(dealerUid, startingChips) {
   if (!dealerUid) return;
+  console.log('startNewSession: begin', dealerUid);
 
+  console.log('startNewSession: reading settings...');
   const settingsSnap = await get(rr(dealerUid, 'settings'));
   const settings     = settingsSnap.exists() ? settingsSnap.val() : {};
   const prevNumber   = settings.sessionNumber || 0;
   const newNumber    = prevNumber + 1;
+  console.log('startNewSession: prevNumber', prevNumber, '→ newNumber', newNumber);
 
   // Archive previous session if one existed
   if (prevNumber > 0) {
+    console.log('startNewSession: reading leaderboard for archive...');
     const lbSnap = await get(rr(dealerUid, 'session/leaderboard'));
     if (lbSnap.exists()) {
       const finalLeaderboard = lbSnap.val();
-
-      // Update each player's persistent stats
       for (const [uid, entry] of Object.entries(finalLeaderboard)) {
         try {
           const statsSnap = await get(rr(dealerUid, `players/${uid}/stats`));
           const stats     = statsSnap.exists() ? statsSnap.val() : {};
           await set(rr(dealerUid, `players/${uid}/stats/sessionsPlayed`), (stats.sessionsPlayed || 0) + 1);
           await set(rr(dealerUid, `players/${uid}/stats/allTimeHigh`), Math.max(stats.allTimeHigh || 0, entry.bankroll));
-        } catch (e) { /* player may no longer exist */ }
+        } catch (e) { console.warn('stats update failed for', uid, e.message); }
       }
-
-      // Write history snapshot — this path is dealer-only, no child rule conflicts
       await set(rr(dealerUid, `history/${prevNumber}`), {
         sessionNumber:  prevNumber,
         startedAt:      settings.sessionStartedAt || Date.now(),
@@ -315,34 +315,47 @@ export async function startNewSession(dealerUid, startingChips) {
         startingChips:  settings.startingChips || startingChips,
         finalLeaderboard,
       });
+      console.log('startNewSession: archived session', prevNumber);
     }
   }
 
-  // Reset every player's bankroll — leaf path write, no conflict
+  console.log('startNewSession: reading players...');
   const playersSnap = await get(rr(dealerUid, 'players'));
   if (playersSnap.exists()) {
+    console.log('startNewSession: resetting', Object.keys(playersSnap.val()).length, 'players...');
     for (const uid of Object.keys(playersSnap.val())) {
       await set(rr(dealerUid, `players/${uid}/bankroll`), startingChips);
     }
+  } else {
+    console.log('startNewSession: no players to reset');
   }
 
-  // Reset session — write ONLY to leaf paths, never the parent session node.
-  // Firebase blocks any write to 'session' because children have their own rules.
-  await set(rr(dealerUid, 'session/status'),           'waiting');
-  await set(rr(dealerUid, 'session/sessionNumber'),     newNumber);
-  await set(rr(dealerUid, 'session/startedAt'),         Date.now());
-  await set(rr(dealerUid, 'session/activeGame'),        null);
-  await set(rr(dealerUid, 'session/finalLeaderboard'),  null);
-  await set(rr(dealerUid, 'session/leaderboard'),       null);
-  await set(rr(dealerUid, 'session/presence'),          null);
-  await set(rr(dealerUid, 'session/chat'),              null);
-  await set(rr(dealerUid, 'session/games'),             null);
+  const sessionPaths = [
+    ['session/status',           'waiting'],
+    ['session/sessionNumber',     newNumber],
+    ['session/startedAt',         Date.now()],
+    ['session/activeGame',        null],
+    ['session/finalLeaderboard',  null],
+    ['session/leaderboard',       null],
+    ['session/presence',          null],
+    ['session/chat',              null],
+    ['session/games',             null],
+    ['settings/sessionNumber',    newNumber],
+    ['settings/sessionStartedAt', Date.now()],
+    ['settings/startingChips',    startingChips],
+  ];
 
-  // Update settings — leaf paths only, no conflict
-  await set(rr(dealerUid, 'settings/sessionNumber'),    newNumber);
-  await set(rr(dealerUid, 'settings/sessionStartedAt'), Date.now());
-  await set(rr(dealerUid, 'settings/startingChips'),    startingChips);
+  for (const [path, value] of sessionPaths) {
+    try {
+      await set(rr(dealerUid, path), value);
+      console.log('✅', path);
+    } catch (e) {
+      console.error('❌ FAILED:', path, '|', e.message);
+      throw e;
+    }
+  }
 
+  console.log('startNewSession: complete');
   return newNumber;
 }
 
