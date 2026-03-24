@@ -210,11 +210,6 @@ const App = () => {
       return;
     }
     setNewSessionLoading(true);
-    // DIAGNOSTIC — remove after confirming
-    console.log('🔍 DIAG auth.currentUser.uid:', auth.currentUser?.uid);
-    console.log('🔍 DIAG currentDealerUid:', currentDealerUid);
-    console.log('🔍 DIAG match:', auth.currentUser?.uid === currentDealerUid);
-    console.log('🔍 DIAG writing to path:', `rooms/${currentDealerUid}/session/status`);
     // Force token refresh to ensure Firebase auth is live before writing
     try { if (auth.currentUser) await auth.currentUser.getIdToken(true); } catch(e) { console.warn('Token refresh failed:', e); }
     try {
@@ -815,20 +810,6 @@ const App = () => {
 
         {/* Footer */}
         <div style={{ padding: '24px', background: 'rgba(0,0,0,.3)', borderRadius: '14px', border: '1px solid rgba(255,255,255,.08)', textAlign: 'center', marginTop: '20px' }}>
-          {/* DEBUG TEST BUTTON — remove after fix */}
-          <button onClick={async () => {
-            const uid = user?.uid;
-            console.log('TEST uid:', uid);
-            try {
-              await set(ref(db, `rooms/${uid}/session/status`), 'test-value');
-              alert('✅ Write succeeded!');
-            } catch(e) {
-              alert('❌ Write failed: ' + e.message + ' | code: ' + e.code);
-              console.error('TEST WRITE FAILED', e);
-            }
-          }} style={{ padding: '10px 28px', background: '#f44336', border: 'none', borderRadius: '7px', color: '#fff', fontSize: '12px', cursor: 'pointer', fontFamily: 'inherit', marginBottom: '16px', marginRight: '10px' }}>
-            🧪 Test Write
-          </button>
           <button onClick={signOut} style={{ padding: '10px 28px', background: 'transparent', border: '1px solid #444', borderRadius: '7px', color: '#666', fontSize: '12px', cursor: 'pointer', fontFamily: 'inherit', marginBottom: '16px' }}>
             Sign Out
           </button>
