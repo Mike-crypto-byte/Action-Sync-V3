@@ -210,6 +210,11 @@ const App = () => {
       return;
     }
     setNewSessionLoading(true);
+    // DIAGNOSTIC — remove after confirming
+    console.log('🔍 DIAG auth.currentUser.uid:', auth.currentUser?.uid);
+    console.log('🔍 DIAG currentDealerUid:', currentDealerUid);
+    console.log('🔍 DIAG match:', auth.currentUser?.uid === currentDealerUid);
+    console.log('🔍 DIAG writing to path:', `rooms/${currentDealerUid}/session/status`);
     // Force token refresh to ensure Firebase auth is live before writing
     try { if (auth.currentUser) await auth.currentUser.getIdToken(true); } catch(e) { console.warn('Token refresh failed:', e); }
     try {
