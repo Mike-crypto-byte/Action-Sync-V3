@@ -291,7 +291,7 @@ export async function startNewSession(dealerUid, startingChips) {
   const prevNumber   = settings.sessionNumber || 0;
   const newNumber    = prevNumber + 1;
 
-  // Archive previous session leaderboard if one existed
+  // Archive previous session if one existed
   if (prevNumber > 0) {
     const lbSnap = await get(rr(dealerUid, 'session/leaderboard'));
     if (lbSnap.exists()) {
@@ -302,14 +302,12 @@ export async function startNewSession(dealerUid, startingChips) {
         try {
           const statsSnap = await get(rr(dealerUid, `players/${uid}/stats`));
           const stats     = statsSnap.exists() ? statsSnap.val() : {};
-          await update(rr(dealerUid, `players/${uid}/stats`), {
-            sessionsPlayed: (stats.sessionsPlayed || 0) + 1,
-            allTimeHigh:    Math.max(stats.allTimeHigh || 0, entry.bankroll),
-          });
+          await set(rr(dealerUid, `players/${uid}/stats/sessionsPlayed`), (stats.sessionsPlayed || 0) + 1);
+          await set(rr(dealerUid, `players/${uid}/stats/allTimeHigh`), Math.max(stats.allTimeHigh || 0, entry.bankroll));
         } catch (e) { /* player may no longer exist */ }
       }
 
-      // Write history snapshot
+      // Write history snapshot — this path is dealer-only, no child rule conflicts
       await set(rr(dealerUid, `history/${prevNumber}`), {
         sessionNumber:  prevNumber,
         startedAt:      settings.sessionStartedAt || Date.now(),
@@ -320,42 +318,30 @@ export async function startNewSession(dealerUid, startingChips) {
     }
   }
 
-  // Reset every player's bankroll
+  // Reset every player's bankroll — leaf path write, no conflict
   const playersSnap = await get(rr(dealerUid, 'players'));
   if (playersSnap.exists()) {
     for (const uid of Object.keys(playersSnap.val())) {
-      await update(rr(dealerUid, `players/${uid}`), { bankroll: startingChips });
+      await set(rr(dealerUid, `players/${uid}/bankroll`), startingChips);
     }
   }
 
-  // Write each session field individually with per-path error logging
-  const paths = [
-    ['session/status',          'waiting'],
-    ['session/sessionNumber',    newNumber],
-    ['session/startedAt',        Date.now()],
-    ['session/activeGame',       null],
-    ['session/finalLeaderboard', null],
-    ['session/leaderboard',      null],
-    ['session/presence',         null],
-    ['session/chat',             null],
-    ['session/games',            null],
-  ];
-  for (const [path, value] of paths) {
-    try {
-      await set(rr(dealerUid, path), value);
-      console.log('✅ wrote:', path);
-    } catch (e) {
-      console.error('❌ FAILED:', path, e.code, e.message);
-      throw e;
-    }
-  }
+  // Reset session — write ONLY to leaf paths, never the parent session node.
+  // Firebase blocks any write to 'session' because children have their own rules.
+  await set(rr(dealerUid, 'session/status'),           'waiting');
+  await set(rr(dealerUid, 'session/sessionNumber'),     newNumber);
+  await set(rr(dealerUid, 'session/startedAt'),         Date.now());
+  await set(rr(dealerUid, 'session/activeGame'),        null);
+  await set(rr(dealerUid, 'session/finalLeaderboard'),  null);
+  await set(rr(dealerUid, 'session/leaderboard'),       null);
+  await set(rr(dealerUid, 'session/presence'),          null);
+  await set(rr(dealerUid, 'session/chat'),              null);
+  await set(rr(dealerUid, 'session/games'),             null);
 
-  // Persist updated settings
-  await update(rr(dealerUid, 'settings'), {
-    sessionNumber:    newNumber,
-    sessionStartedAt: Date.now(),
-    startingChips,
-  });
+  // Update settings — leaf paths only, no conflict
+  await set(rr(dealerUid, 'settings/sessionNumber'),    newNumber);
+  await set(rr(dealerUid, 'settings/sessionStartedAt'), Date.now());
+  await set(rr(dealerUid, 'settings/startingChips'),    startingChips);
 
   return newNumber;
 }
@@ -368,7 +354,8 @@ export async function startNewSession(dealerUid, startingChips) {
 // ============================================================
 export async function startStream(dealerUid) {
   if (!dealerUid) return;
-  await update(rr(dealerUid, 'session'), { status: 'active' });
+  // Write directly to leaf path — parent update() blocked by child rules
+  await set(rr(dealerUid, 'session/status'), 'active');
 }
 
 // ============================================================
@@ -383,7 +370,8 @@ export async function switchGame(dealerUid, newGame) {
   if (currentSnap.exists() && currentSnap.val()) {
     await set(rr(dealerUid, `session/games/${currentSnap.val()}/state`), null);
   }
-  await update(rr(dealerUid, 'session'), { activeGame: newGame || null });
+  // Write directly to leaf path — parent update() blocked by child rules
+  await set(rr(dealerUid, 'session/activeGame'), newGame || null);
 }
 
 // ============================================================
