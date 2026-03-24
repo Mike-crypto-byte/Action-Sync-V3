@@ -302,6 +302,7 @@ export async function startNewSession(dealerUid, startingChips) {
           const stats     = statsSnap.exists() ? statsSnap.val() : {};
           await set(rr(dealerUid, `players/${uid}/stats/sessionsPlayed`), (stats.sessionsPlayed || 0) + 1);
           await set(rr(dealerUid, `players/${uid}/stats/allTimeHigh`), Math.max(stats.allTimeHigh || 0, entry.bankroll));
+        } catch (e) { /* player may no longer exist */ }
       }
       await set(rr(dealerUid, `history/${prevNumber}`), {
         sessionNumber:  prevNumber,
