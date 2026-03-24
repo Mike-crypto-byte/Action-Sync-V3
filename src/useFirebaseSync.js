@@ -285,18 +285,14 @@ export async function distributeBonusChips(dealerUid, leaderboard, recipientId, 
 // ============================================================
 export async function startNewSession(dealerUid, startingChips) {
   if (!dealerUid) return;
-  console.log('startNewSession: begin', dealerUid);
 
-  console.log('startNewSession: reading settings...');
   const settingsSnap = await get(rr(dealerUid, 'settings'));
   const settings     = settingsSnap.exists() ? settingsSnap.val() : {};
   const prevNumber   = settings.sessionNumber || 0;
   const newNumber    = prevNumber + 1;
-  console.log('startNewSession: prevNumber', prevNumber, '→ newNumber', newNumber);
 
   // Archive previous session if one existed
   if (prevNumber > 0) {
-    console.log('startNewSession: reading leaderboard for archive...');
     const lbSnap = await get(rr(dealerUid, 'session/leaderboard'));
     if (lbSnap.exists()) {
       const finalLeaderboard = lbSnap.val();
@@ -306,7 +302,6 @@ export async function startNewSession(dealerUid, startingChips) {
           const stats     = statsSnap.exists() ? statsSnap.val() : {};
           await set(rr(dealerUid, `players/${uid}/stats/sessionsPlayed`), (stats.sessionsPlayed || 0) + 1);
           await set(rr(dealerUid, `players/${uid}/stats/allTimeHigh`), Math.max(stats.allTimeHigh || 0, entry.bankroll));
-        } catch (e) { console.warn('stats update failed for', uid, e.message); }
       }
       await set(rr(dealerUid, `history/${prevNumber}`), {
         sessionNumber:  prevNumber,
@@ -315,19 +310,15 @@ export async function startNewSession(dealerUid, startingChips) {
         startingChips:  settings.startingChips || startingChips,
         finalLeaderboard,
       });
-      console.log('startNewSession: archived session', prevNumber);
     }
   }
 
-  console.log('startNewSession: reading players...');
   const playersSnap = await get(rr(dealerUid, 'players'));
   if (playersSnap.exists()) {
-    console.log('startNewSession: resetting', Object.keys(playersSnap.val()).length, 'players...');
     for (const uid of Object.keys(playersSnap.val())) {
       await set(rr(dealerUid, `players/${uid}/bankroll`), startingChips);
     }
   } else {
-    console.log('startNewSession: no players to reset');
   }
 
   const sessionPaths = [
@@ -348,14 +339,11 @@ export async function startNewSession(dealerUid, startingChips) {
   for (const [path, value] of sessionPaths) {
     try {
       await set(rr(dealerUid, path), value);
-      console.log('✅', path);
     } catch (e) {
-      console.error('❌ FAILED:', path, '|', e.message);
       throw e;
     }
   }
 
-  console.log('startNewSession: complete');
   return newNumber;
 }
 
