@@ -2644,4 +2644,4 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
   );
 };
 
-export default BaccaratGame;
+export default BaccaratGame; 
