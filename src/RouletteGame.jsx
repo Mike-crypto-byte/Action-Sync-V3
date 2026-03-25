@@ -17,9 +17,10 @@ const GAME_NAME = 'roulette';
 
 const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: propPlayerName, skipRegistration = false, roomCode }) => {
   // ── Settings (odds + bet visibility) — read once on mount ──────────────────
-  const { odds: settingsOdds, betVisibility: settingsVisibility } = useSettings(roomCode);
+  const { odds: settingsOdds, betVisibility: settingsVisibility, gameConfig: settingsGameConfig } = useSettings(roomCode);
   const gameOdds = settingsOdds.roulette;
   const gameVis  = settingsVisibility.roulette;
+  const isDoubleZero = (settingsGameConfig?.roulette?.zeros ?? 'double') === 'double';
 
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   useEffect(() => {
@@ -733,44 +734,48 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
   };
 
   // Outside bet button component
-  const OutsideBetButton = ({ label, betType, betValue, color = '#8b0000' }) => {
+  const chipColor = (amt) => {
+    if (amt >= 500) return { bg: '#9c27b0', border: '#ce93d8' };
+    if (amt >= 100) return { bg: '#212121', border: '#757575' };
+    if (amt >= 50)  return { bg: '#e65100', border: '#ffcc02' };
+    if (amt >= 25)  return { bg: '#1b5e20', border: '#69f0ae' };
+    if (amt >= 10)  return { bg: '#0d47a1', border: '#82b1ff' };
+    return { bg: '#b71c1c', border: '#ff8a80' };
+  };
+
+  const OutsideBetButton = ({ label, betType, betValue, isRed = false }) => {
     const betKey = `${betType}-${betValue}`;
     const hasBet = currentBets[betKey] || activeBets[betKey];
-    
+    const cc = hasBet ? chipColor(hasBet) : null;
+
     return (
       <div
         onClick={() => placeBet(betType, betValue)}
         style={{
-          background: `linear-gradient(135deg, ${color} 0%, ${color}dd 100%)`,
-          border: '1px solid rgba(212, 175, 55, 0.4)',
-          borderRadius: '12px',
-          padding: isMobile ? '12px 6px' : '20px 15px',
+          background: isRed ? 'linear-gradient(180deg, #e53935 0%, #b71c1c 100%)' : '#1e2837',
+          border: `1px solid ${isRed ? '#ef5350' : '#2a3548'}`,
+          borderRadius: '8px',
+          padding: isMobile ? '10px 6px' : '16px 12px',
           textAlign: 'center',
           cursor: bettingOpen ? 'pointer' : 'not-allowed',
           position: 'relative',
-          opacity: bettingOpen ? 1 : 0.5,
-          transition: 'all 0.2s'
+          opacity: bettingOpen ? 1 : 0.45,
+          transition: 'filter 0.15s, transform 0.1s',
+          userSelect: 'none',
         }}
       >
-        <div style={{ fontSize: isMobile ? '10px' : '14px', fontWeight: 'bold', color: '#fff', letterSpacing: isMobile ? '0px' : '1px' }}>
+        <div style={{ fontSize: isMobile ? '10px' : '13px', fontWeight: '700', color: '#fff', letterSpacing: '0.5px' }}>
           {label}
         </div>
         {hasBet > 0 && (
           <div style={{
-            position: 'absolute',
-            top: '-10px',
-            right: '-10px',
-            background: '#d4af37',
-            color: '#000',
-            borderRadius: '50%',
-            width: '30px',
-            height: '30px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '11px',
-            fontWeight: 'bold',
-            border: '2px solid #000'
+            position: 'absolute', top: '-10px', right: '-10px',
+            background: cc.bg, color: '#fff',
+            borderRadius: '50%', width: '26px', height: '26px',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '9px', fontWeight: 'bold',
+            border: `2px solid ${cc.border}`,
+            boxShadow: `0 2px 6px rgba(0,0,0,0.5)`,
           }}>
             ${hasBet}
           </div>
@@ -782,10 +787,8 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
   return (
     <div style={{
       minHeight: '100vh',
-      background: '#1a1a1a',
-      backgroundImage: `
-        repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(0,0,0,.05) 10px, rgba(0,0,0,.05) 20px)
-      `,
+      background: '#0f1923',
+      backgroundImage: `radial-gradient(ellipse at 50% 0%, rgba(30,40,60,0.8) 0%, transparent 70%)`,
 
       color: '#fff',
       paddingBottom: '20px',
@@ -904,11 +907,11 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
 
         {/* Roulette Table */}
         <div style={{
-          background: '#0a4d0a',
-          border: isMobile ? '3px solid #8b4513' : '8px solid #8b4513',
-          borderRadius: isMobile ? '12px' : '20px',
-          padding: isMobile ? '10px' : '20px',
-          boxShadow: 'inset 0 0 50px rgba(0,0,0,0.5), 0 10px 40px rgba(0,0,0,0.8)',
+          background: '#192333',
+          border: '1px solid #2a3548',
+          borderRadius: isMobile ? '10px' : '14px',
+          padding: isMobile ? '10px' : '18px',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
           marginBottom: '20px',
           overflowX: 'auto'
         }}>
@@ -928,17 +931,19 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
               const amt = currentBets[betKey] || activeBets[betKey];
               if (!amt) return null;
               const CS = isMobile ? 16 : 22;
+              const cc = chipColor(amt);
               const posStyle = (cx !== undefined && cy !== undefined)
                 ? { position: 'absolute', left: cx - CS / 2, top: cy - CS / 2 }
                 : { position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' };
               return (
                 <div style={{
                   ...posStyle,
-                  background: '#d4af37', color: '#000',
+                  background: cc.bg, color: '#fff',
                   borderRadius: '50%', width: CS, height: CS,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: isMobile ? '6px' : '8px', fontWeight: 'bold',
-                  border: isMobile ? '1px solid #000' : '2px solid #000',
+                  border: `2px solid ${cc.border}`,
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.5)',
                   zIndex: 5, pointerEvents: 'none'
                 }}>
                   {amt}
@@ -952,21 +957,29 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
             const E = isMobile ? 4 : 8; // edge zone size (clickable split area)
             
             return (
-              <div style={{ display: 'flex', gap: '8px', marginBottom: '15px', width: '100%' }}>
-                {/* 0 and 00 */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', justifyContent: 'center' }}>
-                  {['0', '00'].map(n => {
+              <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', width: '100%' }}>
+                {/* 0 and optional 00 */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: `${E}px`, justifyContent: 'center' }}>
+                  {(isDoubleZero ? ['0', '00'] : ['0']).map(n => {
                     const betKey = `straight-${n}`;
                     const hasBet = currentBets[betKey] || activeBets[betKey];
+                    const zeroH = isDoubleZero
+                      ? (isMobile ? H * 1.5 : H * 1.5)
+                      : (isMobile ? H * 3 + E * 2 : H * 3 + E * 2);
                     return (
                       <div key={n} onClick={() => placeBet('straight', n)} style={{
-                      width: isMobile ? W : 52, height: isMobile ? H * 1.2 : H * 1.5, background: '#0a6e0a',
-                        border: '1px solid rgba(212, 175, 55, 0.4)', borderRadius: '8px',
+                        width: isMobile ? W : 52,
+                        height: zeroH,
+                        background: 'linear-gradient(180deg, #2e7d32 0%, #1b5e20 100%)',
+                        border: '1px solid #388e3c',
+                        borderRadius: '8px',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         cursor: bettingOpen ? 'pointer' : 'not-allowed',
-                        position: 'relative', opacity: bettingOpen ? 1 : 0.5
+                        position: 'relative',
+                        opacity: bettingOpen ? 1 : 0.45,
+                        transition: 'filter 0.15s',
                       }}>
-                        <span style={{ fontSize: isMobile ? '12px' : '18px', fontWeight: 'bold', color: '#fff' }}>{n}</span>
+                        <span style={{ fontSize: isMobile ? '12px' : '18px', fontWeight: '800', color: '#fff', textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>{n}</span>
                         {hasBet > 0 && chipDot(betKey)}
                       </div>
                     );
@@ -989,14 +1002,19 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                       const hasBet = currentBets[betKey] || activeBets[betKey];
                       return (
                         <div key={num} onClick={() => placeBet('straight', n)} style={{
-                          background: color === 'red' ? '#8b0000' : '#111',
-                          border: '1px solid rgba(212, 175, 55, 0.4)', borderRadius: '6px',
+                          background: color === 'red'
+                            ? 'linear-gradient(180deg, #e53935 0%, #b71c1c 100%)'
+                            : 'linear-gradient(180deg, #263040 0%, #1a2332 100%)',
+                          border: `1px solid ${color === 'red' ? '#ef5350' : '#2a3548'}`,
+                          borderRadius: '6px',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                           cursor: bettingOpen ? 'pointer' : 'not-allowed',
-                          position: 'relative', opacity: bettingOpen ? 1 : 0.5,
-                          zIndex: 2
+                          position: 'relative',
+                          opacity: bettingOpen ? 1 : 0.45,
+                          transition: 'filter 0.15s',
+                          zIndex: 2,
                         }}>
-                          <span style={{ fontSize: isMobile ? '11px' : '16px', fontWeight: 'bold', color: '#fff' }}>{n}</span>
+                          <span style={{ fontSize: isMobile ? '11px' : '15px', fontWeight: '800', color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>{n}</span>
                           {hasBet > 0 && chipDot(betKey)}
                         </div>
                       );
@@ -1139,13 +1157,16 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                     const hasBet = currentBets[betKey] || activeBets[betKey];
                     return (
                       <div key={col} onClick={() => placeBet('column', col.toString())} style={{
-                        flex: 1, width: W, background: 'rgba(139,0,0,0.4)',
-                        border: '1px solid rgba(212, 175, 55, 0.4)', borderRadius: '6px',
+                        flex: 1, width: isMobile ? W : 44,
+                        background: '#1e2837',
+                        border: '1px solid #2a3548',
+                        borderRadius: '6px',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         cursor: bettingOpen ? 'pointer' : 'not-allowed',
-                        position: 'relative', opacity: bettingOpen ? 1 : 0.5
+                        position: 'relative', opacity: bettingOpen ? 1 : 0.45,
+                        transition: 'filter 0.15s',
                       }}>
-                        <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#fff', writingMode: 'vertical-rl' }}>2:1</span>
+                        <span style={{ fontSize: '10px', fontWeight: '700', color: '#8899aa', writingMode: 'vertical-rl' }}>2:1</span>
                         {hasBet > 0 && chipDot(betKey)}
                       </div>
                     );
@@ -1157,33 +1178,36 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
 
           {/* Bet type legend */}
           <div style={{
-            display: 'flex', gap: '15px', justifyContent: 'center', marginBottom: '15px',
-            fontSize: isMobile ? '7px' : '9px', color: '#aaa', flexWrap: 'wrap'
+            display: 'flex', gap: '12px', justifyContent: 'center', marginBottom: '12px',
+            fontSize: isMobile ? '7px' : '9px', color: '#445566', flexWrap: 'wrap'
           }}>
-            <span>Click number = Straight (35:1)</span>
-            <span>Click edge = Split (17:1)</span>
-            <span>Click corner = Corner (8:1)</span>
-            <span>Click bottom edge = Street (11:1)</span>
+            <span>Straight (35:1)</span>
+            <span>·</span>
+            <span>Split (17:1)</span>
+            <span>·</span>
+            <span>Corner (8:1)</span>
+            <span>·</span>
+            <span>Street (11:1)</span>
           </div>
 
           {/* Outside Bets */}
           {gameVis.evenMoney && (
-            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(3, 1fr)' : 'repeat(6, 1fr)', gap: isMobile ? '6px' : '10px', marginBottom: '15px' }}>
-              <OutsideBetButton label="1-18" betType="low" betValue="low" />
-              <OutsideBetButton label="EVEN" betType="even" betValue="even" />
-              <OutsideBetButton label="RED" betType="red" betValue="red" color="#8b0000" />
-              <OutsideBetButton label="BLACK" betType="black" betValue="black" color="#000" />
-              <OutsideBetButton label="ODD" betType="odd" betValue="odd" />
-              <OutsideBetButton label="19-36" betType="high" betValue="high" />
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(3, 1fr)' : 'repeat(6, 1fr)', gap: isMobile ? '5px' : '6px', marginBottom: '6px' }}>
+              <OutsideBetButton label="1 to 18" betType="low" betValue="low" />
+              <OutsideBetButton label="Even" betType="even" betValue="even" />
+              <OutsideBetButton label="Red" betType="red" betValue="red" isRed={true} />
+              <OutsideBetButton label="Black" betType="black" betValue="black" />
+              <OutsideBetButton label="Odd" betType="odd" betValue="odd" />
+              <OutsideBetButton label="19 to 36" betType="high" betValue="high" />
             </div>
           )}
 
           {/* Dozen Bets */}
           {gameVis.dozen && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
-              <OutsideBetButton label="1st 12" betType="dozen" betValue="1st" />
-              <OutsideBetButton label="2nd 12" betType="dozen" betValue="2nd" />
-              <OutsideBetButton label="3rd 12" betType="dozen" betValue="3rd" />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: isMobile ? '5px' : '6px' }}>
+              <OutsideBetButton label="1 to 12" betType="dozen" betValue="1st" />
+              <OutsideBetButton label="13 to 24" betType="dozen" betValue="2nd" />
+              <OutsideBetButton label="25 to 36" betType="dozen" betValue="3rd" />
             </div>
           )}
         </div>
@@ -1192,8 +1216,8 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
         {/* Active Bets Summary — shown when player has bets */}
         {(Object.keys(activeBets).length > 0 || Object.values(currentBets).some(v => v > 0)) && (
           <div style={{
-            background: 'linear-gradient(135deg, #1c1e2a 0%, #252836 100%)',
-            border: !bettingOpen ? '2px solid #f44336' : '2px solid #4caf50',
+            background: 'linear-gradient(135deg, #141e2e 0%, #192333 100%)',
+            border: !bettingOpen ? '2px solid #f44336' : '2px solid #2e7d32',
             borderRadius: '12px',
             padding: '15px 20px',
             marginBottom: '20px'
@@ -1283,7 +1307,7 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
           position: isMobile ? 'sticky' : 'relative',
           bottom: isMobile ? 0 : 'auto',
           zIndex: isMobile ? 100 : 'auto',
-          background: 'linear-gradient(135deg, #1c1e2a 0%, #252836 100%)',
+          background: 'linear-gradient(135deg, #141e2e 0%, #192333 100%)',
           border: '1px solid rgba(139, 0, 0, 0.3)',
           borderRadius: '12px',
           padding: '20px',
