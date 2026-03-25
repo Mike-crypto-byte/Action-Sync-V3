@@ -1688,7 +1688,6 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
                     style={{ 
                       fontSize: '9px',
                       background: 'transparent',
-                      ,
                       border: '1px solid rgba(255,68,68,0.4)'
                     }}
                   />
@@ -1700,7 +1699,6 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
                     style={{ 
                       fontSize: '9px',
                       background: 'transparent',
-                      ,
                       border: '1px solid rgba(255,68,68,0.4)'
                     }}
                   />
@@ -1712,7 +1710,6 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
                     style={{ 
                       fontSize: '9px',
                       background: 'transparent',
-                      ,
                       border: '1px solid rgba(255,68,68,0.4)'
                     }}
                   />
