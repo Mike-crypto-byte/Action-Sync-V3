@@ -1011,7 +1011,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
           <div style={{
             marginTop: '25px',
             padding: '18px',
-            background: 'rgba(212, 175, 55, 0.1)',
+            background: 'rgba(229,57,53,0.05)',
             borderRadius: '8px',
             border: '1px solid rgba(212, 175, 55, 0.2)'
           }}>
@@ -1027,7 +1027,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
     );
   }
 
-  // Chip color helper (matches roulette)
+  // Chip color helper — matches roulette & baccarat
   const chipColor = (amt) => {
     if (amt >= 500) return { bg: '#9c27b0', border: '#ce93d8' };
     if (amt >= 100) return { bg: '#212121', border: '#757575' };
@@ -1062,7 +1062,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
           ...style
         }}
       >
-        <div style={{ fontSize: '10px', lineHeight: '1.3', color: value > 0 ? 'rgba(255,255,255,0.35)' : '#ccd6e0', fontWeight: '600' }}>{label}</div>
+        <div style={{ fontSize: '10px', lineHeight: '1.3', color: value > 0 ? 'rgba(255,255,255,0.3)' : '#ccd6e0', fontWeight: '600' }}>{label}</div>
         {value > 0 && (
           <div style={{
             position: 'absolute',
@@ -1207,319 +1207,519 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
           </div>
         </div>
 
-        {/* Craps Table — physical layout */}
+        {/* Craps Table */}
         <div style={{
           background: '#192333',
           border: '1px solid #2a3548',
-          borderRadius: '14px',
-          padding: isMobile ? '10px' : '16px',
+          borderRadius: '20px',
+          padding: '30px',
           boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
-          marginBottom: '20px',
+          marginBottom: '20px'
         }}>
-
-          {/* ── Main table: left strip + center + right props ── */}
-          <div style={{ display: 'flex', gap: '6px' }}>
-
-            {/* LEFT STRIP — Don't Pass Bar + Don't Pass Odds (vertical) */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: isMobile ? '36px' : '52px', flexShrink: 0 }}>
-              <CrapsBetArea
-                label={<span style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', fontSize: isMobile ? '8px' : '10px', letterSpacing: '1px' }}>DON'T PASS BAR</span>}
-                value={currentBets.dontPass + (activeBets.dontPass || 0)}
-                onClick={() => placeBet('dontPass')}
-                disabled={!bettingOpen || gamePhase === 'point'}
-                style={{ flex: 2, minHeight: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          
+          {/* Top Section - Proposition Bets */}
+          {gameVis.proposition && <div style={{
+            display: 'grid',
+            gridTemplateColumns: isMobile ? '1fr' : '1fr 2fr 1fr',
+            gap: '10px',
+            marginBottom: '15px',
+            padding: '15px',
+            background: 'rgba(0,0,0,0.2)',
+            borderRadius: '12px',
+            border: '1px solid #2a3548'
+          }}>
+            {/* Left Props */}
+            <div style={{ display: 'grid', gap: '8px' }}>
+              <CrapsBetArea 
+                label="HARD 4 (7:1)" 
+                value={currentBets.hard4 + (activeBets.hard4 || 0)}
+                onClick={() => placeBet('hard4')}
+                disabled={!bettingOpen}
               />
-              {gamePhase === 'point' && activeBets.dontPass > 0 && (
-                <CrapsBetArea
-                  label={<span style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', fontSize: '8px' }}>DP ODDS</span>}
-                  value={currentBets.dontPassOdds + (activeBets.dontPassOdds || 0)}
-                  onClick={() => placeBet('dontPassOdds')}
-                  disabled={!bettingOpen}
-                  style={{ flex: 1, minHeight: '44px', border: '1px solid #ef5350' }}
-                />
-              )}
+              <CrapsBetArea 
+                label="HARD 10 (7:1)" 
+                value={currentBets.hard10 + (activeBets.hard10 || 0)}
+                onClick={() => placeBet('hard10')}
+                disabled={!bettingOpen}
+              />
             </div>
+            
+            {/* Center Props */}
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : '1fr 1fr 1fr', gap: isMobile ? '6px' : '8px' }}>
+              <CrapsBetArea 
+                label="ACE DEUCE (3) 15:1" 
+                value={currentBets.three + (activeBets.three || 0)}
+                onClick={() => placeBet('three')}
+                disabled={!bettingOpen}
+                style={{ fontSize: '8px' }}
+              />
+              <CrapsBetArea 
+                label="ANY 7 (4:1)" 
+                value={currentBets.any7 + (activeBets.any7 || 0)}
+                onClick={() => placeBet('any7')}
+                disabled={!bettingOpen}
+              />
+              <CrapsBetArea 
+                label="YO (11) 15:1" 
+                value={currentBets.yo11 + (activeBets.yo11 || 0)}
+                onClick={() => placeBet('yo11')}
+                disabled={!bettingOpen}
+                style={{ fontSize: '8px' }}
+              />
+              <CrapsBetArea 
+                label="SNAKE EYES (2) 30:1" 
+                value={currentBets.ace2 + (activeBets.ace2 || 0)}
+                onClick={() => placeBet('ace2')}
+                disabled={!bettingOpen}
+                style={{ fontSize: '7px' }}
+              />
+              <CrapsBetArea 
+                label="ANY CRAPS 7:1" 
+                value={currentBets.anyCraps + (activeBets.anyCraps || 0)}
+                onClick={() => placeBet('anyCraps')}
+                disabled={!bettingOpen}
+                style={{ fontSize: '8px' }}
+              />
+              <CrapsBetArea 
+                label="BOXCARS (12) 30:1" 
+                value={currentBets.ace12 + (activeBets.ace12 || 0)}
+                onClick={() => placeBet('ace12')}
+                disabled={!bettingOpen}
+                style={{ fontSize: '7px' }}
+              />
+              <CrapsBetArea 
+                label="HORN" 
+                value={currentBets.horn + (activeBets.horn || 0)}
+                onClick={() => placeBet('horn')}
+                disabled={!bettingOpen}
+                style={{ fontSize: '9px', gridColumn: '1' }}
+              />
+              <CrapsBetArea 
+                label="C & E" 
+                value={currentBets.ce + (activeBets.ce || 0)}
+                onClick={() => placeBet('ce')}
+                disabled={!bettingOpen}
+                style={{ fontSize: '9px', gridColumn: '2' }}
+              />
+              <button
+                onClick={() => setShowHopBets(!showHopBets)}
+                style={{
+                  background: showHopBets ? '#e53935' : 'rgba(229,57,53,0.15)',
+                  color: '#fff',
+                  border: '1px solid #2a3548',
+                  fontSize: '8px',
+                  padding: '4px',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  fontWeight: 'bold'
+                }}
+              >
+                HOP BETS
+              </button>
+            </div>
+            
+            {/* Right Props */}
+            <div style={{ display: 'grid', gap: '8px' }}>
+              <CrapsBetArea 
+                label="HARD 6 (9:1)" 
+                value={currentBets.hard6 + (activeBets.hard6 || 0)}
+                onClick={() => placeBet('hard6')}
+                disabled={!bettingOpen}
+              />
+              <CrapsBetArea 
+                label="HARD 8 (9:1)" 
+                value={currentBets.hard8 + (activeBets.hard8 || 0)}
+                onClick={() => placeBet('hard8')}
+                disabled={!bettingOpen}
+              />
+            </div>
+          </div>}
 
-            {/* CENTER — Don't Come + Place numbers + Come + Field + Pass Line + Pass Odds */}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px', minWidth: 0 }}>
+          {/* Hop Bets Overlay */}
+          {gameVis.hop && showHopBets && (
+            <div style={{
+              marginBottom: '15px',
+              padding: '15px',
+              background: 'rgba(229,57,53,0.05)',
+              border: '1px solid #2a3548',
+              borderRadius: '12px'
+            }}>
+              <div style={{ fontSize: '10px', color: '#e53935', marginBottom: '10px', fontWeight: 'bold' }}>
+                HOP BETS (One Roll Only)
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(3, 1fr)' : 'repeat(6, 1fr)', gap: isMobile ? '4px' : '6px', marginBottom: '10px' }}>
+                <CrapsBetArea label="1-1 (30:1)" value={currentBets.hop11 + (activeBets.hop11 || 0)} onClick={() => placeBet('hop11')} disabled={!bettingOpen} style={{ fontSize: '8px' }} />
+                <CrapsBetArea label="2-2 (30:1)" value={currentBets.hop22 + (activeBets.hop22 || 0)} onClick={() => placeBet('hop22')} disabled={!bettingOpen} style={{ fontSize: '8px' }} />
+                <CrapsBetArea label="3-3 (30:1)" value={currentBets.hop33 + (activeBets.hop33 || 0)} onClick={() => placeBet('hop33')} disabled={!bettingOpen} style={{ fontSize: '8px' }} />
+                <CrapsBetArea label="4-4 (30:1)" value={currentBets.hop44 + (activeBets.hop44 || 0)} onClick={() => placeBet('hop44')} disabled={!bettingOpen} style={{ fontSize: '8px' }} />
+                <CrapsBetArea label="5-5 (30:1)" value={currentBets.hop55 + (activeBets.hop55 || 0)} onClick={() => placeBet('hop55')} disabled={!bettingOpen} style={{ fontSize: '8px' }} />
+                <CrapsBetArea label="6-6 (30:1)" value={currentBets.hop66 + (activeBets.hop66 || 0)} onClick={() => placeBet('hop66')} disabled={!bettingOpen} style={{ fontSize: '8px' }} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(3, 1fr)' : 'repeat(6, 1fr)', gap: isMobile ? '4px' : '6px' }}>
+                <CrapsBetArea label="1-2 (15:1)" value={currentBets.hop12 + (activeBets.hop12 || 0)} onClick={() => placeBet('hop12')} disabled={!bettingOpen} style={{ fontSize: '8px' }} />
+                <CrapsBetArea label="1-3 (15:1)" value={currentBets.hop13 + (activeBets.hop13 || 0)} onClick={() => placeBet('hop13')} disabled={!bettingOpen} style={{ fontSize: '8px' }} />
+                <CrapsBetArea label="1-4 (15:1)" value={currentBets.hop14 + (activeBets.hop14 || 0)} onClick={() => placeBet('hop14')} disabled={!bettingOpen} style={{ fontSize: '8px' }} />
+                <CrapsBetArea label="1-5 (15:1)" value={currentBets.hop15 + (activeBets.hop15 || 0)} onClick={() => placeBet('hop15')} disabled={!bettingOpen} style={{ fontSize: '8px' }} />
+                <CrapsBetArea label="1-6 (15:1)" value={currentBets.hop16 + (activeBets.hop16 || 0)} onClick={() => placeBet('hop16')} disabled={!bettingOpen} style={{ fontSize: '8px' }} />
+                <CrapsBetArea label="2-3 (15:1)" value={currentBets.hop23 + (activeBets.hop23 || 0)} onClick={() => placeBet('hop23')} disabled={!bettingOpen} style={{ fontSize: '8px' }} />
+                <CrapsBetArea label="2-4 (15:1)" value={currentBets.hop24 + (activeBets.hop24 || 0)} onClick={() => placeBet('hop24')} disabled={!bettingOpen} style={{ fontSize: '8px' }} />
+                <CrapsBetArea label="2-5 (15:1)" value={currentBets.hop25 + (activeBets.hop25 || 0)} onClick={() => placeBet('hop25')} disabled={!bettingOpen} style={{ fontSize: '8px' }} />
+                <CrapsBetArea label="2-6 (15:1)" value={currentBets.hop26 + (activeBets.hop26 || 0)} onClick={() => placeBet('hop26')} disabled={!bettingOpen} style={{ fontSize: '8px' }} />
+                <CrapsBetArea label="3-4 (15:1)" value={currentBets.hop34 + (activeBets.hop34 || 0)} onClick={() => placeBet('hop34')} disabled={!bettingOpen} style={{ fontSize: '8px' }} />
+                <CrapsBetArea label="3-5 (15:1)" value={currentBets.hop35 + (activeBets.hop35 || 0)} onClick={() => placeBet('hop35')} disabled={!bettingOpen} style={{ fontSize: '8px' }} />
+                <CrapsBetArea label="3-6 (15:1)" value={currentBets.hop36 + (activeBets.hop36 || 0)} onClick={() => placeBet('hop36')} disabled={!bettingOpen} style={{ fontSize: '8px' }} />
+                <CrapsBetArea label="4-5 (15:1)" value={currentBets.hop45 + (activeBets.hop45 || 0)} onClick={() => placeBet('hop45')} disabled={!bettingOpen} style={{ fontSize: '8px' }} />
+                <CrapsBetArea label="4-6 (15:1)" value={currentBets.hop46 + (activeBets.hop46 || 0)} onClick={() => placeBet('hop46')} disabled={!bettingOpen} style={{ fontSize: '8px' }} />
+                <CrapsBetArea label="5-6 (15:1)" value={currentBets.hop56 + (activeBets.hop56 || 0)} onClick={() => placeBet('hop56')} disabled={!bettingOpen} style={{ fontSize: '8px' }} />
+              </div>
+            </div>
+          )}
 
-              {/* Row 1: Don't Come Bar + Place Numbers (4 5 6 8 9 10) */}
-              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr repeat(6,1fr)' : '1fr repeat(6,1fr)', gap: '6px' }}>
-                <CrapsBetArea
-                  label="DON'T COME"
-                  value={currentBets.dontCome + (activeBets.dontCome || 0)}
-                  onClick={() => placeBet('dontCome')}
-                  disabled={!bettingOpen || gamePhase === 'come-out'}
-                  style={{ fontSize: isMobile ? '7px' : '9px', minHeight: '52px' }}
+          {/* Main Betting Area */}
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '120px 1fr 120px', gap: '15px' }}>
+            
+            {/* Left Pass/Don't Pass */}
+            <div style={{ display: 'grid', gap: '10px' }}>
+              <div>
+                <CrapsBetArea 
+                  label="PASS LINE" 
+                  value={currentBets.passLine + (activeBets.passLine || 0)}
+                  onClick={() => placeBet('passLine')}
+                  disabled={!bettingOpen || (gamePhase === 'point' && activeBets.passLine > 0)}
+                  style={{ 
+                    height: '60px', 
+                    background: 'transparent',
+                    border: '1px solid #3a4a5a',
+                    fontSize: '10px',
+                    marginBottom: '5px'
+                  }}
                 />
-                {(gameMode === 'crapless'
-                  ? [2,3,4,5,6,8,9,10,11,12]
-                  : [4,5,6,8,9,10]
-                ).map(n => (
-                  <CrapsBetArea
-                    key={n}
-                    label={<span style={{ fontSize: isMobile ? '16px' : '22px', fontWeight: '800' }}>{n}</span>}
-                    value={currentBets[`place${n}`] + (activeBets[`place${n}`] || 0) +
-                           (currentBets[`craplessPlace${n}`] || 0) + (activeBets[`craplessPlace${n}`] || 0)}
-                    onClick={() => placeBet(gameMode === 'crapless' && [2,3,11,12].includes(n) ? `craplessPlace${n}` : `place${n}`)}
+                {gamePhase === 'point' && activeBets.passLine > 0 && (
+                  <CrapsBetArea 
+                    label="ODDS" 
+                    value={currentBets.passOdds + (activeBets.passOdds || 0)}
+                    onClick={() => placeBet('passOdds')}
                     disabled={!bettingOpen}
-                    style={{
-                      minHeight: '52px',
-                      background: point === n ? 'rgba(255,152,0,0.2)' : '#1e2837',
-                      border: point === n ? '2px solid #ff9800' : '1px solid #2a3548',
+                    style={{ 
+                      height: '40px',
+                      fontSize: '9px',
+                      background: 'transparent',
+                      border: '1px solid #43a047'
                     }}
                   />
-                ))}
+                )}
               </div>
+              <div>
+                <CrapsBetArea 
+                  label="DON'T PASS" 
+                  value={currentBets.dontPass + (activeBets.dontPass || 0)}
+                  onClick={() => placeBet('dontPass')}
+                  disabled={!bettingOpen || gamePhase === 'point'}
+                  style={{ height: '50px', fontSize: '9px', marginBottom: '5px' }}
+                />
+                {gamePhase === 'point' && activeBets.dontPass > 0 && (
+                  <CrapsBetArea 
+                    label="ODDS" 
+                    value={currentBets.dontPassOdds + (activeBets.dontPassOdds || 0)}
+                    onClick={() => placeBet('dontPassOdds')}
+                    disabled={!bettingOpen}
+                    style={{ 
+                      height: '30px',
+                      fontSize: '9px',
+                      background: 'transparent',
+                      border: '1px solid #ef5350'
+                    }}
+                  />
+                )}
+              </div>
+              <button
+                onClick={() => setShowBuyLay(!showBuyLay)}
+                style={{
+                  background: showBuyLay ? '#e53935' : 'rgba(229,57,53,0.15)',
+                  color: '#fff',
+                  border: '1px solid #2a3548',
+                  fontSize: '9px',
+                  padding: '8px',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  fontWeight: 'bold'
+                }}
+              >
+                BUY/LAY
+              </button>
+            </div>
 
-              {/* Row 2: COME */}
-              <CrapsBetArea
-                label={<span style={{ fontSize: isMobile ? '14px' : '20px', fontWeight: '800', letterSpacing: '4px' }}>COME</span>}
+            {/* Center - Point Boxes and Field */}
+            <div>
+              {/* Buy/Lay Bets Overlay */}
+              {showBuyLay && (
+                <div style={{
+                  marginBottom: '12px',
+                  padding: '12px',
+                  background: 'rgba(229,57,53,0.05)',
+                  border: '1px solid #2a3548',
+                  borderRadius: '8px'
+                }}>
+                  <div style={{ fontSize: '9px', color: '#e53935', marginBottom: '8px', fontWeight: 'bold' }}>
+                    BUY BETS (True Odds -5%)
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(3, 1fr)' : 'repeat(6, 1fr)', gap: isMobile ? '4px' : '6px', marginBottom: '10px' }}>
+                    <CrapsBetArea label="BUY 4" value={currentBets.buy4 + (activeBets.buy4 || 0)} onClick={() => placeBet('buy4')} disabled={!bettingOpen} style={{ fontSize: '8px' }} />
+                    <CrapsBetArea label="BUY 5" value={currentBets.buy5 + (activeBets.buy5 || 0)} onClick={() => placeBet('buy5')} disabled={!bettingOpen} style={{ fontSize: '8px' }} />
+                    <CrapsBetArea label="BUY 6" value={currentBets.buy6 + (activeBets.buy6 || 0)} onClick={() => placeBet('buy6')} disabled={!bettingOpen} style={{ fontSize: '8px' }} />
+                    <CrapsBetArea label="BUY 8" value={currentBets.buy8 + (activeBets.buy8 || 0)} onClick={() => placeBet('buy8')} disabled={!bettingOpen} style={{ fontSize: '8px' }} />
+                    <CrapsBetArea label="BUY 9" value={currentBets.buy9 + (activeBets.buy9 || 0)} onClick={() => placeBet('buy9')} disabled={!bettingOpen} style={{ fontSize: '8px' }} />
+                    <CrapsBetArea label="BUY 10" value={currentBets.buy10 + (activeBets.buy10 || 0)} onClick={() => placeBet('buy10')} disabled={!bettingOpen} style={{ fontSize: '8px' }} />
+                  </div>
+                  <div style={{ fontSize: '9px', color: '#e53935', marginBottom: '8px', fontWeight: 'bold' }}>
+                    LAY BETS (Bet on 7 -5%)
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(3, 1fr)' : 'repeat(6, 1fr)', gap: isMobile ? '4px' : '6px' }}>
+                    <CrapsBetArea label="LAY 4" value={currentBets.lay4 + (activeBets.lay4 || 0)} onClick={() => placeBet('lay4')} disabled={!bettingOpen} style={{ fontSize: '8px' }} />
+                    <CrapsBetArea label="LAY 5" value={currentBets.lay5 + (activeBets.lay5 || 0)} onClick={() => placeBet('lay5')} disabled={!bettingOpen} style={{ fontSize: '8px' }} />
+                    <CrapsBetArea label="LAY 6" value={currentBets.lay6 + (activeBets.lay6 || 0)} onClick={() => placeBet('lay6')} disabled={!bettingOpen} style={{ fontSize: '8px' }} />
+                    <CrapsBetArea label="LAY 8" value={currentBets.lay8 + (activeBets.lay8 || 0)} onClick={() => placeBet('lay8')} disabled={!bettingOpen} style={{ fontSize: '8px' }} />
+                    <CrapsBetArea label="LAY 9" value={currentBets.lay9 + (activeBets.lay9 || 0)} onClick={() => placeBet('lay9')} disabled={!bettingOpen} style={{ fontSize: '8px' }} />
+                    <CrapsBetArea label="LAY 10" value={currentBets.lay10 + (activeBets.lay10 || 0)} onClick={() => placeBet('lay10')} disabled={!bettingOpen} style={{ fontSize: '8px' }} />
+                  </div>
+                </div>
+              )}
+
+              {/* Place Bets / Crapless Numbers */}
+              {gameVis.place && <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: gameMode === 'crapless' ? (isMobile ? 'repeat(5, 1fr)' : 'repeat(10, 1fr)') : (isMobile ? 'repeat(3, 1fr)' : 'repeat(6, 1fr)'),
+                gap: '8px',
+                marginBottom: '12px'
+              }}>
+                {gameMode === 'crapless' && (
+                  <>
+                    <CrapsBetArea 
+                      label="2" 
+                      value={currentBets.craplessPlace2 + (activeBets.craplessPlace2 || 0)}
+                      onClick={() => placeBet('craplessPlace2')}
+                      disabled={!bettingOpen}
+                      style={{ fontSize: '16px', fontWeight: 'bold', height: '55px' }}
+                    />
+                    <CrapsBetArea 
+                      label="3" 
+                      value={currentBets.craplessPlace3 + (activeBets.craplessPlace3 || 0)}
+                      onClick={() => placeBet('craplessPlace3')}
+                      disabled={!bettingOpen}
+                      style={{ fontSize: '16px', fontWeight: 'bold', height: '55px' }}
+                    />
+                  </>
+                )}
+                <CrapsBetArea 
+                  label="4" 
+                  value={currentBets.place4 + (activeBets.place4 || 0)}
+                  onClick={() => placeBet('place4')}
+                  disabled={!bettingOpen}
+                  style={{ 
+                    fontSize: '18px', 
+                    fontWeight: 'bold', 
+                    height: '55px',
+                    background: point === 4 ? 'rgba(255,152,0,0.2)' : 'transparent'
+                  }}
+                />
+                <CrapsBetArea 
+                  label="5" 
+                  value={currentBets.place5 + (activeBets.place5 || 0)}
+                  onClick={() => placeBet('place5')}
+                  disabled={!bettingOpen}
+                  style={{ 
+                    fontSize: '18px', 
+                    fontWeight: 'bold', 
+                    height: '55px',
+                    background: point === 5 ? 'rgba(255,152,0,0.2)' : 'transparent'
+                  }}
+                />
+                <CrapsBetArea 
+                  label="6" 
+                  value={currentBets.place6 + (activeBets.place6 || 0)}
+                  onClick={() => placeBet('place6')}
+                  disabled={!bettingOpen}
+                  style={{ 
+                    fontSize: '18px', 
+                    fontWeight: 'bold', 
+                    height: '55px',
+                    background: point === 6 ? 'rgba(255,152,0,0.2)' : 'transparent'
+                  }}
+                />
+                <CrapsBetArea 
+                  label="8" 
+                  value={currentBets.place8 + (activeBets.place8 || 0)}
+                  onClick={() => placeBet('place8')}
+                  disabled={!bettingOpen}
+                  style={{ 
+                    fontSize: '18px', 
+                    fontWeight: 'bold', 
+                    height: '55px',
+                    background: point === 8 ? 'rgba(255,152,0,0.2)' : 'transparent'
+                  }}
+                />
+                <CrapsBetArea 
+                  label="9" 
+                  value={currentBets.place9 + (activeBets.place9 || 0)}
+                  onClick={() => placeBet('place9')}
+                  disabled={!bettingOpen}
+                  style={{ 
+                    fontSize: '18px', 
+                    fontWeight: 'bold', 
+                    height: '55px',
+                    background: point === 9 ? 'rgba(255,152,0,0.2)' : 'transparent'
+                  }}
+                />
+                <CrapsBetArea 
+                  label="10" 
+                  value={currentBets.place10 + (activeBets.place10 || 0)}
+                  onClick={() => placeBet('place10')}
+                  disabled={!bettingOpen}
+                  style={{ 
+                    fontSize: '18px', 
+                    fontWeight: 'bold', 
+                    height: '55px',
+                    background: point === 10 ? 'rgba(255,152,0,0.2)' : 'transparent'
+                  }}
+                />
+                {gameMode === 'crapless' && (
+                  <>
+                    <CrapsBetArea 
+                      label="11" 
+                      value={currentBets.craplessPlace11 + (activeBets.craplessPlace11 || 0)}
+                      onClick={() => placeBet('craplessPlace11')}
+                      disabled={!bettingOpen}
+                      style={{ fontSize: '16px', fontWeight: 'bold', height: '55px' }}
+                    />
+                    <CrapsBetArea 
+                      label="12" 
+                      value={currentBets.craplessPlace12 + (activeBets.craplessPlace12 || 0)}
+                      onClick={() => placeBet('craplessPlace12')}
+                      disabled={!bettingOpen}
+                      style={{ fontSize: '16px', fontWeight: 'bold', height: '55px' }}
+                    />
+                  </>
+                )}
+              </div>}
+
+              {/* COME area */}
+              <CrapsBetArea 
+                label="COME" 
                 value={currentBets.come + (activeBets.come || 0)}
                 onClick={() => placeBet('come')}
                 disabled={!bettingOpen || gamePhase === 'come-out'}
-                style={{ minHeight: isMobile ? '44px' : '56px', background: '#141e2e', border: '1px solid #3a4a5a' }}
+                style={{ 
+                  height: '60px', 
+                  marginBottom: '12px',
+                  background: 'transparent',
+                  border: '1px solid #3a4a5a',
+                  fontSize: '12px'
+                }}
               />
 
-              {/* Row 3: FIELD */}
-              {gameVis.field && (
-                <CrapsBetArea
-                  label={
-                    <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '4px' : '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
-                      <span style={{ fontSize: isMobile ? '9px' : '11px', color: '#e53935', fontWeight: '800' }}>2×</span>
-                      <span style={{ fontSize: isMobile ? '9px' : '11px', fontWeight: '700' }}>2</span>
-                      <span style={{ fontSize: isMobile ? '9px' : '11px', fontWeight: '700' }}>3</span>
-                      <span style={{ fontSize: isMobile ? '9px' : '11px', fontWeight: '700' }}>4</span>
-                      <span style={{ fontSize: isMobile ? '10px' : '13px', color: '#8899aa', fontWeight: '700', margin: '0 4px' }}>FIELD</span>
-                      <span style={{ fontSize: isMobile ? '9px' : '11px', fontWeight: '700' }}>9</span>
-                      <span style={{ fontSize: isMobile ? '9px' : '11px', fontWeight: '700' }}>10</span>
-                      <span style={{ fontSize: isMobile ? '9px' : '11px', fontWeight: '700' }}>11</span>
-                      <span style={{ fontSize: isMobile ? '9px' : '11px', color: '#e53935', fontWeight: '800' }}>3×</span>
-                      <span style={{ fontSize: isMobile ? '9px' : '11px', fontWeight: '700' }}>12</span>
-                    </div>
-                  }
-                  value={currentBets.field + (activeBets.field || 0)}
-                  onClick={() => placeBet('field')}
-                  disabled={!bettingOpen}
-                  style={{ minHeight: isMobile ? '38px' : '46px', background: '#141e2e', border: '1px solid #3a4a5a' }}
-                />
-              )}
+              {/* Field */}
+              {gameVis.field && <CrapsBetArea 
+                label="FIELD • 2 3 4 9 10 11 12 • (2:1 on 2,12)" 
+                value={currentBets.field + (activeBets.field || 0)}
+                onClick={() => placeBet('field')}
+                disabled={!bettingOpen}
+                style={{ 
+                  height: '50px',
+                  background: 'transparent',
+                  border: '1px solid #3a4a5a',
+                  fontSize: '10px'
+                }}
+              />}
+            </div>
 
-              {/* Row 4: PASS LINE */}
-              <CrapsBetArea
-                label={<span style={{ fontSize: isMobile ? '11px' : '16px', fontWeight: '800', letterSpacing: '3px' }}>PASS LINE</span>}
-                value={currentBets.passLine + (activeBets.passLine || 0)}
-                onClick={() => placeBet('passLine')}
-                disabled={!bettingOpen || (gamePhase === 'point' && activeBets.passLine > 0)}
-                isHighlight
-                style={{ minHeight: isMobile ? '40px' : '52px' }}
+            {/* Right - Don't Come and Fire Bet */}
+            <div style={{ display: 'grid', gap: '10px' }}>
+              <CrapsBetArea 
+                label="DON'T COME" 
+                value={currentBets.dontCome + (activeBets.dontCome || 0)}
+                onClick={() => placeBet('dontCome')}
+                disabled={!bettingOpen || gamePhase === 'come-out'}
+                style={{ height: '60px', fontSize: '9px' }}
               />
-
-              {/* Row 5: PASS ODDS (point phase only) */}
-              {gamePhase === 'point' && activeBets.passLine > 0 && (
-                <CrapsBetArea
-                  label={<span style={{ fontSize: isMobile ? '9px' : '11px', letterSpacing: '2px' }}>PASS ODDS</span>}
-                  value={currentBets.passOdds + (activeBets.passOdds || 0)}
-                  onClick={() => placeBet('passOdds')}
+              
+              {/* Big 6/8 */}
+              <div style={{ display: 'grid', gap: '6px' }}>
+                <CrapsBetArea 
+                  label="BIG 6" 
+                  value={currentBets.big6 + (activeBets.big6 || 0)}
+                  onClick={() => placeBet('big6')}
                   disabled={!bettingOpen}
-                  style={{ minHeight: '36px', border: '1px solid #43a047' }}
+                  style={{ fontSize: '10px', background: 'transparent' }}
                 />
-              )}
+                <CrapsBetArea 
+                  label="BIG 8" 
+                  value={currentBets.big8 + (activeBets.big8 || 0)}
+                  onClick={() => placeBet('big8')}
+                  disabled={!bettingOpen}
+                  style={{ fontSize: '10px', background: 'transparent' }}
+                />
+              </div>
+              
+              {/* Fire Bet Section */}
+              {gameVis.fireBet && <div style={{
+                background: 'rgba(255, 0, 0, 0.2)',
+                border: '2px solid #ff4444',
+                borderRadius: '8px',
+                padding: '10px'
+              }}>
+                <div style={{ 
+                  fontSize: '9px', 
+                  fontWeight: 'bold', 
+                  color: '#ff6666',
+                  marginBottom: '8px',
+                  textAlign: 'center',
+                  letterSpacing: '1px'
+                }}>
+                  🔥 FIRE BET 🔥
+                </div>
+                <div style={{ display: 'grid', gap: '6px' }}>
+                  <CrapsBetArea 
+                    label="SMALL" 
+                    value={currentBets.small + (activeBets.small || 0)}
+                    onClick={() => placeBet('small')}
+                    disabled={!bettingOpen}
+                    style={{ 
+                      fontSize: '9px',
+                      background: 'transparent',
+                      ,
+                      border: '1px solid rgba(255,68,68,0.4)'
+                    }}
+                  />
+                  <CrapsBetArea 
+                    label="TALL" 
+                    value={currentBets.tall + (activeBets.tall || 0)}
+                    onClick={() => placeBet('tall')}
+                    disabled={!bettingOpen}
+                    style={{ 
+                      fontSize: '9px',
+                      background: 'transparent',
+                      ,
+                      border: '1px solid rgba(255,68,68,0.4)'
+                    }}
+                  />
+                  <CrapsBetArea 
+                    label="ALL" 
+                    value={currentBets.all + (activeBets.all || 0)}
+                    onClick={() => placeBet('all')}
+                    disabled={!bettingOpen}
+                    style={{ 
+                      fontSize: '9px',
+                      background: 'transparent',
+                      ,
+                      border: '1px solid rgba(255,68,68,0.4)'
+                    }}
+                  />
+                </div>
+              </div>}
             </div>
-
-            {/* RIGHT — Proposition bets panel */}
-            {gameVis.proposition && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', width: isMobile ? '80px' : '130px', flexShrink: 0 }}>
-
-                {/* Any Seven */}
-                <CrapsBetArea
-                  label={<div style={{ textAlign: 'center' }}><div style={{ fontSize: isMobile ? '9px' : '11px', fontWeight: '800' }}>SEVEN</div><div style={{ fontSize: '9px', color: '#8899aa' }}>4 to 1</div></div>}
-                  value={currentBets.any7 + (activeBets.any7 || 0)}
-                  onClick={() => placeBet('any7')}
-                  disabled={!bettingOpen}
-                  style={{ minHeight: '42px' }}
-                />
-
-                {/* Any Craps */}
-                <CrapsBetArea
-                  label={<div style={{ textAlign: 'center' }}><div style={{ fontSize: isMobile ? '8px' : '10px', fontWeight: '800' }}>ANY CRAPS</div><div style={{ fontSize: '9px', color: '#8899aa' }}>7 to 1</div></div>}
-                  value={currentBets.anyCraps + (activeBets.anyCraps || 0)}
-                  onClick={() => placeBet('anyCraps')}
-                  disabled={!bettingOpen}
-                  style={{ minHeight: '38px' }}
-                />
-
-                {/* Hardways — 2×2 grid */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
-                  {[
-                    { key: 'hard4',  label: '4', odds: '7:1',  dots: '2+2' },
-                    { key: 'hard10', label: '10', odds: '7:1', dots: '5+5' },
-                    { key: 'hard6',  label: '6', odds: '9:1',  dots: '3+3' },
-                    { key: 'hard8',  label: '8', odds: '9:1',  dots: '4+4' },
-                  ].map(({ key, label, odds }) => (
-                    <CrapsBetArea
-                      key={key}
-                      label={<div style={{ textAlign: 'center' }}><div style={{ fontSize: isMobile ? '11px' : '14px', fontWeight: '800' }}>{label}</div><div style={{ fontSize: '8px', color: '#8899aa' }}>{odds}</div></div>}
-                      value={currentBets[key] + (activeBets[key] || 0)}
-                      onClick={() => placeBet(key)}
-                      disabled={!bettingOpen}
-                      style={{ minHeight: '42px' }}
-                    />
-                  ))}
-                </div>
-
-                {/* Yo 11 + Ace Deuce */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
-                  <CrapsBetArea
-                    label={<div style={{ textAlign: 'center' }}><div style={{ fontSize: isMobile ? '10px' : '13px', fontWeight: '800' }}>YO 11</div><div style={{ fontSize: '8px', color: '#8899aa' }}>15:1</div></div>}
-                    value={currentBets.yo11 + (activeBets.yo11 || 0)}
-                    onClick={() => placeBet('yo11')}
-                    disabled={!bettingOpen}
-                    style={{ minHeight: '38px' }}
-                  />
-                  <CrapsBetArea
-                    label={<div style={{ textAlign: 'center' }}><div style={{ fontSize: isMobile ? '10px' : '13px', fontWeight: '800' }}>ACE 3</div><div style={{ fontSize: '8px', color: '#8899aa' }}>15:1</div></div>}
-                    value={currentBets.three + (activeBets.three || 0)}
-                    onClick={() => placeBet('three')}
-                    disabled={!bettingOpen}
-                    style={{ minHeight: '38px' }}
-                  />
-                </div>
-
-                {/* Snake Eyes + Boxcars */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
-                  <CrapsBetArea
-                    label={<div style={{ textAlign: 'center' }}><div style={{ fontSize: isMobile ? '10px' : '13px', fontWeight: '800' }}>2</div><div style={{ fontSize: '8px', color: '#8899aa' }}>30:1</div></div>}
-                    value={currentBets.ace2 + (activeBets.ace2 || 0)}
-                    onClick={() => placeBet('ace2')}
-                    disabled={!bettingOpen}
-                    style={{ minHeight: '38px' }}
-                  />
-                  <CrapsBetArea
-                    label={<div style={{ textAlign: 'center' }}><div style={{ fontSize: isMobile ? '10px' : '13px', fontWeight: '800' }}>12</div><div style={{ fontSize: '8px', color: '#8899aa' }}>30:1</div></div>}
-                    value={currentBets.ace12 + (activeBets.ace12 || 0)}
-                    onClick={() => placeBet('ace12')}
-                    disabled={!bettingOpen}
-                    style={{ minHeight: '38px' }}
-                  />
-                </div>
-
-                {/* Horn + C&E */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
-                  <CrapsBetArea
-                    label={<div style={{ textAlign: 'center' }}><div style={{ fontSize: '11px', fontWeight: '800' }}>HORN</div></div>}
-                    value={currentBets.horn + (activeBets.horn || 0)}
-                    onClick={() => placeBet('horn')}
-                    disabled={!bettingOpen}
-                    style={{ minHeight: '34px' }}
-                  />
-                  <CrapsBetArea
-                    label={<div style={{ textAlign: 'center' }}><div style={{ fontSize: '11px', fontWeight: '800' }}>C&E</div></div>}
-                    value={currentBets.ce + (activeBets.ce || 0)}
-                    onClick={() => placeBet('ce')}
-                    disabled={!bettingOpen}
-                    style={{ minHeight: '34px' }}
-                  />
-                </div>
-
-                {/* Big 6/8 */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
-                  <CrapsBetArea
-                    label={<div style={{ textAlign: 'center' }}><div style={{ fontSize: '11px', fontWeight: '800' }}>BIG 6</div></div>}
-                    value={currentBets.big6 + (activeBets.big6 || 0)}
-                    onClick={() => placeBet('big6')}
-                    disabled={!bettingOpen}
-                    style={{ minHeight: '34px' }}
-                  />
-                  <CrapsBetArea
-                    label={<div style={{ textAlign: 'center' }}><div style={{ fontSize: '11px', fontWeight: '800' }}>BIG 8</div></div>}
-                    value={currentBets.big8 + (activeBets.big8 || 0)}
-                    onClick={() => placeBet('big8')}
-                    disabled={!bettingOpen}
-                    style={{ minHeight: '34px' }}
-                  />
-                </div>
-
-              </div>
-            )}
           </div>
-
-          {/* ── Secondary rows: Fire Bet + Hop Bets + Buy/Lay ── */}
-          <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-
-            {/* Fire Bet row */}
-            {gameVis.fireBet && (
-              <div style={{ display: 'flex', gap: '6px' }}>
-                <div style={{ fontSize: '10px', color: '#ff6666', fontWeight: '800', alignSelf: 'center', width: '60px', flexShrink: 0 }}>🔥 FIRE</div>
-                {['small','tall','all'].map(k => (
-                  <CrapsBetArea
-                    key={k}
-                    label={k.toUpperCase()}
-                    value={currentBets[k] + (activeBets[k] || 0)}
-                    onClick={() => placeBet(k)}
-                    disabled={!bettingOpen}
-                    style={{ flex: 1, fontSize: '10px', minHeight: '36px', border: '1px solid rgba(255,68,68,0.4)' }}
-                  />
-                ))}
-              </div>
-            )}
-
-            {/* Hop + BuyLay toggles row */}
-            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-              {gameVis.hop && (
-                <button onClick={() => setShowHopBets(!showHopBets)} style={{
-                  background: showHopBets ? '#e53935' : 'rgba(229,57,53,0.15)',
-                  color: '#fff', border: '1px solid #2a3548',
-                  fontSize: '9px', padding: '6px 10px', borderRadius: '6px',
-                  cursor: 'pointer', fontFamily: 'inherit', fontWeight: '700', flexShrink: 0
-                }}>HOP BETS</button>
-              )}
-              <button onClick={() => setShowBuyLay(!showBuyLay)} style={{
-                background: showBuyLay ? '#e53935' : 'rgba(229,57,53,0.15)',
-                color: '#fff', border: '1px solid #2a3548',
-                fontSize: '9px', padding: '6px 10px', borderRadius: '6px',
-                cursor: 'pointer', fontFamily: 'inherit', fontWeight: '700', flexShrink: 0
-              }}>BUY / LAY</button>
-            </div>
-
-            {/* Hop Bets expanded */}
-            {gameVis.hop && showHopBets && (
-              <div style={{ padding: '12px', background: 'rgba(0,0,0,0.2)', borderRadius: '10px', border: '1px solid #2a3548' }}>
-                <div style={{ fontSize: '10px', color: '#e53935', marginBottom: '8px', fontWeight: '700' }}>HOP BETS (One Roll Only)</div>
-                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(3,1fr)' : 'repeat(6,1fr)', gap: '4px', marginBottom: '6px' }}>
-                  {['hop11','hop22','hop33','hop44','hop55','hop66'].map((k,i) => (
-                    <CrapsBetArea key={k} label={`${i+1}-${i+1} (30:1)`} value={currentBets[k]+(activeBets[k]||0)} onClick={() => placeBet(k)} disabled={!bettingOpen} style={{ fontSize: '8px' }} />
-                  ))}
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(3,1fr)' : 'repeat(6,1fr)', gap: '4px' }}>
-                  {[['hop12','1-2'],['hop13','1-3'],['hop14','1-4'],['hop15','1-5'],['hop16','1-6'],['hop23','2-3'],
-                    ['hop24','2-4'],['hop25','2-5'],['hop26','2-6'],['hop34','3-4'],['hop35','3-5'],['hop36','3-6'],
-                    ['hop45','4-5'],['hop46','4-6'],['hop56','5-6']].map(([k,lbl]) => (
-                    <CrapsBetArea key={k} label={`${lbl} (15:1)`} value={currentBets[k]+(activeBets[k]||0)} onClick={() => placeBet(k)} disabled={!bettingOpen} style={{ fontSize: '8px' }} />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Buy/Lay expanded */}
-            {showBuyLay && (
-              <div style={{ padding: '12px', background: 'rgba(0,0,0,0.2)', borderRadius: '10px', border: '1px solid #2a3548' }}>
-                <div style={{ fontSize: '9px', color: '#e53935', marginBottom: '6px', fontWeight: '700' }}>BUY (True Odds −5%)</div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: '4px', marginBottom: '10px' }}>
-                  {[4,5,6,8,9,10].map(n => (
-                    <CrapsBetArea key={n} label={`BUY ${n}`} value={currentBets[`buy${n}`]+(activeBets[`buy${n}`]||0)} onClick={() => placeBet(`buy${n}`)} disabled={!bettingOpen} style={{ fontSize: '8px' }} />
-                  ))}
-                </div>
-                <div style={{ fontSize: '9px', color: '#e53935', marginBottom: '6px', fontWeight: '700' }}>LAY (Bet on 7 −5%)</div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: '4px' }}>
-                  {[4,5,6,8,9,10].map(n => (
-                    <CrapsBetArea key={n} label={`LAY ${n}`} value={currentBets[`lay${n}`]+(activeBets[`lay${n}`]||0)} onClick={() => placeBet(`lay${n}`)} disabled={!bettingOpen} style={{ fontSize: '8px' }} />
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
         </div>
 
 
@@ -1914,14 +2114,14 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
                 <div key={idx} style={{
                   marginBottom: '10px',
                   padding: msg.userId === 'system' ? '10px 12px' : '8px',
-                  background: msg.userId === 'system' ? 'rgba(212, 175, 55, 0.1)'
-                    : msg.userId === userId ? 'rgba(212, 175, 55, 0.1)' : 'rgba(255,255,255,0.05)',
+                  background: msg.userId === 'system' ? 'rgba(229,57,53,0.05)'
+                    : msg.userId === userId ? 'rgba(229,57,53,0.05)' : 'rgba(255,255,255,0.05)',
                   borderRadius: '6px',
                   borderLeft: msg.userId === 'system' ? '3px solid #e53935'
                     : `3px solid ${msg.userId === userId ? '#e53935' : '#2a3548'}`
                 }}>
                   {msg.userId !== 'system' && (
-                    <div style={{ fontSize: '10px', color: msg.userId === userId ? '#e53935' : '#556677', marginBottom: '4px' }}>
+                    <div style={{ fontSize: '10px', color: msg.userId === userId ? '#e53935' : '#888', marginBottom: '4px' }}>
                       {msg.userName}
                     </div>
                   )}
@@ -2032,7 +2232,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
                   width: '28px',
                   height: '28px',
                   borderRadius: '50%',
-                  background: idx === 0 ? '#f4c542' 
+                  background: idx === 0 ? '#e53935' 
                     : idx === 1 ? '#c0c0c0'
                     : idx === 2 ? '#cd7f32'
                     : 'rgba(255, 255, 255, 0.1)',
@@ -2097,7 +2297,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
             
             {/* Account Info */}
             <div style={{
-              background: 'rgba(212, 175, 55, 0.1)',
+              background: 'rgba(229,57,53,0.05)',
               padding: '15px',
               borderRadius: '8px',
               marginBottom: '20px',
@@ -2331,7 +2531,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
                   style={{
                     width: '100%',
                     padding: '10px',
-                    background: bonusChipsAmount > 0 ? 'linear-gradient(135deg, #4caf50, #66bb6a)' : '#333',
+                    background: bonusChipsAmount > 0 ? 'linear-gradient(180deg,#43a047,#2e7d32)' : '#1e2837',
                     border: 'none',
                     borderRadius: '6px',
                     color: bonusChipsAmount > 0 ? '#fff' : '#666',
