@@ -166,10 +166,18 @@ export const VISIBILITY_LABELS = {
   },
 };
 
+// ── Default game config ────────────────────────────────────────────────────────
+export const DEFAULT_GAME_CONFIG = {
+  roulette: {
+    zeros: 'double', // 'single' = European (0 only) | 'double' = American (0 + 00)
+  },
+};
+
 // ── Hook ───────────────────────────────────────────────────────────────────────
 export function useSettings(dealerUid) {
   const [odds, setOdds]               = useState(DEFAULT_ODDS);
   const [betVisibility, setBetVisibility] = useState(DEFAULT_VISIBILITY);
+  const [gameConfig, setGameConfig]   = useState(DEFAULT_GAME_CONFIG);
   const [isLoaded, setIsLoaded]       = useState(false);
 
   useEffect(() => {
@@ -191,6 +199,11 @@ export function useSettings(dealerUid) {
             roulette: { ...DEFAULT_VISIBILITY.roulette, ...data.betVisibility.roulette },
             craps:    { ...DEFAULT_VISIBILITY.craps,    ...data.betVisibility.craps    },
             baccarat: { ...DEFAULT_VISIBILITY.baccarat, ...data.betVisibility.baccarat },
+          });
+        }
+        if (data.gameConfig) {
+          setGameConfig({
+            roulette: { ...DEFAULT_GAME_CONFIG.roulette, ...data.gameConfig.roulette },
           });
         }
       }
@@ -223,13 +236,28 @@ export function useSettings(dealerUid) {
     await set(ref(db, `rooms/${dealerUid}/settings/betVisibility/${game}`), DEFAULT_VISIBILITY[game]);
   }, [dealerUid]);
 
+  // Save game config for one game
+  const updateGameConfig = useCallback(async (game, newConfig) => {
+    if (!dealerUid) return;
+    await set(ref(db, `rooms/${dealerUid}/settings/gameConfig/${game}`), newConfig);
+  }, [dealerUid]);
+
+  // Reset game config to defaults
+  const resetGameConfigToDefaults = useCallback(async (game) => {
+    if (!dealerUid) return;
+    await set(ref(db, `rooms/${dealerUid}/settings/gameConfig/${game}`), DEFAULT_GAME_CONFIG[game]);
+  }, [dealerUid]);
+
   return {
     odds,
     betVisibility,
+    gameConfig,
     isLoaded,
     updateOdds,
     updateVisibility,
+    updateGameConfig,
     resetOddsToDefaults,
     resetVisibilityToDefaults,
+    resetGameConfigToDefaults,
   };
 }
