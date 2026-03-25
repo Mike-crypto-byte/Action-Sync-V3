@@ -924,17 +924,21 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
               [1,4,7,10,13,16,19,22,25,28,31,34]
             ];
             
-            const chipDot = (betKey) => {
+            const chipDot = (betKey, cx, cy) => {
               const amt = currentBets[betKey] || activeBets[betKey];
               if (!amt) return null;
+              const CS = isMobile ? 16 : 22;
+              const posStyle = (cx !== undefined && cy !== undefined)
+                ? { position: 'absolute', left: cx - CS / 2, top: cy - CS / 2 }
+                : { position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' };
               return (
                 <div style={{
-                  position: 'absolute', top: '50%', left: '50%',
-                  transform: 'translate(-50%, -50%)',
+                  ...posStyle,
                   background: '#d4af37', color: '#000',
-                  borderRadius: '50%', width: isMobile ? '16px' : '22px', height: isMobile ? '16px' : '22px',
+                  borderRadius: '50%', width: CS, height: CS,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: isMobile ? '6px' : '8px', fontWeight: 'bold', border: isMobile ? '1px solid #000' : '2px solid #000',
+                  fontSize: isMobile ? '6px' : '8px', fontWeight: 'bold',
+                  border: isMobile ? '1px solid #000' : '2px solid #000',
                   zIndex: 5, pointerEvents: 'none'
                 }}>
                   {amt}
@@ -1008,8 +1012,10 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                       const sorted = [n1, n2].sort((a, b) => parseInt(a) - parseInt(b)).join(',');
                       const betKey = `split-${sorted}`;
                       const hasBet = currentBets[betKey] || activeBets[betKey];
-                      const left = (ci + 1) * (W + E) - E / 2 - E / 2;
+                      const left = (ci + 1) * (W + E) - (E + 4) / 2;
                       const top = ri * (H + E);
+                      const chipCx = (E + 4) / 2;
+                      const chipCy = H / 2;
                       return (
                         <div key={`hsplit-${n1}-${n2}`}
                           onClick={() => placeBet('split', sorted)}
@@ -1024,7 +1030,7 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                           }}
                           title={`Split ${n1}/${n2} (17:1)`}
                         >
-                          {hasBet > 0 && chipDot(betKey)}
+                          {hasBet > 0 && chipDot(betKey, chipCx, chipCy)}
                         </div>
                       );
                     })
@@ -1039,7 +1045,9 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                       const betKey = `split-${sorted}`;
                       const hasBet = currentBets[betKey] || activeBets[betKey];
                       const left = ci * (W + E);
-                      const top = (ri + 1) * (H + E) - E / 2 - E / 2;
+                      const top = (ri + 1) * (H + E) - (E + 4) / 2;
+                      const chipCx = W / 2;
+                      const chipCy = (E + 4) / 2;
                       return (
                         <div key={`vsplit-${n1}-${n2}`}
                           onClick={() => placeBet('split', sorted)}
@@ -1054,7 +1062,7 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                           }}
                           title={`Split ${n1}/${n2} (17:1)`}
                         >
-                          {hasBet > 0 && chipDot(betKey)}
+                          {hasBet > 0 && chipDot(betKey, chipCx, chipCy)}
                         </div>
                       );
                     })
@@ -1070,8 +1078,10 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                       const sorted = [tl, tr, bl, br].sort((a, b) => a - b).map(String).join(',');
                       const betKey = `corner-${sorted}`;
                       const hasBet = currentBets[betKey] || activeBets[betKey];
-                      const left = (ci + 1) * (W + E) - E / 2 - E / 2;
-                      const top = (ri + 1) * (H + E) - E / 2 - E / 2;
+                      const left = (ci + 1) * (W + E) - (E + 4) / 2;
+                      const top = (ri + 1) * (H + E) - (E + 4) / 2;
+                      const chipCx = (E + 4) / 2;
+                      const chipCy = (E + 4) / 2;
                       return (
                         <div key={`corner-${sorted}`}
                           onClick={() => placeBet('corner', sorted)}
@@ -1086,7 +1096,7 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                           }}
                           title={`Corner ${tl}/${tr}/${bl}/${br} (8:1)`}
                         >
-                          {hasBet > 0 && chipDot(betKey)}
+                          {hasBet > 0 && chipDot(betKey, chipCx, chipCy)}
                         </div>
                       );
                     })
@@ -1099,7 +1109,9 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                     const betKey = `street-${sorted}`;
                     const hasBet = currentBets[betKey] || activeBets[betKey];
                     const left = ci * (W + E);
-                    const top = 3 * (H + E) - E / 2;
+                    const top = 3 * (H + E) - (E + 4) / 2;
+                    const chipCx = W / 2;
+                    const chipCy = (E + 4) / 2;
                     return (
                       <div key={`street-${sorted}`}
                         onClick={() => placeBet('street', sorted)}
@@ -1114,7 +1126,7 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                         }}
                         title={`Street ${col.join('/')} (11:1)`}
                       >
-                        {hasBet > 0 && chipDot(betKey)}
+                        {hasBet > 0 && chipDot(betKey, chipCx, chipCy)}
                       </div>
                     );
                   })}
