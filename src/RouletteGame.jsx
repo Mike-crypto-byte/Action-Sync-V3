@@ -1115,7 +1115,7 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                       const top = ri * (H + E);
                       return (
                         <div key={`hs-${n1}-${n2}`} onClick={() => placeBet('split', sorted)}
-                          style={{ position: 'absolute', left, top, width: E + 4, height: H, cursor: bettingOpen ? 'pointer' : 'default', zIndex: 3, borderRadius: '3px', background: hasBet ? 'rgba(255,255,255,0.15)' : 'transparent' }}
+                          style={{ position: 'absolute', left, top, width: E + 4, height: H, cursor: bettingOpen ? 'pointer' : 'default', zIndex: 3, borderRadius: '3px', background: 'transparent' }}
                           title={`Split ${n1}/${n2}`} />
                       );
                     })
@@ -1132,7 +1132,7 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                       const top = (ri + 1) * (H + E) - (E + 4) / 2;
                       return (
                         <div key={`vs-${n1}-${n2}`} onClick={() => placeBet('split', sorted)}
-                          style={{ position: 'absolute', left, top, width: W, height: E + 4, cursor: bettingOpen ? 'pointer' : 'default', zIndex: 3, borderRadius: '3px', background: hasBet ? 'rgba(255,255,255,0.15)' : 'transparent' }}
+                          style={{ position: 'absolute', left, top, width: W, height: E + 4, cursor: bettingOpen ? 'pointer' : 'default', zIndex: 3, borderRadius: '3px', background: 'transparent' }}
                           title={`Split ${n1}/${n2}`} />
                       );
                     })
@@ -1149,7 +1149,7 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                       const top = (ri + 1) * (H + E) - (E + 4) / 2;
                       return (
                         <div key={`c-${sorted}`} onClick={() => placeBet('corner', sorted)}
-                          style={{ position: 'absolute', left, top, width: E + 4, height: E + 4, cursor: bettingOpen ? 'pointer' : 'default', zIndex: 4, borderRadius: '50%', background: hasBet ? 'rgba(255,255,255,0.2)' : 'transparent' }}
+                          style={{ position: 'absolute', left, top, width: E + 4, height: E + 4, cursor: bettingOpen ? 'pointer' : 'default', zIndex: 4, borderRadius: '50%', background: 'transparent' }}
                           title={`Corner ${tl}/${tr}/${bl}/${br}`} />
                       );
                     })
@@ -1164,7 +1164,7 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                     const top = gridH;
                     return (
                       <div key={`st-${sorted}`} onClick={() => placeBet('street', sorted)}
-                        style={{ position: 'absolute', left, top, width: W, height: E + 4, cursor: bettingOpen ? 'pointer' : 'default', zIndex: 3, borderRadius: '3px', background: hasBet ? 'rgba(255,255,255,0.15)' : 'transparent' }}
+                        style={{ position: 'absolute', left, top, width: W, height: E + 4, cursor: bettingOpen ? 'pointer' : 'default', zIndex: 3, borderRadius: '3px', background: 'transparent' }}
                         title={`Street ${col.join('/')}`} />
                     );
                   })}
