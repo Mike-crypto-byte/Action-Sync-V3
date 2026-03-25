@@ -239,4 +239,3 @@ export function useAuth() {
     isPlayer: role === PLAYER_ROLE,
   };
 }
-
