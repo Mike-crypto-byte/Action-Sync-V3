@@ -28,6 +28,19 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  // Dynamic board width — measured so the grid always fills its container
+  const boardRef = useRef(null);
+  const [boardWidth, setBoardWidth] = useState(0);
+  useEffect(() => {
+    if (!boardRef.current) return;
+    const ro = new ResizeObserver(entries => {
+      for (const entry of entries) setBoardWidth(entry.contentRect.width);
+    });
+    ro.observe(boardRef.current);
+    setBoardWidth(boardRef.current.offsetWidth);
+    return () => ro.disconnect();
+  }, []);
   // User state
   const [userId] = useState(() => {
     if (playerUserId) return playerUserId;
@@ -760,22 +773,24 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
           cursor: bettingOpen ? 'pointer' : 'not-allowed',
           position: 'relative',
           opacity: bettingOpen ? 1 : 0.45,
-          transition: 'filter 0.15s, transform 0.1s',
           userSelect: 'none',
         }}
       >
-        <div style={{ fontSize: isMobile ? '10px' : '13px', fontWeight: '700', color: '#fff', letterSpacing: '0.5px' }}>
+        <div style={{ fontSize: isMobile ? '10px' : '13px', fontWeight: '700', color: hasBet ? 'rgba(255,255,255,0.3)' : '#fff', letterSpacing: '0.5px' }}>
           {label}
         </div>
         {hasBet > 0 && (
           <div style={{
-            position: 'absolute', top: '-10px', right: '-10px',
+            position: 'absolute',
+            top: '50%', left: '50%',
+            transform: 'translate(-50%, -50%)',
             background: cc.bg, color: '#fff',
-            borderRadius: '50%', width: '26px', height: '26px',
+            borderRadius: '50%', width: '32px', height: '32px',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: '9px', fontWeight: 'bold',
             border: `2px solid ${cc.border}`,
-            boxShadow: `0 2px 6px rgba(0,0,0,0.5)`,
+            boxShadow: `0 2px 8px rgba(0,0,0,0.6)`,
+            zIndex: 2,
           }}>
             ${hasBet}
           </div>
@@ -889,14 +904,13 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
         </div>
 
         {/* Roulette Table */}
-        <div style={{
+        <div ref={boardRef} style={{
           background: '#192333',
           border: '1px solid #2a3548',
           borderRadius: isMobile ? '10px' : '14px',
           padding: isMobile ? '10px' : '18px',
           boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
           marginBottom: '20px',
-          overflowX: 'auto'
         }}>
           {/* Interactive Roulette Board */}
           {(() => {
@@ -912,13 +926,20 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
             
             // Chip color helper used by overlay layer and outside bets
 
-            // Cell size — responsive. On desktop we let the board fill the container.
-            const W = isMobile ? 28 : 70;
-            const H = isMobile ? 32 : 54;
-            const E = isMobile ? 5 : 10;
-            const CS = isMobile ? 16 : 22; // chip size
+            // Cell size — calculated to fill the measured board container exactly
+            // Available width = boardWidth - zero col (50px) - column bets (44px) - 3 gaps (6px each)
+            const zeroColW = isMobile ? 32 : 50;
+            const colBetW  = isMobile ? 32 : 44;
+            const outerGap = 6;
+            const E = isMobile ? 4 : 8; // gap between cells
+            const availW = boardWidth > 0
+              ? boardWidth - zeroColW - colBetW - outerGap * 2 - (isMobile ? 20 : 36) // padding
+              : isMobile ? 336 : 900;
+            // W = (availW - 11 * E) / 12, clamped to reasonable range
+            const W = Math.max(isMobile ? 22 : 55, Math.floor((availW - 11 * E) / 12));
+            const H = isMobile ? 32 : Math.round(W * 0.72);
+            const CS = isMobile ? 16 : 22; // chip diameter
 
-            // Grid total width for the 12-column number area
             const gridW = 12 * W + 11 * E;
             const gridH = 3 * H + 2 * E;
 
@@ -1013,7 +1034,7 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
             });
 
             return (
-              <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', width: '100%', overflowX: 'auto' }}>
+              <div style={{ display: 'flex', gap: `${outerGap}px`, marginBottom: '12px', width: '100%', alignItems: 'center' }}>
                 {/* 0 and optional 00 */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: `${E}px`, justifyContent: 'center', flexShrink: 0 }}>
                   {(isDoubleZero ? ['0', '00'] : ['0']).map(n => {
@@ -1022,7 +1043,7 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                     const zeroH = isDoubleZero ? H * 1.5 : H * 3 + E * 2;
                     return (
                       <div key={n} onClick={() => placeBet('straight', n)} style={{
-                        width: isMobile ? W : 50,
+                        width: zeroColW,
                         height: zeroH,
                         background: 'linear-gradient(180deg, #2e7d32 0%, #1b5e20 100%)',
                         border: '1px solid #388e3c',
@@ -1052,7 +1073,7 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                 </div>
 
                 {/* Main grid + overlay */}
-                <div style={{ position: 'relative', flexShrink: 0 }}>
+                <div style={{ position: 'relative' }}>
                   {/* Number cells */}
                   <div style={{
                     display: 'grid',
@@ -1179,7 +1200,7 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                     const cc = hasBet ? chipColor(hasBet) : null;
                     return (
                       <div key={col} onClick={() => placeBet('column', col.toString())} style={{
-                        flex: 1, width: isMobile ? W : 44,
+                        flex: 1, width: colBetW,
                         background: '#1e2837', border: '1px solid #2a3548', borderRadius: '6px',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         cursor: bettingOpen ? 'pointer' : 'not-allowed',
