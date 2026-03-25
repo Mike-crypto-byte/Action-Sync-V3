@@ -912,10 +912,8 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
     return (
       <div style={{
         minHeight: '100vh',
-        background: '#1a5f1a',
+        background: '#0f1923',
         backgroundImage: `
-          repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(0,0,0,.05) 10px, rgba(0,0,0,.05) 20px),
-          radial-gradient(circle at 30% 50%, rgba(255,255,255,0.03) 0%, transparent 70%)
         `,
         display: 'flex',
         alignItems: 'center',
@@ -924,8 +922,8 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
         padding: '20px'
       }}>
         <div style={{
-          background: 'linear-gradient(135deg, #1c1e2a 0%, #252836 100%)',
-          border: '1px solid rgba(212, 175, 55, 0.4)',
+          background: '#141e2e',
+          border: '1px solid #2a3548',
           borderRadius: '15px',
           padding: '50px 40px',
           maxWidth: '450px',
@@ -936,12 +934,12 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
             <div style={{
               fontSize: '42px',
               fontWeight: 'bold',
-              color: '#d4af37',
+              color: '#e53935',
               marginBottom: '10px',
               letterSpacing: '1.5px',
               textShadow: '0 0 20px rgba(212, 175, 55, 0.5)'
             }}>
-              ACTION SYNC
+              🎲 Craps
             </div>
             <div style={{
               color: '#888',
@@ -956,7 +954,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
           <div style={{ marginBottom: '25px' }}>
             <label style={{
               display: 'block',
-              color: '#d4af37',
+              color: '#e53935',
               fontSize: '11px',
               letterSpacing: '1px',
               textTransform: 'uppercase',
@@ -992,7 +990,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
               width: '100%',
               padding: '16px',
               background: userName.trim() 
-                ? 'linear-gradient(135deg, #d4af37 0%, #f4e5a1 100%)'
+                ? 'linear-gradient(180deg,#e53935,#b71c1c)'
                 : '#333',
               border: 'none',
               borderRadius: '8px',
@@ -1017,7 +1015,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
             borderRadius: '8px',
             border: '1px solid rgba(212, 175, 55, 0.2)'
           }}>
-            <div style={{ color: '#d4af37', fontSize: '12px', marginBottom: '12px', fontWeight: 'bold' }}>
+            <div style={{ color: '#e53935', fontSize: '12px', marginBottom: '12px', fontWeight: 'bold' }}>
               Starting Chips: $1,000
             </div>
             <div style={{ color: '#888', fontSize: '10px', lineHeight: '1.6' }}>
@@ -1029,57 +1027,67 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
     );
   }
 
-  // Craps table component
-  const CrapsBetArea = ({ label, value, onClick, style = {}, disabled = false }) => (
-    <div
-      onClick={disabled ? null : onClick}
-      style={{
-        position: 'relative',
-        border: '2px solid #fff',
-        padding: '8px',
-        textAlign: 'center',
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        opacity: disabled ? 0.3 : 1,
-        transition: 'all 0.2s',
-        background: value > 0 ? '#d4af37' : 'transparent',
-        color: value > 0 ? '#000' : '#fff',
-        fontWeight: value > 0 ? 'bold' : 'normal',
-        userSelect: 'none',
-        ...style
-      }}
-    >
-      <div style={{ fontSize: '10px', lineHeight: '1.2' }}>{label}</div>
-      {value > 0 && (
-        <div style={{
-          position: 'absolute',
-          top: '-12px',
-          right: '-12px',
-          background: '#000',
-          color: '#d4af37',
-          borderRadius: '50%',
-          width: '24px',
-          height: '24px',
+  // Chip color helper (matches roulette)
+  const chipColor = (amt) => {
+    if (amt >= 500) return { bg: '#9c27b0', border: '#ce93d8' };
+    if (amt >= 100) return { bg: '#212121', border: '#757575' };
+    if (amt >= 50)  return { bg: '#e65100', border: '#ffcc02' };
+    if (amt >= 25)  return { bg: '#1b5e20', border: '#69f0ae' };
+    if (amt >= 10)  return { bg: '#0d47a1', border: '#82b1ff' };
+    return { bg: '#b71c1c', border: '#ff8a80' };
+  };
+
+  // Craps bet button — Stake navy style
+  const CrapsBetArea = ({ label, value, onClick, style = {}, disabled = false, isHighlight = false }) => {
+    const cc = value > 0 ? chipColor(value) : null;
+    return (
+      <div
+        onClick={disabled ? null : onClick}
+        style={{
+          position: 'relative',
+          border: isHighlight ? '2px solid #e53935' : '1px solid #2a3548',
+          padding: '8px 6px',
+          textAlign: 'center',
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          opacity: disabled ? 0.35 : 1,
+          background: isHighlight ? 'rgba(229,57,53,0.12)' : '#1e2837',
+          borderRadius: '8px',
+          userSelect: 'none',
+          transition: 'filter 0.15s',
+          minHeight: '44px',
           display: 'flex',
+          flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          fontSize: '10px',
-          fontWeight: 'bold',
-          border: '1px solid rgba(212, 175, 55, 0.4)',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.5)'
-        }}>
-          ${value}
-        </div>
-      )}
-    </div>
-  );
+          ...style
+        }}
+      >
+        <div style={{ fontSize: '10px', lineHeight: '1.3', color: value > 0 ? 'rgba(255,255,255,0.35)' : '#ccd6e0', fontWeight: '600' }}>{label}</div>
+        {value > 0 && (
+          <div style={{
+            position: 'absolute',
+            top: '50%', left: '50%',
+            transform: 'translate(-50%, -50%)',
+            background: cc.bg, color: '#fff',
+            borderRadius: '50%', width: '28px', height: '28px',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '9px', fontWeight: 'bold',
+            border: `2px solid ${cc.border}`,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.6)',
+            zIndex: 2,
+          }}>
+            ${value}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div style={{
       minHeight: '100vh',
-      background: '#1a5f1a',
+      background: '#0f1923',
       backgroundImage: `
-        repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(0,0,0,.05) 10px, rgba(0,0,0,.05) 20px),
-        radial-gradient(circle at 30% 50%, rgba(255,255,255,0.03) 0%, transparent 70%)
       `,
 
       color: '#fff',
@@ -1089,8 +1097,8 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
       {/* Header */}
       <div style={{
         padding: isMobile ? '8px 10px' : '12px 20px',
-        background: 'linear-gradient(135deg, #1c1e2a 0%, #252836 100%)',
-        borderBottom: '3px solid #d4af37',
+        background: '#141e2e',
+        borderBottom: '1px solid #2a3548',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
@@ -1099,12 +1107,12 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
         zIndex: 1000
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '8px' : '20px' }}>
-          <div style={{ fontSize: isMobile ? '14px' : '20px', fontWeight: 'bold', color: '#d4af37', letterSpacing: '1px' }}>
-            ACTION SYNC
+          <div style={{ fontSize: isMobile ? '14px' : '20px', fontWeight: 'bold', color: '#e53935', letterSpacing: '0.5px' }}>
+            🎲 Craps
           </div>
           <div style={{ fontSize: '11px', color: '#888' }}>
             <span style={{ color: '#aaa', fontSize: '12px' }}>{userName}</span>
-              <span style={{ color: '#d4af37', fontSize: isMobile ? '16px' : '22px', fontWeight: 'bold', marginLeft: isMobile ? '5px' : '10px' }}>${Math.round(bankroll).toLocaleString()}</span>
+              <span style={{ color: '#fff', fontSize: isMobile ? '16px' : '20px', fontWeight: 'bold', marginLeft: isMobile ? '5px' : '10px' }}>${Math.round(bankroll).toLocaleString()}</span>
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
@@ -1112,11 +1120,11 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
             <button
               onClick={onBack}
               style={{
-                background: 'rgba(212, 175, 55, 0.2)',
-                border: '1px solid #d4af37',
+                background: 'rgba(229,57,53,0.15)',
+                border: '1px solid #e53935',
                 borderRadius: '6px',
                 padding: '6px 12px',
-                color: '#d4af37',
+                color: '#e53935',
                 cursor: 'pointer',
                 fontSize: '11px',
                 fontFamily: 'inherit',
@@ -1140,8 +1148,8 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
         
         {/* Status Bar */}
         <div style={{
-          background: 'linear-gradient(135deg, #1c1e2a 0%, #252836 100%)',
-          border: '1px solid rgba(212, 175, 55, 0.4)',
+          background: '#141e2e',
+          border: '1px solid #2a3548',
           borderRadius: '12px',
           padding: '15px 20px',
           marginBottom: '20px',
@@ -1151,7 +1159,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
         }}>
           <div>
             <div style={{ fontSize: '10px', color: '#888', marginBottom: '4px' }}>GAME MODE</div>
-            <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#d4af37' }}>
+            <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#e53935' }}>
               {gameMode === 'standard' ? 'STANDARD CRAPS' : 'CRAPLESS CRAPS'}
             </div>
           </div>
@@ -1163,7 +1171,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
           </div>
           {bettingOpen && (
             <div style={{
-              background: countdown <= 5 ? '#ff5252' : '#d4af37',
+              background: countdown <= 5 ? 'rgba(229,57,53,0.2)' : 'rgba(229,57,53,0.1)',
               color: '#000',
               borderRadius: '8px',
               padding: '10px 20px',
@@ -1201,11 +1209,11 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
 
         {/* Craps Table */}
         <div style={{
-          background: '#0d3d0d',
-          border: '8px solid #8b4513',
+          background: '#192333',
+          border: '1px solid #2a3548',
           borderRadius: '20px',
           padding: '30px',
-          boxShadow: 'inset 0 0 50px rgba(0,0,0,0.5), 0 10px 40px rgba(0,0,0,0.8)',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
           marginBottom: '20px'
         }}>
           
@@ -1296,9 +1304,9 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
               <button
                 onClick={() => setShowHopBets(!showHopBets)}
                 style={{
-                  background: showHopBets ? '#d4af37' : 'rgba(212, 175, 55, 0.3)',
-                  color: showHopBets ? '#000' : '#d4af37',
-                  border: '1px solid rgba(212, 175, 55, 0.4)',
+                  background: showHopBets ? '#e53935' : 'rgba(229,57,53,0.15)',
+                  color: '#fff',
+                  border: '1px solid #2a3548',
                   fontSize: '8px',
                   padding: '4px',
                   borderRadius: '4px',
@@ -1334,10 +1342,10 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
               marginBottom: '15px',
               padding: '15px',
               background: 'rgba(212, 175, 55, 0.1)',
-              border: '1px solid rgba(212, 175, 55, 0.4)',
+              border: '1px solid #2a3548',
               borderRadius: '12px'
             }}>
-              <div style={{ fontSize: '10px', color: '#d4af37', marginBottom: '10px', fontWeight: 'bold' }}>
+              <div style={{ fontSize: '10px', color: '#e53935', marginBottom: '10px', fontWeight: 'bold' }}>
                 HOP BETS (One Roll Only)
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(3, 1fr)' : 'repeat(6, 1fr)', gap: isMobile ? '4px' : '6px', marginBottom: '10px' }}>
@@ -1381,8 +1389,8 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
                   disabled={!bettingOpen || (gamePhase === 'point' && activeBets.passLine > 0)}
                   style={{ 
                     height: '60px', 
-                    background: currentBets.passLine + (activeBets.passLine || 0) > 0 ? '#d4af37' : 'rgba(255,255,255,0.1)',
-                    border: '3px solid #fff',
+                    background: 'transparent',
+                    border: '1px solid #3a4a5a',
                     fontSize: '10px',
                     marginBottom: '5px'
                   }}
@@ -1396,8 +1404,8 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
                     style={{ 
                       height: '40px',
                       fontSize: '9px',
-                      background: currentBets.passOdds + (activeBets.passOdds || 0) > 0 ? '#4caf50' : 'rgba(76, 175, 80, 0.2)',
-                      border: '2px solid #4caf50'
+                      background: 'transparent',
+                      border: '1px solid #43a047'
                     }}
                   />
                 )}
@@ -1419,8 +1427,8 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
                     style={{ 
                       height: '30px',
                       fontSize: '9px',
-                      background: currentBets.dontPassOdds + (activeBets.dontPassOdds || 0) > 0 ? '#ff5722' : 'rgba(255, 87, 34, 0.2)',
-                      border: '2px solid #ff5722'
+                      background: 'transparent',
+                      border: '1px solid #ef5350'
                     }}
                   />
                 )}
@@ -1428,9 +1436,9 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
               <button
                 onClick={() => setShowBuyLay(!showBuyLay)}
                 style={{
-                  background: showBuyLay ? '#d4af37' : 'rgba(212, 175, 55, 0.3)',
-                  color: showBuyLay ? '#000' : '#d4af37',
-                  border: '1px solid rgba(212, 175, 55, 0.4)',
+                  background: showBuyLay ? '#e53935' : 'rgba(229,57,53,0.15)',
+                  color: '#fff',
+                  border: '1px solid #2a3548',
                   fontSize: '9px',
                   padding: '8px',
                   borderRadius: '6px',
@@ -1451,10 +1459,10 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
                   marginBottom: '12px',
                   padding: '12px',
                   background: 'rgba(212, 175, 55, 0.1)',
-                  border: '1px solid rgba(212, 175, 55, 0.4)',
+                  border: '1px solid #2a3548',
                   borderRadius: '8px'
                 }}>
-                  <div style={{ fontSize: '9px', color: '#d4af37', marginBottom: '8px', fontWeight: 'bold' }}>
+                  <div style={{ fontSize: '9px', color: '#e53935', marginBottom: '8px', fontWeight: 'bold' }}>
                     BUY BETS (True Odds -5%)
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(3, 1fr)' : 'repeat(6, 1fr)', gap: isMobile ? '4px' : '6px', marginBottom: '10px' }}>
@@ -1465,7 +1473,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
                     <CrapsBetArea label="BUY 9" value={currentBets.buy9 + (activeBets.buy9 || 0)} onClick={() => placeBet('buy9')} disabled={!bettingOpen} style={{ fontSize: '8px' }} />
                     <CrapsBetArea label="BUY 10" value={currentBets.buy10 + (activeBets.buy10 || 0)} onClick={() => placeBet('buy10')} disabled={!bettingOpen} style={{ fontSize: '8px' }} />
                   </div>
-                  <div style={{ fontSize: '9px', color: '#d4af37', marginBottom: '8px', fontWeight: 'bold' }}>
+                  <div style={{ fontSize: '9px', color: '#e53935', marginBottom: '8px', fontWeight: 'bold' }}>
                     LAY BETS (Bet on 7 -5%)
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(3, 1fr)' : 'repeat(6, 1fr)', gap: isMobile ? '4px' : '6px' }}>
@@ -1513,7 +1521,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
                     fontSize: '18px', 
                     fontWeight: 'bold', 
                     height: '55px',
-                    background: point === 4 ? '#ff9800' : (currentBets.place4 + (activeBets.place4 || 0) > 0 ? '#d4af37' : 'transparent')
+                    background: point === 4 ? 'rgba(255,152,0,0.2)' : 'transparent'
                   }}
                 />
                 <CrapsBetArea 
@@ -1525,7 +1533,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
                     fontSize: '18px', 
                     fontWeight: 'bold', 
                     height: '55px',
-                    background: point === 5 ? '#ff9800' : (currentBets.place5 + (activeBets.place5 || 0) > 0 ? '#d4af37' : 'transparent')
+                    background: point === 5 ? 'rgba(255,152,0,0.2)' : 'transparent'
                   }}
                 />
                 <CrapsBetArea 
@@ -1537,7 +1545,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
                     fontSize: '18px', 
                     fontWeight: 'bold', 
                     height: '55px',
-                    background: point === 6 ? '#ff9800' : (currentBets.place6 + (activeBets.place6 || 0) > 0 ? '#d4af37' : 'transparent')
+                    background: point === 6 ? 'rgba(255,152,0,0.2)' : 'transparent'
                   }}
                 />
                 <CrapsBetArea 
@@ -1549,7 +1557,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
                     fontSize: '18px', 
                     fontWeight: 'bold', 
                     height: '55px',
-                    background: point === 8 ? '#ff9800' : (currentBets.place8 + (activeBets.place8 || 0) > 0 ? '#d4af37' : 'transparent')
+                    background: point === 8 ? 'rgba(255,152,0,0.2)' : 'transparent'
                   }}
                 />
                 <CrapsBetArea 
@@ -1561,7 +1569,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
                     fontSize: '18px', 
                     fontWeight: 'bold', 
                     height: '55px',
-                    background: point === 9 ? '#ff9800' : (currentBets.place9 + (activeBets.place9 || 0) > 0 ? '#d4af37' : 'transparent')
+                    background: point === 9 ? 'rgba(255,152,0,0.2)' : 'transparent'
                   }}
                 />
                 <CrapsBetArea 
@@ -1573,7 +1581,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
                     fontSize: '18px', 
                     fontWeight: 'bold', 
                     height: '55px',
-                    background: point === 10 ? '#ff9800' : (currentBets.place10 + (activeBets.place10 || 0) > 0 ? '#d4af37' : 'transparent')
+                    background: point === 10 ? 'rgba(255,152,0,0.2)' : 'transparent'
                   }}
                 />
                 {gameMode === 'crapless' && (
@@ -1605,8 +1613,8 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
                 style={{ 
                   height: '60px', 
                   marginBottom: '12px',
-                  background: currentBets.come + (activeBets.come || 0) > 0 ? '#d4af37' : 'rgba(255,255,255,0.1)',
-                  border: '3px solid #fff',
+                  background: 'transparent',
+                  border: '1px solid #3a4a5a',
                   fontSize: '12px'
                 }}
               />
@@ -1619,8 +1627,8 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
                 disabled={!bettingOpen}
                 style={{ 
                   height: '50px',
-                  background: currentBets.field + (activeBets.field || 0) > 0 ? '#d4af37' : 'rgba(255,255,255,0.15)',
-                  border: '3px solid #fff',
+                  background: 'transparent',
+                  border: '1px solid #3a4a5a',
                   fontSize: '10px'
                 }}
               />}
@@ -1643,14 +1651,14 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
                   value={currentBets.big6 + (activeBets.big6 || 0)}
                   onClick={() => placeBet('big6')}
                   disabled={!bettingOpen}
-                  style={{ fontSize: '10px', background: currentBets.big6 + (activeBets.big6 || 0) > 0 ? '#d4af37' : 'rgba(255,255,255,0.1)' }}
+                  style={{ fontSize: '10px', background: 'transparent' }}
                 />
                 <CrapsBetArea 
                   label="BIG 8" 
                   value={currentBets.big8 + (activeBets.big8 || 0)}
                   onClick={() => placeBet('big8')}
                   disabled={!bettingOpen}
-                  style={{ fontSize: '10px', background: currentBets.big8 + (activeBets.big8 || 0) > 0 ? '#d4af37' : 'rgba(255,255,255,0.1)' }}
+                  style={{ fontSize: '10px', background: 'transparent' }}
                 />
               </div>
               
@@ -1718,7 +1726,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
         {/* Active Bets Summary */}
         {Object.keys(activeBets).some(k => activeBets[k] > 0) && (
           <div style={{
-            background: 'linear-gradient(135deg, #1c1e2a 0%, #252836 100%)',
+            background: '#141e2e',
             border: !bettingOpen ? '2px solid #f44336' : '2px solid #4caf50',
             borderRadius: '12px',
             padding: '15px 20px',
@@ -1733,7 +1741,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
               }}>
                 {!bettingOpen ? '🔒 Locked Bets' : '📋 Active Bets'}
               </div>
-              <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#d4af37' }}>
+              <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#e53935' }}>
                 Total: ${(Object.values(activeBets).filter(v => v > 0).reduce((s, v) => s + v, 0) + Object.values(currentBets).filter(v => v > 0).reduce((s, v) => s + v, 0)).toLocaleString()}
               </div>
             </div>
@@ -1745,7 +1753,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
                   borderRadius: '20px',
                   padding: '5px 12px',
                   fontSize: '11px',
-                  color: '#d4af37'
+                  color: '#e53935'
                 }}>
                   🔒 {key.replace(/([A-Z])/g, ' $1').replace(/-/g, ' ').trim()} <span style={{ fontWeight: 'bold' }}>${amount}</span>
                 </div>
@@ -1773,8 +1781,8 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
           position: isMobile ? 'sticky' : 'relative',
           bottom: isMobile ? 0 : 'auto',
           zIndex: isMobile ? 100 : 'auto',
-          background: 'linear-gradient(135deg, #1c1e2a 0%, #252836 100%)',
-          border: '1px solid rgba(212, 175, 55, 0.4)',
+          background: '#141e2e',
+          border: '1px solid #2a3548',
           borderRadius: '12px',
           padding: '20px',
           marginBottom: '20px'
@@ -1896,8 +1904,8 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
 
         {/* Session Stats */}
         <div style={{
-          background: 'linear-gradient(135deg, #1c1e2a 0%, #252836 100%)',
-          border: '1px solid rgba(212, 175, 55, 0.4)',
+          background: '#141e2e',
+          border: '1px solid #2a3548',
           borderRadius: '12px',
           padding: '20px',
           marginBottom: '20px'
@@ -1906,7 +1914,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
             fontSize: '11px',
             letterSpacing: '1px',
             textTransform: 'uppercase',
-            color: '#d4af37',
+            color: '#e53935',
             marginBottom: '15px',
             fontWeight: 'bold'
           }}>
@@ -1942,8 +1950,8 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
 
         {/* Roll History */}
         <div style={{
-          background: 'linear-gradient(135deg, #1c1e2a 0%, #252836 100%)',
-          border: '1px solid rgba(212, 175, 55, 0.4)',
+          background: '#141e2e',
+          border: '1px solid #2a3548',
           borderRadius: '12px',
           padding: '20px',
           marginBottom: '20px'
@@ -1952,7 +1960,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
             fontSize: '11px',
             letterSpacing: '1px',
             textTransform: 'uppercase',
-            color: '#d4af37',
+            color: '#e53935',
             marginBottom: '15px',
             fontWeight: 'bold'
           }}>
@@ -2015,8 +2023,8 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
 
         {/* Bet History */}
         <div style={{
-          background: 'linear-gradient(135deg, #1c1e2a 0%, #252836 100%)',
-          border: '1px solid rgba(212, 175, 55, 0.4)',
+          background: '#141e2e',
+          border: '1px solid #2a3548',
           borderRadius: '12px',
           padding: '20px',
           marginBottom: '20px'
@@ -2025,7 +2033,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
             onClick={() => setShowBetHistory(!showBetHistory)}
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}
           >
-            <div style={{ fontSize: '11px', letterSpacing: '1px', textTransform: 'uppercase', color: '#d4af37', fontWeight: 'bold' }}>
+            <div style={{ fontSize: '11px', letterSpacing: '1px', textTransform: 'uppercase', color: '#e53935', fontWeight: 'bold' }}>
               📋 My Bet History ({betHistory.length})
             </div>
             <div style={{ color: '#888', fontSize: '16px' }}>{showBetHistory ? '▲' : '▼'}</div>
@@ -2045,10 +2053,10 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <div style={{
-                        padding: '6px 10px', background: 'rgba(212, 175, 55, 0.2)',
-                        borderRadius: '6px', border: '1px solid #d4af37'
+                        padding: '6px 10px', background: 'rgba(229,57,53,0.15)',
+                        borderRadius: '6px', border: '1px solid #e53935'
                       }}>
-                        <span style={{ fontSize: '16px', fontWeight: 'bold', color: '#d4af37' }}>
+                        <span style={{ fontSize: '16px', fontWeight: 'bold', color: '#e53935' }}>
                           {entry.dice ? `${entry.dice[0]}+${entry.dice[1]}=${entry.total}` : '?'}
                         </span>
                       </div>
@@ -2072,8 +2080,8 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
 
         {/* Chat */}
         <div style={{
-          background: 'linear-gradient(135deg, #1c1e2a 0%, #252836 100%)',
-          border: '1px solid rgba(212, 175, 55, 0.4)',
+          background: '#141e2e',
+          border: '1px solid #2a3548',
           borderRadius: '12px',
           padding: '20px',
           marginBottom: '20px'
@@ -2082,7 +2090,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
             fontSize: '11px',
             letterSpacing: '1px',
             textTransform: 'uppercase',
-            color: '#d4af37',
+            color: '#e53935',
             marginBottom: '15px',
             fontWeight: 'bold'
           }}>
@@ -2109,17 +2117,17 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
                   background: msg.userId === 'system' ? 'rgba(212, 175, 55, 0.1)'
                     : msg.userId === userId ? 'rgba(212, 175, 55, 0.1)' : 'rgba(255,255,255,0.05)',
                   borderRadius: '6px',
-                  borderLeft: msg.userId === 'system' ? '3px solid #d4af37'
-                    : `3px solid ${msg.userId === userId ? '#d4af37' : '#555'}`
+                  borderLeft: msg.userId === 'system' ? '3px solid #e53935'
+                    : `3px solid ${msg.userId === userId ? '#e53935' : '#2a3548'}`
                 }}>
                   {msg.userId !== 'system' && (
-                    <div style={{ fontSize: '10px', color: msg.userId === userId ? '#d4af37' : '#888', marginBottom: '4px' }}>
+                    <div style={{ fontSize: '10px', color: msg.userId === userId ? '#e53935' : '#556677', marginBottom: '4px' }}>
                       {msg.userName}
                     </div>
                   )}
                   <div style={{
                     fontSize: msg.userId === 'system' ? '11px' : '12px',
-                    color: msg.userId === 'system' ? '#d4af37' : '#fff',
+                    color: msg.userId === 'system' ? '#e53935' : '#fff',
                     fontStyle: msg.userId === 'system' ? 'italic' : 'normal'
                   }}>
                     {msg.text}
@@ -2154,7 +2162,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
               disabled={!chatInput.trim()}
               style={{
                 padding: isMobile ? '8px 10px' : '12px 20px',
-                background: chatInput.trim() ? '#d4af37' : '#333',
+                background: chatInput.trim() ? '#e53935' : '#1e2837',
                 border: 'none',
                 borderRadius: '6px',
                 color: chatInput.trim() ? '#000' : '#666',
@@ -2171,8 +2179,8 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
 
         {/* Leaderboard */}
         <div style={{
-          background: 'linear-gradient(135deg, #1c1e2a 0%, #252836 100%)',
-          border: '1px solid rgba(212, 175, 55, 0.4)',
+          background: '#141e2e',
+          border: '1px solid #2a3548',
           borderRadius: '12px',
           padding: '20px',
           marginBottom: '20px'
@@ -2183,12 +2191,12 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
             gap: '10px',
             marginBottom: '18px'
           }}>
-            <Trophy size={18} color="#d4af37" />
+            <Trophy size={18} color="#e53935" />
             <div style={{
               fontSize: '13px',
               letterSpacing: '1px',
               textTransform: 'uppercase',
-              color: '#d4af37',
+              color: '#e53935',
               fontWeight: 'bold'
             }}>
               Top Players <span style={{ fontSize: '8px', color: '#4caf50', marginLeft: '8px', animation: 'pulse 2s infinite' }}>● LIVE</span>
@@ -2215,7 +2223,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
                   ? 'rgba(212, 175, 55, 0.2)' 
                   : 'rgba(0, 0, 0, 0.3)',
                 border: player.userId === userId 
-                  ? '2px solid #d4af37'
+                  ? '2px solid #e53935'
                   : '1px solid rgba(255, 255, 255, 0.05)',
                 borderRadius: '8px',
                 marginBottom: '8px'
@@ -2224,7 +2232,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
                   width: '28px',
                   height: '28px',
                   borderRadius: '50%',
-                  background: idx === 0 ? '#d4af37' 
+                  background: idx === 0 ? '#f4c542' 
                     : idx === 1 ? '#c0c0c0'
                     : idx === 2 ? '#cd7f32'
                     : 'rgba(255, 255, 255, 0.1)',
@@ -2242,7 +2250,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
                   <div style={{
                     fontSize: '13px',
                     fontWeight: player.userId === userId ? 'bold' : 'normal',
-                    color: player.userId === userId ? '#d4af37' : '#fff',
+                    color: player.userId === userId ? '#ef5350' : '#ccd6e0',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap'
@@ -2266,8 +2274,8 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
         {/* User Settings Panel (Players Only) */}
         {false && (
           <div style={{
-            background: 'linear-gradient(135deg, #1c1e2a 0%, #252836 100%)',
-            border: '1px solid rgba(212, 175, 55, 0.4)',
+            background: '#141e2e',
+            border: '1px solid #2a3548',
             borderRadius: '12px',
             padding: '25px',
             marginBottom: '20px'
@@ -2276,7 +2284,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
               fontSize: '13px',
               letterSpacing: '1px',
               textTransform: 'uppercase',
-              color: '#d4af37',
+              color: '#e53935',
               marginBottom: '20px',
               fontWeight: 'bold',
               display: 'flex',
@@ -2301,7 +2309,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
               <div style={{ fontSize: '16px', color: '#fff', fontWeight: 'bold', marginBottom: '5px' }}>
                 {userName}
               </div>
-              <div style={{ fontSize: '12px', color: '#d4af37' }}>
+              <div style={{ fontSize: '12px', color: '#e53935' }}>
                 Balance: ${Math.round(bankroll).toLocaleString()}
               </div>
             </div>
@@ -2401,7 +2409,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
         {/* Admin / Dealer Controls */}
         {isAdmin && (
           <div style={{
-            background: 'linear-gradient(135deg, #1c1e2a 0%, #252836 100%)',
+            background: '#141e2e',
             border: '3px solid #9c27b0',
             borderRadius: '12px',
             padding: '25px'
@@ -2633,9 +2641,9 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
                       <button key={`d1-${n}`} onClick={() => setAdminDice1(String(n))}
                         style={{
                           padding: '18px 0', borderRadius: '8px', fontSize: '32px', fontWeight: 'bold',
-                          background: adminDice1 === String(n) ? '#d4af37' : 'rgba(156,39,176,0.3)',
+                          background: adminDice1 === String(n) ? '#fff' : 'rgba(229,57,53,0.15)',
                           color: adminDice1 === String(n) ? '#000' : '#fff',
-                          border: adminDice1 === String(n) ? '2px solid #d4af37' : '1px solid #9c27b0',
+                          border: adminDice1 === String(n) ? '2px solid #e53935' : '1px solid #9c27b0',
                           cursor: 'pointer', fontFamily: 'inherit'
                         }}>
                         {['⚀','⚁','⚂','⚃','⚄','⚅'][n-1]}
@@ -2650,9 +2658,9 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
                       <button key={`d2-${n}`} onClick={() => setAdminDice2(String(n))}
                         style={{
                           padding: '18px 0', borderRadius: '8px', fontSize: '32px', fontWeight: 'bold',
-                          background: adminDice2 === String(n) ? '#d4af37' : 'rgba(156,39,176,0.3)',
+                          background: adminDice2 === String(n) ? '#fff' : 'rgba(229,57,53,0.15)',
                           color: adminDice2 === String(n) ? '#000' : '#fff',
-                          border: adminDice2 === String(n) ? '2px solid #d4af37' : '1px solid #9c27b0',
+                          border: adminDice2 === String(n) ? '2px solid #e53935' : '1px solid #9c27b0',
                           cursor: 'pointer', fontFamily: 'inherit'
                         }}>
                         {['⚀','⚁','⚂','⚃','⚄','⚅'][n-1]}
@@ -2662,7 +2670,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
                 </div>
               </div>
               {adminDice1 && adminDice2 && (
-                <div style={{ textAlign: 'center', marginBottom: '10px', fontSize: '14px', color: '#d4af37', fontWeight: 'bold' }}>
+                <div style={{ textAlign: 'center', marginBottom: '10px', fontSize: '14px', color: '#e53935', fontWeight: 'bold' }}>
                   Total: {parseInt(adminDice1) + parseInt(adminDice2)}
                 </div>
               )}
@@ -2735,7 +2743,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
                       justifyContent: 'center',
                       fontSize: '24px',
                       fontWeight: 'bold',
-                      color: '#d4af37'
+                      color: '#e53935'
                     }}>
                       {parseInt(adminDice1) + parseInt(adminDice2)}
                     </div>
@@ -2865,7 +2873,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
               gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
               gap: '10px'
             }}>
-              <div>Active Players: <span style={{ color: '#d4af37' }}>{activeUsers}</span></div>
+              <div>Active Players: <span style={{ color: '#e53935' }}>{activeUsers}</span></div>
               <div>Betting: <span style={{ color: bettingOpen ? '#4caf50' : '#f44336' }}>
                 {bettingOpen ? 'Open' : 'Closed'}
               </span></div>
@@ -2957,7 +2965,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
         
         input:focus {
           outline: none;
-          border-color: #d4af37 !important;
+          border-color: #e53935 !important;
         }
         
         button:hover:not(:disabled) {
@@ -2992,4 +3000,4 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
   );
 };
 
-export default CrapsGame; 
+export default CrapsGame;
