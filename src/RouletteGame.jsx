@@ -570,7 +570,7 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
     return (
       <div style={{
         minHeight: '100vh',
-        background: '#1a1a1a',
+        background: '#0f1923',
         backgroundImage: `
           repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(0,0,0,.05) 10px, rgba(0,0,0,.05) 20px),
           radial-gradient(circle at 30% 50%, rgba(139, 0, 0, 0.1) 0%, transparent 70%)
@@ -582,8 +582,8 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
         padding: '20px'
       }}>
         <div style={{
-          background: 'linear-gradient(135deg, #1c1e2a 0%, #252836 100%)',
-          border: '1px solid rgba(139, 0, 0, 0.4)',
+          background: '#141e2e',
+          border: '1px solid #2a3548',
           borderRadius: '15px',
           padding: '50px 40px',
           maxWidth: '450px',
@@ -594,7 +594,7 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
             <div style={{
               fontSize: '42px',
               fontWeight: 'bold',
-              color: '#8b0000',
+              color: '#e53935',
               marginBottom: '10px',
               letterSpacing: '1.5px'
             }}>
@@ -613,7 +613,7 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
           <div style={{ marginBottom: '25px' }}>
             <label style={{
               display: 'block',
-              color: '#8b0000',
+              color: '#e53935',
               fontSize: '11px',
               letterSpacing: '1px',
               textTransform: 'uppercase',
@@ -648,7 +648,7 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
               width: '100%',
               padding: '16px',
               background: userName.trim() 
-                ? 'linear-gradient(135deg, #8b0000 0%, #b30000 100%)'
+                ? 'linear-gradient(180deg,#e53935,#b71c1c)'
                 : '#333',
               border: 'none',
               borderRadius: '8px',
@@ -672,7 +672,7 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
             borderRadius: '8px',
             border: '1px solid rgba(139, 0, 0, 0.2)'
           }}>
-            <div style={{ color: '#8b0000', fontSize: '12px', marginBottom: '12px', fontWeight: 'bold' }}>
+            <div style={{ color: '#e53935', fontSize: '12px', marginBottom: '12px', fontWeight: 'bold' }}>
               Starting Chips: $1,000
             </div>
             <div style={{ color: '#888', fontSize: '10px', lineHeight: '1.6' }}>
@@ -694,8 +694,8 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
       <div
         onClick={() => placeBet('straight', number)}
         style={{
-          background: color === 'green' ? '#0a6e0a' : color === 'red' ? '#8b0000' : '#000',
-          border: '1px solid rgba(212, 175, 55, 0.4)',
+          background: color === 'green' ? '#2e7d32' : color === 'red' ? '#e53935' : '#1a2332',
+          border: '1px solid rgba(255,255,255,0.1)',
           borderRadius: '8px',
           padding: '15px 10px',
           textAlign: 'center',
@@ -796,9 +796,9 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
     }}>
       {/* Header */}
       <div style={{
-        padding: isMobile ? '8px 10px' : '12px 20px',
-        background: 'linear-gradient(135deg, #1c1e2a 0%, #252836 100%)',
-        borderBottom: '3px solid #8b0000',
+        padding: isMobile ? '8px 12px' : '12px 24px',
+        background: '#141e2e',
+        borderBottom: '1px solid #2a3548',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
@@ -806,38 +806,28 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
         top: 0,
         zIndex: 1000
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '8px' : '20px' }}>
-          <div style={{ fontSize: isMobile ? '14px' : '20px', fontWeight: 'bold', color: '#8b0000', letterSpacing: '1px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '10px' : '24px' }}>
+          <div style={{ fontSize: isMobile ? '14px' : '18px', fontWeight: '800', color: '#e53935', letterSpacing: '0.5px' }}>
             🎰 Roulette
           </div>
-          <div style={{ fontSize: '11px', color: '#888' }}>
-            <span style={{ color: '#aaa', fontSize: '12px' }}>{userName}</span>
-              <span style={{ color: '#8b0000', fontSize: isMobile ? '16px' : '22px', fontWeight: 'bold', marginLeft: isMobile ? '5px' : '10px' }}>${Math.round(bankroll).toLocaleString()}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ color: '#556677', fontSize: '12px' }}>{userName}</span>
+            <span style={{ color: '#fff', fontSize: isMobile ? '16px' : '20px', fontWeight: '800' }}>${Math.round(bankroll).toLocaleString()}</span>
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           {onBack && isAdmin && (
-            <button
-              onClick={onBack}
-              style={{
-                background: 'rgba(139, 0, 0, 0.2)',
-                border: '1px solid #8b0000',
-                borderRadius: '6px',
-                padding: '6px 12px',
-                color: '#8b0000',
-                cursor: 'pointer',
-                fontSize: '11px',
-                fontFamily: 'inherit',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px'
-              }}
-            >
-              <ArrowLeft size={14} /> Games
+            <button onClick={onBack} style={{
+              background: 'rgba(229,57,53,0.15)', border: '1px solid #e53935',
+              borderRadius: '6px', padding: '6px 12px', color: '#e53935',
+              cursor: 'pointer', fontSize: '11px', fontFamily: 'inherit',
+              display: 'flex', alignItems: 'center', gap: '5px'
+            }}>
+              <ArrowLeft size={13} /> Games
             </button>
           )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px', color: '#888' }}>
-            <Users size={14} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px', color: '#445566' }}>
+            <Users size={13} />
             {activeUsers}
           </div>
         </div>
@@ -848,55 +838,48 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
         
         {/* Status Bar */}
         <div style={{
-          background: 'linear-gradient(135deg, #1c1e2a 0%, #252836 100%)',
-          border: '1px solid rgba(139, 0, 0, 0.4)',
-          borderRadius: '12px',
-          padding: '15px 20px',
-          marginBottom: '20px',
+          background: '#141e2e',
+          border: '1px solid #2a3548',
+          borderRadius: '10px',
+          padding: '14px 20px',
+          marginBottom: '16px',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center'
         }}>
           <div>
-            <div style={{ fontSize: '10px', color: '#666', marginBottom: '4px', fontWeight: '600' }}>Status</div>
-            <div style={{ fontSize: '18px', fontWeight: 'bold', color: isSpinning ? '#ff9800' : bettingOpen ? '#4caf50' : '#8b0000' }}>
+            <div style={{ fontSize: '10px', color: '#445566', marginBottom: '3px', fontWeight: '600', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Status</div>
+            <div style={{ fontSize: '16px', fontWeight: '800', color: isSpinning ? '#ff9800' : bettingOpen ? '#43a047' : '#e53935' }}>
               {isSpinning ? 'Spinning...' : bettingOpen ? 'Place Your Bets' : 'No More Bets'}
             </div>
           </div>
           {bettingOpen && !isSpinning && (
             <div style={{
-              background: countdown <= 5 ? '#ff5252' : '#8b0000',
-              color: '#fff',
-              borderRadius: '8px',
-              padding: '10px 20px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px'
+              background: countdown <= 5 ? 'rgba(229,57,53,0.2)' : 'rgba(229,57,53,0.1)',
+              border: `1px solid ${countdown <= 5 ? '#e53935' : '#3a2020'}`,
+              color: countdown <= 5 ? '#ef5350' : '#aaa',
+              borderRadius: '8px', padding: '8px 18px',
+              display: 'flex', alignItems: 'center', gap: '8px'
             }}>
-              <Timer size={18} />
-              <span style={{ fontSize: '20px', fontWeight: 'bold' }}>{countdown}s</span>
+              <Timer size={16} />
+              <span style={{ fontSize: '18px', fontWeight: '800' }}>{countdown}s</span>
             </div>
           )}
-          <div>
-            <div style={{ fontSize: '10px', color: '#888', marginBottom: '4px' }}>Round #{roundNumber}</div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: '10px', color: '#445566', marginBottom: '3px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Round #{roundNumber}</div>
             {spinResult && (
-              <div style={{
-                fontSize: '32px',
-                fontWeight: 'bold',
-                color: getNumberColor(spinResult) === 'green' ? '#0a6e0a' : getNumberColor(spinResult) === 'red' ? '#ff4444' : '#fff',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px'
-              }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
                 <div style={{
-                  width: '50px',
-                  height: '50px',
-                  borderRadius: '50%',
-                  background: getNumberColor(spinResult) === 'green' ? '#0a6e0a' : getNumberColor(spinResult) === 'red' ? '#8b0000' : '#000',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  border: '1px solid rgba(212, 175, 55, 0.4)'
+                  width: '44px', height: '44px', borderRadius: '50%',
+                  background: getNumberColor(spinResult) === 'green'
+                    ? 'linear-gradient(180deg,#2e7d32,#1b5e20)'
+                    : getNumberColor(spinResult) === 'red'
+                    ? 'linear-gradient(180deg,#e53935,#b71c1c)'
+                    : 'linear-gradient(180deg,#263040,#1a2332)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '16px', fontWeight: '800', color: '#fff',
+                  border: '2px solid rgba(255,255,255,0.15)',
+                  boxShadow: '0 2px 12px rgba(0,0,0,0.5)'
                 }}>
                   {spinResult}
                 </div>
@@ -952,9 +935,9 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
             };
 
             // Cell size — responsive
-            const W = isMobile ? 22 : 80; // number cell width
-            const H = isMobile ? 24 : 50; // number cell height
-            const E = isMobile ? 4 : 8; // edge zone size (clickable split area)
+            const W = isMobile ? 28 : 72; // number cell width
+            const H = isMobile ? 32 : 52; // number cell height
+            const E = isMobile ? 5 : 10; // edge zone size (clickable split area)
             
             return (
               <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', width: '100%' }}>
@@ -988,10 +971,10 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                 
                 {/* Main grid with split zones */}
                 <div style={{ position: 'relative', flex: 1 }}>
-                  {/* Number cells - CSS grid */}
+                  {/* Number cells - CSS grid — fixed px so absolute overlays align */}
                   <div style={{
                     display: 'grid',
-                    gridTemplateColumns: isMobile ? `repeat(12, ${W}px)` : 'repeat(12, 1fr)',
+                    gridTemplateColumns: `repeat(12, ${W}px)`,
                     gridTemplateRows: `repeat(3, ${H}px)`,
                     gap: `${E}px`
                   }}>
@@ -1308,7 +1291,7 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
           bottom: isMobile ? 0 : 'auto',
           zIndex: isMobile ? 100 : 'auto',
           background: 'linear-gradient(135deg, #141e2e 0%, #192333 100%)',
-          border: '1px solid rgba(139, 0, 0, 0.3)',
+          border: '1px solid #2a3548',
           borderRadius: '12px',
           padding: '20px',
           marginBottom: '20px'
@@ -1337,7 +1320,7 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                         : value === 100 ? '#1a1a1a, #000'
                         : '#9b59b6, #6c3483'
                       })`
-                    : 'radial-gradient(circle, #444, #222)',
+                    : '#1e2837',
                   color: bankroll >= value ? '#fff' : '#666',
                   fontSize: isMobile ? '11px' : '14px',
                   fontWeight: 'bold',
@@ -1373,20 +1356,21 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                 flex: 1,
                 padding: '16px',
                 background: Object.values(currentBets).some(v => v > 0) && bettingOpen
-                  ? 'linear-gradient(135deg, #8b0000, #b30000)'
-                  : '#333',
+                  ? 'linear-gradient(180deg, #e53935 0%, #b71c1c 100%)'
+                  : '#1e2837',
                 border: 'none',
                 borderRadius: '8px',
-                color: Object.values(currentBets).some(v => v > 0) && bettingOpen ? '#fff' : '#666',
+                color: Object.values(currentBets).some(v => v > 0) && bettingOpen ? '#fff' : '#445566',
                 fontSize: '14px',
-                fontWeight: 'bold',
-                letterSpacing: '1px',
+                fontWeight: '800',
+                letterSpacing: '0.5px',
                 cursor: Object.values(currentBets).some(v => v > 0) && bettingOpen ? 'pointer' : 'not-allowed',
                 textTransform: 'uppercase',
-                fontFamily: 'inherit'
+                fontFamily: 'inherit',
+                boxShadow: Object.values(currentBets).some(v => v > 0) && bettingOpen ? '0 4px 16px rgba(229,57,53,0.3)' : 'none',
               }}
             >
-              {isConfirming ? '⏳ Confirming...' : `✅ CONFIRM BET — $${Object.values(currentBets).reduce((s, v) => s + v, 0).toLocaleString()}`}
+              {isConfirming ? '⏳ Confirming...' : `Confirm Bet — $${Object.values(currentBets).reduce((s, v) => s + v, 0).toLocaleString()}`}
             </button>
             {lastConfirmedBets && bettingOpen && (
               <button
@@ -1395,16 +1379,13 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                 style={{
                   padding: '16px 20px',
                   background: Object.values(lastConfirmedBets).reduce((s, v) => s + v, 0) <= bankroll
-                    ? 'rgba(33, 150, 243, 0.3)' : '#333',
-                  border: '1px solid #2196f3',
+                    ? 'rgba(33,150,243,0.15)' : '#1e2837',
+                  border: '1px solid #1565c0',
                   borderRadius: '8px',
-                  color: Object.values(lastConfirmedBets).reduce((s, v) => s + v, 0) <= bankroll ? '#2196f3' : '#666',
-                  fontSize: '11px',
-                  fontWeight: 'bold',
+                  color: Object.values(lastConfirmedBets).reduce((s, v) => s + v, 0) <= bankroll ? '#42a5f5' : '#445566',
+                  fontSize: '11px', fontWeight: '700',
                   cursor: Object.values(lastConfirmedBets).reduce((s, v) => s + v, 0) <= bankroll ? 'pointer' : 'not-allowed',
-                  fontFamily: 'inherit',
-                  textTransform: 'uppercase',
-                  letterSpacing: '1px'
+                  fontFamily: 'inherit', textTransform: 'uppercase', letterSpacing: '0.5px'
                 }}
               >
                 🔁 Repeat
@@ -1415,25 +1396,24 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
               disabled={Object.values(currentBets).every(v => v === 0)}
               style={{
                 padding: '16px 24px',
-                background: Object.values(currentBets).some(v => v > 0) ? 'rgba(244, 67, 54, 0.3)' : '#333',
-                border: '1px solid #f44336',
+                background: Object.values(currentBets).some(v => v > 0) ? 'rgba(244,67,54,0.15)' : '#1e2837',
+                border: '1px solid #b71c1c',
                 borderRadius: '8px',
-                color: Object.values(currentBets).some(v => v > 0) ? '#f44336' : '#666',
-                fontSize: '12px',
-                fontWeight: 'bold',
+                color: Object.values(currentBets).some(v => v > 0) ? '#ef5350' : '#445566',
+                fontSize: '12px', fontWeight: '700',
                 cursor: Object.values(currentBets).some(v => v > 0) ? 'pointer' : 'not-allowed',
                 fontFamily: 'inherit'
               }}
             >
-              Clear All
+              Clear
             </button>
           </div>
         </div>
 
         {/* Spin History */}
         <div style={{
-          background: 'linear-gradient(135deg, #1c1e2a 0%, #252836 100%)',
-          border: '1px solid rgba(139, 0, 0, 0.3)',
+          background: '#141e2e',
+          border: '1px solid #2a3548',
           borderRadius: '12px',
           padding: '20px',
           marginBottom: '20px'
@@ -1442,7 +1422,7 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
             fontSize: '11px',
             letterSpacing: '1px',
             textTransform: 'uppercase',
-            color: '#8b0000',
+            color: '#e53935',
             marginBottom: '15px',
             fontWeight: 'bold'
           }}>
@@ -1459,14 +1439,14 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                   width: '40px',
                   height: '40px',
                   borderRadius: '50%',
-                  background: spin.color === 'green' ? '#0a6e0a' : spin.color === 'red' ? '#8b0000' : '#000',
+                  background: spin.color === 'green' ? '#2e7d32' : spin.color === 'red' ? '#e53935' : '#1a2332',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   fontSize: '14px',
                   fontWeight: 'bold',
                   color: '#fff',
-                  border: '1px solid rgba(212, 175, 55, 0.4)'
+                  border: '1px solid rgba(255,255,255,0.1)'
                 }}>
                   {spin.number}
                 </div>
@@ -1477,8 +1457,8 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
 
         {/* Session Stats */}
         <div style={{
-          background: 'linear-gradient(135deg, #1c1e2a 0%, #252836 100%)',
-          border: '1px solid rgba(139, 0, 0, 0.3)',
+          background: '#141e2e',
+          border: '1px solid #2a3548',
           borderRadius: '12px',
           padding: '20px',
           marginBottom: '20px'
@@ -1487,7 +1467,7 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
             fontSize: '11px',
             letterSpacing: '1px',
             textTransform: 'uppercase',
-            color: '#8b0000',
+            color: '#e53935',
             marginBottom: '15px',
             fontWeight: 'bold'
           }}>
@@ -1523,8 +1503,8 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
 
         {/* Leaderboard */}
         <div style={{
-          background: 'linear-gradient(135deg, #1c1e2a 0%, #252836 100%)',
-          border: '1px solid rgba(139, 0, 0, 0.3)',
+          background: '#141e2e',
+          border: '1px solid #2a3548',
           borderRadius: '12px',
           padding: '20px',
           marginBottom: '20px'
@@ -1535,12 +1515,12 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
             gap: '10px',
             marginBottom: '18px'
           }}>
-            <Trophy size={18} color="#8b0000" />
+            <Trophy size={18} color="#e53935" />
             <div style={{
               fontSize: '13px',
               letterSpacing: '1px',
               textTransform: 'uppercase',
-              color: '#8b0000',
+              color: '#e53935',
               fontWeight: 'bold'
             }}>
               Top Players <span style={{ fontSize: '8px', color: '#4caf50', marginLeft: '8px', animation: 'pulse 2s infinite' }}>● LIVE</span>
@@ -1559,18 +1539,10 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
           ) : (
             leaderboard.map((player, idx) => (
               <div key={player.userId} style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                padding: '12px',
-                background: player.userId === userId 
-                  ? 'rgba(139, 0, 0, 0.2)' 
-                  : 'rgba(0, 0, 0, 0.3)',
-                border: player.userId === userId 
-                  ? '2px solid #8b0000'
-                  : '1px solid rgba(255, 255, 255, 0.05)',
-                borderRadius: '8px',
-                marginBottom: '8px'
+                display: 'flex', alignItems: 'center', gap: '12px', padding: '12px',
+                background: player.userId === userId ? 'rgba(229,57,53,0.1)' : 'rgba(0,0,0,0.2)',
+                border: player.userId === userId ? '1px solid rgba(229,57,53,0.4)' : '1px solid rgba(255,255,255,0.04)',
+                borderRadius: '8px', marginBottom: '6px'
               }}>
                 <div style={{
                   width: '28px',
@@ -1594,10 +1566,8 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                   <div style={{
                     fontSize: '13px',
                     fontWeight: player.userId === userId ? 'bold' : 'normal',
-                    color: player.userId === userId ? '#8b0000' : '#fff',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap'
+                    color: player.userId === userId ? '#ef5350' : '#ccd6e0',
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
                   }}>
                     {player.name}
                   </div>
@@ -1618,8 +1588,8 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
 
         {/* Bet History */}
         <div style={{
-          background: 'linear-gradient(135deg, #1c1e2a 0%, #252836 100%)',
-          border: '1px solid rgba(139, 0, 0, 0.3)',
+          background: '#141e2e',
+          border: '1px solid #2a3548',
           borderRadius: '12px',
           padding: '20px',
           marginBottom: '20px'
@@ -1637,7 +1607,7 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
               fontSize: '11px',
               letterSpacing: '1px',
               textTransform: 'uppercase',
-              color: '#8b0000',
+              color: '#e53935',
               fontWeight: 'bold'
             }}>
               📋 My Bet History ({betHistory.length})
@@ -1667,10 +1637,10 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <div style={{
                         width: '30px', height: '30px', borderRadius: '50%',
-                        background: entry.color === 'green' ? '#0a6e0a' : entry.color === 'red' ? '#8b0000' : '#000',
+                        background: entry.color === 'green' ? '#2e7d32' : entry.color === 'red' ? '#e53935' : '#1a2332',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         fontSize: '11px', fontWeight: 'bold', color: '#fff',
-                        border: '1px solid rgba(212, 175, 55, 0.4)'
+                        border: '1px solid rgba(255,255,255,0.1)'
                       }}>
                         {entry.result}
                       </div>
@@ -1698,8 +1668,8 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
         </div>
         {/* Chat */}
         <div style={{
-          background: 'linear-gradient(135deg, #1c1e2a 0%, #252836 100%)',
-          border: '1px solid rgba(139, 0, 0, 0.3)',
+          background: '#141e2e',
+          border: '1px solid #2a3548',
           borderRadius: '12px',
           padding: '20px',
           marginBottom: '20px'
@@ -1708,7 +1678,7 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
             fontSize: '11px',
             letterSpacing: '1px',
             textTransform: 'uppercase',
-            color: '#8b0000',
+            color: '#e53935',
             marginBottom: '15px',
             fontWeight: 'bold'
           }}>
@@ -1736,10 +1706,10 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                     : msg.userId === userId ? 'rgba(139, 0, 0, 0.1)' : 'rgba(255,255,255,0.05)',
                   borderRadius: '6px',
                   borderLeft: msg.userId === 'system' ? '3px solid #d4af37'
-                    : `3px solid ${msg.userId === userId ? '#8b0000' : '#555'}`
+                    : `3px solid ${msg.userId === userId ? '#e53935' : '#2a3548'}`
                 }}>
                   {msg.userId !== 'system' && (
-                    <div style={{ fontSize: '10px', color: msg.userId === userId ? '#8b0000' : '#888', marginBottom: '4px' }}>
+                    <div style={{ fontSize: '10px', color: msg.userId === userId ? '#e53935' : '#556677', marginBottom: '4px' }}>
                       {msg.userName}
                     </div>
                   )}
@@ -1780,12 +1750,10 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
               disabled={!chatInput.trim()}
               style={{
                 padding: isMobile ? '8px 10px' : '12px 20px',
-                background: chatInput.trim() ? '#8b0000' : '#333',
-                border: 'none',
-                borderRadius: '6px',
-                color: chatInput.trim() ? '#fff' : '#666',
-                fontSize: '12px',
-                fontWeight: 'bold',
+                background: chatInput.trim() ? '#e53935' : '#1e2837',
+                border: 'none', borderRadius: '6px',
+                color: chatInput.trim() ? '#fff' : '#445566',
+                fontSize: '12px', fontWeight: '700',
                 cursor: chatInput.trim() ? 'pointer' : 'not-allowed',
                 fontFamily: 'inherit'
               }}
@@ -1798,8 +1766,8 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
         {/* User Settings Panel (Players Only) */}
         {false && (
           <div style={{
-            background: 'linear-gradient(135deg, #1c1e2a 0%, #252836 100%)',
-            border: '1px solid rgba(139, 0, 0, 0.3)',
+            background: '#141e2e',
+            border: '1px solid #2a3548',
             borderRadius: '12px',
             padding: '25px',
             marginBottom: '20px'
@@ -1929,8 +1897,8 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
         {/* Admin Controls */}
         {isAdmin && (
           <div style={{
-            background: 'linear-gradient(135deg, #1c1e2a 0%, #252836 100%)',
-            border: '1px solid rgba(139, 0, 0, 0.4)',
+            background: '#141e2e',
+            border: '1px solid #2a3548',
             borderRadius: '12px',
             padding: '25px'
           }}>
@@ -1938,7 +1906,7 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
               fontSize: '13px',
               letterSpacing: '1px',
               textTransform: 'uppercase',
-              color: '#8b0000',
+              color: '#e53935',
               marginBottom: '20px',
               fontWeight: 'bold'
             }}>
@@ -1947,11 +1915,11 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
             
             {/* Chip Management */}
             <div style={{
-              background: 'rgba(76, 175, 80, 0.1)',
+              background: 'rgba(67,160,71,0.08)',
               padding: '15px',
               borderRadius: '8px',
               marginBottom: '15px',
-              border: '1px solid rgba(76, 175, 80, 0.3)'
+              border: '1px solid rgba(67,160,71,0.2)'
             }}>
               <div style={{ fontSize: '11px', color: '#4caf50', marginBottom: '12px', fontWeight: 'bold' }}>
                 💰 CHIP MANAGEMENT
@@ -2049,7 +2017,7 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                   style={{
                     width: '100%',
                     padding: '10px',
-                    background: bonusChipsAmount > 0 ? 'linear-gradient(135deg, #4caf50, #66bb6a)' : '#333',
+                    background: bonusChipsAmount > 0 ? 'linear-gradient(180deg,#43a047,#2e7d32)' : '#1e2837',
                     border: 'none',
                     borderRadius: '6px',
                     color: bonusChipsAmount > 0 ? '#fff' : '#666',
@@ -2082,8 +2050,8 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                     <button key={sec} onClick={() => setCountdownDuration(sec)}
                       style={{
                         flex: 1, padding: '8px',
-                        background: countdownDuration === sec ? '#8b0000' : 'rgba(0,0,0,0.3)',
-                        border: `1px solid ${countdownDuration === sec ? '#8b0000' : '#555'}`,
+                        background: countdownDuration === sec ? '#e53935' : 'rgba(255,255,255,0.04)',
+                        border: `1px solid ${countdownDuration === sec ? '#e53935' : '#2a3548'}`,
                         borderRadius: '6px', color: '#fff', fontSize: '11px', fontWeight: 'bold',
                         cursor: 'pointer', fontFamily: 'inherit'
                       }}>
@@ -2098,13 +2066,13 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
               </div>
               {/* Green numbers */}
               <div style={{ display: 'flex', gap: '4px', marginBottom: '4px' }}>
-                {['0', '00'].map(n => (
+                {(isDoubleZero ? ['0', '00'] : ['0']).map(n => (
                   <button key={n} onClick={() => setAdminNumber(n)}
                     style={{
                       flex: 1, padding: '10px 0', borderRadius: '6px', fontSize: '13px', fontWeight: 'bold',
-                      background: adminNumber === n ? '#d4af37' : '#0a6e0a',
-                      color: adminNumber === n ? '#000' : '#fff',
-                      border: adminNumber === n ? '2px solid #d4af37' : '1px solid #333',
+                      background: adminNumber === n ? '#fff' : 'linear-gradient(180deg,#2e7d32,#1b5e20)',
+                      color: adminNumber === n ? '#1b5e20' : '#fff',
+                      border: adminNumber === n ? '2px solid #fff' : '1px solid #2a3548',
                       cursor: 'pointer', fontFamily: 'inherit'
                     }}>
                     {n}
@@ -2120,9 +2088,11 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                     <button key={n} onClick={() => setAdminNumber(n)}
                       style={{
                         padding: '8px 0', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold',
-                        background: adminNumber === n ? '#d4af37' : isRed ? '#8b0000' : '#111',
-                        color: adminNumber === n ? '#000' : '#fff',
-                        border: adminNumber === n ? '2px solid #d4af37' : '1px solid #333',
+                        background: adminNumber === n ? '#fff'
+                          : isRed ? 'linear-gradient(180deg,#e53935,#b71c1c)'
+                          : 'linear-gradient(180deg,#263040,#1a2332)',
+                        color: adminNumber === n ? '#1a1a1a' : '#fff',
+                        border: adminNumber === n ? '2px solid #fff' : '1px solid #2a3548',
                         cursor: 'pointer', fontFamily: 'inherit'
                       }}>
                       {n}
@@ -2133,9 +2103,9 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
               {/* Selected + Spin */}
               <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                 <div style={{
-                  flex: 1, padding: '12px', background: 'rgba(255,255,255,0.1)',
-                  border: '1px solid rgba(139, 0, 0, 0.3)', borderRadius: '8px',
-                  color: adminNumber ? '#d4af37' : '#666', fontSize: '18px', fontWeight: 'bold',
+                  flex: 1, padding: '12px', background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid #2a3548', borderRadius: '8px',
+                  color: adminNumber ? '#fff' : '#445566', fontSize: '18px', fontWeight: 'bold',
                   textAlign: 'center', fontFamily: 'inherit'
                 }}>
                   {adminNumber || '—'}
@@ -2145,14 +2115,16 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                   disabled={!adminNumber || isSpinning}
                   style={{
                     padding: '12px 30px',
-                    background: adminNumber && !isSpinning ? 'linear-gradient(135deg, #8b0000, #b30000)' : '#333',
+                    background: adminNumber && !isSpinning
+                      ? 'linear-gradient(180deg,#e53935,#b71c1c)' : '#1e2837',
                     border: 'none', borderRadius: '8px', color: '#fff',
-                    fontSize: '13px', fontWeight: 'bold',
+                    fontSize: '13px', fontWeight: '800',
                     cursor: adminNumber && !isSpinning ? 'pointer' : 'not-allowed',
-                    fontFamily: 'inherit', letterSpacing: '1px', textTransform: 'uppercase'
+                    fontFamily: 'inherit', letterSpacing: '0.5px', textTransform: 'uppercase',
+                    boxShadow: adminNumber && !isSpinning ? '0 4px 16px rgba(229,57,53,0.3)' : 'none'
                   }}
                 >
-                  {isSpinning ? 'Spinning...' : 'SPIN'}
+                  {isSpinning ? 'Spinning...' : 'Spin'}
                 </button>
               </div>
             </div>
@@ -2165,10 +2137,10 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                 style={{
                   flex: 1,
                   padding: '14px',
-                  background: !bettingOpen && !isSpinning ? 'rgba(76, 175, 80, 0.3)' : '#333',
+                  background: !bettingOpen && !isSpinning ? 'rgba(67,160,71,0.2)' : '#1e2837',
                   border: '1px solid #4caf50',
                   borderRadius: '8px',
-                  color: !bettingOpen && !isSpinning ? '#4caf50' : '#666',
+                  color: !bettingOpen && !isSpinning ? '#43a047' : '#445566',
                   fontSize: '11px',
                   fontWeight: 'bold',
                   cursor: !bettingOpen && !isSpinning ? 'pointer' : 'not-allowed',
@@ -2184,10 +2156,10 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                 style={{
                   flex: 1,
                   padding: '14px',
-                  background: bettingOpen && !isSpinning ? 'rgba(255, 152, 0, 0.3)' : '#333',
+                  background: bettingOpen && !isSpinning ? 'rgba(255,152,0,0.2)' : '#1e2837',
                   border: '1px solid #ff9800',
                   borderRadius: '8px',
-                  color: bettingOpen && !isSpinning ? '#ff9800' : '#666',
+                  color: bettingOpen && !isSpinning ? '#ff9800' : '#445566',
                   fontSize: '11px',
                   fontWeight: 'bold',
                   cursor: bettingOpen && !isSpinning ? 'pointer' : 'not-allowed',
@@ -2254,7 +2226,7 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
               gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
               gap: '10px'
             }}>
-              <div>Active Players: <span style={{ color: '#8b0000' }}>{activeUsers}</span></div>
+              <div>Active Players: <span style={{ color: '#e53935' }}>{activeUsers}</span></div>
               <div>Betting: <span style={{ color: bettingOpen ? '#4caf50' : '#f44336' }}>
                 {bettingOpen ? 'Open' : 'Closed'}
               </span></div>
@@ -2343,7 +2315,7 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
         
         input:focus {
           outline: none;
-          border-color: #8b0000 !important;
+          border-color: #e53935 !important;
         }
         
         button:hover:not(:disabled) {
@@ -2372,4 +2344,4 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
   );
 };
 
-export default RouletteGame; 
+export default RouletteGame;
