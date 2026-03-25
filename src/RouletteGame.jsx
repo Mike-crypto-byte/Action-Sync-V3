@@ -910,48 +910,119 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
               [1,4,7,10,13,16,19,22,25,28,31,34]
             ];
             
-            const chipDot = (betKey, cx, cy) => {
-              const amt = currentBets[betKey] || activeBets[betKey];
-              if (!amt) return null;
-              const CS = isMobile ? 16 : 22;
-              const cc = chipColor(amt);
-              const posStyle = (cx !== undefined && cy !== undefined)
-                ? { position: 'absolute', left: cx - CS / 2, top: cy - CS / 2 }
-                : { position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' };
-              return (
-                <div style={{
-                  ...posStyle,
-                  background: cc.bg, color: '#fff',
-                  borderRadius: '50%', width: CS, height: CS,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: isMobile ? '6px' : '8px', fontWeight: 'bold',
-                  border: `2px solid ${cc.border}`,
-                  boxShadow: '0 2px 6px rgba(0,0,0,0.5)',
-                  zIndex: 5, pointerEvents: 'none'
-                }}>
-                  {amt}
-                </div>
-              );
-            };
+            // Chip color helper used by overlay layer and outside bets
 
-            // Cell size — responsive
-            const W = isMobile ? 28 : 72; // number cell width
-            const H = isMobile ? 32 : 52; // number cell height
-            const E = isMobile ? 5 : 10; // edge zone size (clickable split area)
-            
+            // Cell size — responsive. On desktop we let the board fill the container.
+            const W = isMobile ? 28 : 70;
+            const H = isMobile ? 32 : 54;
+            const E = isMobile ? 5 : 10;
+            const CS = isMobile ? 16 : 22; // chip size
+
+            // Grid total width for the 12-column number area
+            const gridW = 12 * W + 11 * E;
+            const gridH = 3 * H + 2 * E;
+
+            // Helper: pixel center of a number cell (ci=col index 0-11, ri=row index 0-2)
+            const cellCenter = (ci, ri) => ({
+              x: ci * (W + E) + W / 2,
+              y: ri * (H + E) + H / 2,
+            });
+
+            // Collect all chip positions for the chip overlay layer
+            const chipOverlays = [];
+
+            // Straight bets on numbered cells
+            rows.forEach((row, ri) => {
+              row.forEach((num, ci) => {
+                const betKey = `straight-${num}`;
+                const amt = currentBets[betKey] || activeBets[betKey];
+                if (amt) {
+                  const c = cellCenter(ci, ri);
+                  chipOverlays.push({ betKey, amt, x: c.x, y: c.y });
+                }
+              });
+            });
+
+            // Horizontal splits
+            rows.forEach((row, ri) => {
+              row.slice(0, -1).forEach((num, ci) => {
+                const n1 = num.toString();
+                const n2 = row[ci + 1].toString();
+                const sorted = [n1, n2].sort((a, b) => parseInt(a) - parseInt(b)).join(',');
+                const betKey = `split-${sorted}`;
+                const amt = currentBets[betKey] || activeBets[betKey];
+                if (amt) {
+                  chipOverlays.push({
+                    betKey, amt,
+                    x: (ci + 1) * (W + E) - E / 2,
+                    y: ri * (H + E) + H / 2,
+                  });
+                }
+              });
+            });
+
+            // Vertical splits
+            [0, 1].forEach(ri => {
+              rows[ri].forEach((num, ci) => {
+                const n1 = num.toString();
+                const n2 = rows[ri + 1][ci].toString();
+                const sorted = [n1, n2].sort((a, b) => parseInt(a) - parseInt(b)).join(',');
+                const betKey = `split-${sorted}`;
+                const amt = currentBets[betKey] || activeBets[betKey];
+                if (amt) {
+                  chipOverlays.push({
+                    betKey, amt,
+                    x: ci * (W + E) + W / 2,
+                    y: (ri + 1) * (H + E) - E / 2,
+                  });
+                }
+              });
+            });
+
+            // Corners
+            [0, 1].forEach(ri => {
+              rows[ri].slice(0, -1).forEach((num, ci) => {
+                const tl = num, tr = rows[ri][ci + 1];
+                const bl = rows[ri + 1][ci], br = rows[ri + 1][ci + 1];
+                const sorted = [tl, tr, bl, br].sort((a, b) => a - b).map(String).join(',');
+                const betKey = `corner-${sorted}`;
+                const amt = currentBets[betKey] || activeBets[betKey];
+                if (amt) {
+                  chipOverlays.push({
+                    betKey, amt,
+                    x: (ci + 1) * (W + E) - E / 2,
+                    y: (ri + 1) * (H + E) - E / 2,
+                  });
+                }
+              });
+            });
+
+            // Streets
+            Array.from({ length: 12 }, (_, ci) => {
+              const col = [rows[0][ci], rows[1][ci], rows[2][ci]];
+              const sorted = col.sort((a, b) => a - b).map(String).join(',');
+              const betKey = `street-${sorted}`;
+              const amt = currentBets[betKey] || activeBets[betKey];
+              if (amt) {
+                chipOverlays.push({
+                  betKey, amt,
+                  x: ci * (W + E) + W / 2,
+                  y: gridH + E / 2,
+                });
+              }
+            });
+
             return (
-              <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', width: '100%' }}>
+              <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', width: '100%', overflowX: 'auto' }}>
                 {/* 0 and optional 00 */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: `${E}px`, justifyContent: 'center' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: `${E}px`, justifyContent: 'center', flexShrink: 0 }}>
                   {(isDoubleZero ? ['0', '00'] : ['0']).map(n => {
                     const betKey = `straight-${n}`;
                     const hasBet = currentBets[betKey] || activeBets[betKey];
-                    const zeroH = isDoubleZero
-                      ? (isMobile ? H * 1.5 : H * 1.5)
-                      : (isMobile ? H * 3 + E * 2 : H * 3 + E * 2);
+                    const zeroH = isDoubleZero ? H * 1.5 : H * 3 + E * 2;
                     return (
                       <div key={n} onClick={() => placeBet('straight', n)} style={{
-                        width: isMobile ? W : 52,
+                        width: isMobile ? W : 50,
                         height: zeroH,
                         background: 'linear-gradient(180deg, #2e7d32 0%, #1b5e20 100%)',
                         border: '1px solid #388e3c',
@@ -960,29 +1031,39 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                         cursor: bettingOpen ? 'pointer' : 'not-allowed',
                         position: 'relative',
                         opacity: bettingOpen ? 1 : 0.45,
-                        transition: 'filter 0.15s',
+                        flexShrink: 0,
                       }}>
                         <span style={{ fontSize: isMobile ? '12px' : '18px', fontWeight: '800', color: '#fff', textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>{n}</span>
-                        {hasBet > 0 && chipDot(betKey)}
+                        {hasBet > 0 && (
+                          <div style={{
+                            position: 'absolute', top: '50%', left: '50%',
+                            transform: 'translate(-50%,-50%)',
+                            background: chipColor(hasBet).bg, color: '#fff',
+                            borderRadius: '50%', width: CS, height: CS,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: isMobile ? '6px' : '8px', fontWeight: 'bold',
+                            border: `2px solid ${chipColor(hasBet).border}`,
+                            boxShadow: '0 2px 6px rgba(0,0,0,0.5)', zIndex: 5, pointerEvents: 'none'
+                          }}>{hasBet}</div>
+                        )}
                       </div>
                     );
                   })}
                 </div>
-                
-                {/* Main grid with split zones */}
-                <div style={{ position: 'relative', flex: 1 }}>
-                  {/* Number cells - CSS grid — fixed px so absolute overlays align */}
+
+                {/* Main grid + overlay */}
+                <div style={{ position: 'relative', flexShrink: 0 }}>
+                  {/* Number cells */}
                   <div style={{
                     display: 'grid',
                     gridTemplateColumns: `repeat(12, ${W}px)`,
                     gridTemplateRows: `repeat(3, ${H}px)`,
-                    gap: `${E}px`
+                    gap: `${E}px`,
                   }}>
                     {rows.flat().map(num => {
                       const n = num.toString();
                       const color = getNumberColor(n);
                       const betKey = `straight-${n}`;
-                      const hasBet = currentBets[betKey] || activeBets[betKey];
                       return (
                         <div key={num} onClick={() => placeBet('straight', n)} style={{
                           background: color === 'red'
@@ -992,165 +1073,128 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                           borderRadius: '6px',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                           cursor: bettingOpen ? 'pointer' : 'not-allowed',
-                          position: 'relative',
                           opacity: bettingOpen ? 1 : 0.45,
                           transition: 'filter 0.15s',
-                          zIndex: 2,
                         }}>
-                          <span style={{ fontSize: isMobile ? '11px' : '15px', fontWeight: '800', color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>{n}</span>
-                          {hasBet > 0 && chipDot(betKey)}
+                          <span style={{ fontSize: isMobile ? '11px' : '15px', fontWeight: '800', color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,0.6)', pointerEvents: 'none' }}>{n}</span>
                         </div>
                       );
                     })}
                   </div>
-                  
-                  {/* SPLIT ZONES — clickable areas between numbers */}
-                  {/* Horizontal splits (between columns: left-right neighbors) */}
-                  {rows.map((row, ri) => 
+
+                  {/* Hit zones — invisible click targets, no chips rendered here */}
+                  {/* Horizontal splits */}
+                  {rows.map((row, ri) =>
                     row.slice(0, -1).map((num, ci) => {
                       const n1 = num.toString();
                       const n2 = row[ci + 1].toString();
                       const sorted = [n1, n2].sort((a, b) => parseInt(a) - parseInt(b)).join(',');
-                      const betKey = `split-${sorted}`;
-                      const hasBet = currentBets[betKey] || activeBets[betKey];
+                      const hasBet = currentBets[`split-${sorted}`] || activeBets[`split-${sorted}`];
                       const left = (ci + 1) * (W + E) - (E + 4) / 2;
                       const top = ri * (H + E);
-                      const chipCx = (E + 4) / 2;
-                      const chipCy = H / 2;
                       return (
-                        <div key={`hsplit-${n1}-${n2}`}
-                          onClick={() => placeBet('split', sorted)}
-                          style={{
-                            position: 'absolute',
-                            left: left, top: top,
-                            width: E + 4, height: H,
-                            cursor: bettingOpen ? 'pointer' : 'default',
-                            zIndex: 3,
-                            borderRadius: '3px',
-                            background: hasBet ? 'rgba(212,175,55,0.3)' : 'transparent'
-                          }}
-                          title={`Split ${n1}/${n2} (17:1)`}
-                        >
-                          {hasBet > 0 && chipDot(betKey, chipCx, chipCy)}
-                        </div>
+                        <div key={`hs-${n1}-${n2}`} onClick={() => placeBet('split', sorted)}
+                          style={{ position: 'absolute', left, top, width: E + 4, height: H, cursor: bettingOpen ? 'pointer' : 'default', zIndex: 3, borderRadius: '3px', background: hasBet ? 'rgba(255,255,255,0.15)' : 'transparent' }}
+                          title={`Split ${n1}/${n2}`} />
                       );
                     })
                   ).flat()}
-                  
-                  {/* Vertical splits (between rows: top-bottom neighbors) */}
+
+                  {/* Vertical splits */}
                   {[0, 1].map(ri =>
                     rows[ri].map((num, ci) => {
                       const n1 = num.toString();
                       const n2 = rows[ri + 1][ci].toString();
                       const sorted = [n1, n2].sort((a, b) => parseInt(a) - parseInt(b)).join(',');
-                      const betKey = `split-${sorted}`;
-                      const hasBet = currentBets[betKey] || activeBets[betKey];
+                      const hasBet = currentBets[`split-${sorted}`] || activeBets[`split-${sorted}`];
                       const left = ci * (W + E);
                       const top = (ri + 1) * (H + E) - (E + 4) / 2;
-                      const chipCx = W / 2;
-                      const chipCy = (E + 4) / 2;
                       return (
-                        <div key={`vsplit-${n1}-${n2}`}
-                          onClick={() => placeBet('split', sorted)}
-                          style={{
-                            position: 'absolute',
-                            left: left, top: top,
-                            width: W, height: E + 4,
-                            cursor: bettingOpen ? 'pointer' : 'default',
-                            zIndex: 3,
-                            borderRadius: '3px',
-                            background: hasBet ? 'rgba(212,175,55,0.3)' : 'transparent'
-                          }}
-                          title={`Split ${n1}/${n2} (17:1)`}
-                        >
-                          {hasBet > 0 && chipDot(betKey, chipCx, chipCy)}
-                        </div>
-                      );
-                    })
-                  ).flat()}
-                  
-                  {/* Corner zones (intersection of 4 numbers) */}
-                  {[0, 1].map(ri =>
-                    rows[ri].slice(0, -1).map((num, ci) => {
-                      const tl = num;
-                      const tr = rows[ri][ci + 1];
-                      const bl = rows[ri + 1][ci];
-                      const br = rows[ri + 1][ci + 1];
-                      const sorted = [tl, tr, bl, br].sort((a, b) => a - b).map(String).join(',');
-                      const betKey = `corner-${sorted}`;
-                      const hasBet = currentBets[betKey] || activeBets[betKey];
-                      const left = (ci + 1) * (W + E) - (E + 4) / 2;
-                      const top = (ri + 1) * (H + E) - (E + 4) / 2;
-                      const chipCx = (E + 4) / 2;
-                      const chipCy = (E + 4) / 2;
-                      return (
-                        <div key={`corner-${sorted}`}
-                          onClick={() => placeBet('corner', sorted)}
-                          style={{
-                            position: 'absolute',
-                            left: left, top: top,
-                            width: E + 4, height: E + 4,
-                            cursor: bettingOpen ? 'pointer' : 'default',
-                            zIndex: 4,
-                            borderRadius: '50%',
-                            background: hasBet ? 'rgba(212,175,55,0.4)' : 'transparent'
-                          }}
-                          title={`Corner ${tl}/${tr}/${bl}/${br} (8:1)`}
-                        >
-                          {hasBet > 0 && chipDot(betKey, chipCx, chipCy)}
-                        </div>
+                        <div key={`vs-${n1}-${n2}`} onClick={() => placeBet('split', sorted)}
+                          style={{ position: 'absolute', left, top, width: W, height: E + 4, cursor: bettingOpen ? 'pointer' : 'default', zIndex: 3, borderRadius: '3px', background: hasBet ? 'rgba(255,255,255,0.15)' : 'transparent' }}
+                          title={`Split ${n1}/${n2}`} />
                       );
                     })
                   ).flat()}
 
-                  {/* Street bets (bottom edge of each column — covers all 3 in that column) */}
-                  {Array.from({length: 12}, (_, ci) => {
+                  {/* Corners */}
+                  {[0, 1].map(ri =>
+                    rows[ri].slice(0, -1).map((num, ci) => {
+                      const tl = num, tr = rows[ri][ci + 1];
+                      const bl = rows[ri + 1][ci], br = rows[ri + 1][ci + 1];
+                      const sorted = [tl, tr, bl, br].sort((a, b) => a - b).map(String).join(',');
+                      const hasBet = currentBets[`corner-${sorted}`] || activeBets[`corner-${sorted}`];
+                      const left = (ci + 1) * (W + E) - (E + 4) / 2;
+                      const top = (ri + 1) * (H + E) - (E + 4) / 2;
+                      return (
+                        <div key={`c-${sorted}`} onClick={() => placeBet('corner', sorted)}
+                          style={{ position: 'absolute', left, top, width: E + 4, height: E + 4, cursor: bettingOpen ? 'pointer' : 'default', zIndex: 4, borderRadius: '50%', background: hasBet ? 'rgba(255,255,255,0.2)' : 'transparent' }}
+                          title={`Corner ${tl}/${tr}/${bl}/${br}`} />
+                      );
+                    })
+                  ).flat()}
+
+                  {/* Street bets */}
+                  {Array.from({ length: 12 }, (_, ci) => {
                     const col = [rows[0][ci], rows[1][ci], rows[2][ci]];
                     const sorted = col.sort((a, b) => a - b).map(String).join(',');
-                    const betKey = `street-${sorted}`;
-                    const hasBet = currentBets[betKey] || activeBets[betKey];
+                    const hasBet = currentBets[`street-${sorted}`] || activeBets[`street-${sorted}`];
                     const left = ci * (W + E);
-                    const top = 3 * (H + E) - (E + 4) / 2;
-                    const chipCx = W / 2;
-                    const chipCy = (E + 4) / 2;
+                    const top = gridH;
                     return (
-                      <div key={`street-${sorted}`}
-                        onClick={() => placeBet('street', sorted)}
-                        style={{
-                          position: 'absolute',
-                          left: left, top: top,
-                          width: W, height: E + 2,
-                          cursor: bettingOpen ? 'pointer' : 'default',
-                          zIndex: 3,
-                          borderRadius: '3px',
-                          background: hasBet ? 'rgba(212,175,55,0.3)' : 'rgba(255,255,255,0.05)'
-                        }}
-                        title={`Street ${col.join('/')} (11:1)`}
-                      >
-                        {hasBet > 0 && chipDot(betKey, chipCx, chipCy)}
+                      <div key={`st-${sorted}`} onClick={() => placeBet('street', sorted)}
+                        style={{ position: 'absolute', left, top, width: W, height: E + 4, cursor: bettingOpen ? 'pointer' : 'default', zIndex: 3, borderRadius: '3px', background: hasBet ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.04)' }}
+                        title={`Street ${col.join('/')}`} />
+                    );
+                  })}
+
+                  {/* CHIP OVERLAY — all chips rendered here, perfectly centered on their bet zones */}
+                  {chipOverlays.map(({ betKey, amt, x, y }) => {
+                    const cc = chipColor(amt);
+                    return (
+                      <div key={`chip-${betKey}`} style={{
+                        position: 'absolute',
+                        left: Math.round(x - CS / 2),
+                        top: Math.round(y - CS / 2),
+                        width: CS, height: CS,
+                        background: cc.bg, color: '#fff',
+                        borderRadius: '50%',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: isMobile ? '6px' : '8px', fontWeight: 'bold',
+                        border: `2px solid ${cc.border}`,
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.7)',
+                        zIndex: 6, pointerEvents: 'none',
+                      }}>
+                        {amt}
                       </div>
                     );
                   })}
                 </div>
-                
+
                 {/* Column bets on the right */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: `${E}px`, justifyContent: 'stretch' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: `${E}px`, justifyContent: 'stretch', flexShrink: 0 }}>
                   {[3, 2, 1].map(col => {
                     const betKey = `column-${col}`;
                     const hasBet = currentBets[betKey] || activeBets[betKey];
+                    const cc = hasBet ? chipColor(hasBet) : null;
                     return (
                       <div key={col} onClick={() => placeBet('column', col.toString())} style={{
                         flex: 1, width: isMobile ? W : 44,
-                        background: '#1e2837',
-                        border: '1px solid #2a3548',
-                        borderRadius: '6px',
+                        background: '#1e2837', border: '1px solid #2a3548', borderRadius: '6px',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         cursor: bettingOpen ? 'pointer' : 'not-allowed',
                         position: 'relative', opacity: bettingOpen ? 1 : 0.45,
-                        transition: 'filter 0.15s',
                       }}>
                         <span style={{ fontSize: '10px', fontWeight: '700', color: '#8899aa', writingMode: 'vertical-rl' }}>2:1</span>
-                        {hasBet > 0 && chipDot(betKey)}
+                        {hasBet > 0 && (
+                          <div style={{
+                            position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
+                            background: cc.bg, color: '#fff', borderRadius: '50%', width: CS, height: CS,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: '8px', fontWeight: 'bold', border: `2px solid ${cc.border}`,
+                            boxShadow: '0 2px 6px rgba(0,0,0,0.5)', zIndex: 5, pointerEvents: 'none'
+                          }}>{hasBet}</div>
+                        )}
                       </div>
                     );
                   })}
