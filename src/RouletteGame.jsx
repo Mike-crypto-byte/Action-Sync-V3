@@ -1036,7 +1036,7 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
             return (
               <div style={{ display: 'flex', gap: `${outerGap}px`, marginBottom: '12px', width: '100%', alignItems: 'center' }}>
                 {/* 0 and optional 00 */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: `${E}px`, justifyContent: 'center', flexShrink: 0 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: `${E}px`, height: gridH, flexShrink: 0 }}>
                   {(isDoubleZero ? ['0', '00'] : ['0']).map(n => {
                     const betKey = `straight-${n}`;
                     const hasBet = currentBets[betKey] || activeBets[betKey];
@@ -1044,7 +1044,7 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                     return (
                       <div key={n} onClick={() => placeBet('straight', n)} style={{
                         width: zeroColW,
-                        height: zeroH,
+                        flex: 1,
                         background: 'linear-gradient(180deg, #2e7d32 0%, #1b5e20 100%)',
                         border: '1px solid #388e3c',
                         borderRadius: '8px',
@@ -1164,7 +1164,7 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                     const top = gridH;
                     return (
                       <div key={`st-${sorted}`} onClick={() => placeBet('street', sorted)}
-                        style={{ position: 'absolute', left, top, width: W, height: E + 4, cursor: bettingOpen ? 'pointer' : 'default', zIndex: 3, borderRadius: '3px', background: hasBet ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.04)' }}
+                        style={{ position: 'absolute', left, top, width: W, height: E + 4, cursor: bettingOpen ? 'pointer' : 'default', zIndex: 3, borderRadius: '3px', background: hasBet ? 'rgba(255,255,255,0.15)' : 'transparent' }}
                         title={`Street ${col.join('/')}`} />
                     );
                   })}
@@ -1193,7 +1193,7 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                 </div>
 
                 {/* Column bets on the right */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: `${E}px`, justifyContent: 'stretch', flexShrink: 0 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: `${E}px`, height: gridH, flexShrink: 0 }}>
                   {[3, 2, 1].map(col => {
                     const betKey = `column-${col}`;
                     const hasBet = currentBets[betKey] || activeBets[betKey];
