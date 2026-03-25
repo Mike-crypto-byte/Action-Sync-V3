@@ -913,12 +913,9 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
       <div style={{
         minHeight: '100vh',
         background: '#0f1923',
-        backgroundImage: `
-        `,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-
         padding: '20px'
       }}>
         <div style={{
@@ -1087,9 +1084,6 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
     <div style={{
       minHeight: '100vh',
       background: '#0f1923',
-      backgroundImage: `
-      `,
-
       color: '#fff',
       paddingBottom: '20px',
       overflow: 'auto'
