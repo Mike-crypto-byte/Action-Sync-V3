@@ -7,6 +7,7 @@ import {
   useSettings,
   DEFAULT_ODDS,
   DEFAULT_VISIBILITY,
+  DEFAULT_GAME_CONFIG,
   ODDS_LABELS,
   VISIBILITY_LABELS,
 } from './useSettings';
@@ -272,16 +273,91 @@ const VisibilityGameTab = ({ game, visibility, onSave, onReset }) => {
   );
 };
 
+// ── Game Config tab ────────────────────────────────────────────────────────────
+const GameConfigTab = ({ gameConfig, onSave, onReset }) => {
+  const [local, setLocal] = useState({ ...DEFAULT_GAME_CONFIG.roulette, ...gameConfig.roulette });
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    setLocal({ ...DEFAULT_GAME_CONFIG.roulette, ...gameConfig.roulette });
+  }, [gameConfig]);
+
+  const handleSave = async () => {
+    await onSave('roulette', local);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  const isDirty = local.zeros !== (gameConfig.roulette?.zeros ?? DEFAULT_GAME_CONFIG.roulette.zeros);
+
+  return (
+    <div>
+      <div style={{ marginBottom: '24px', color: '#555', fontSize: '11px', letterSpacing: '1px' }}>
+        ROULETTE — WHEEL TYPE
+      </div>
+
+      <div style={{ ...card }}>
+        <div style={{ color: '#ccc', fontSize: '13px', fontWeight: 'bold', marginBottom: '6px' }}>
+          Zero Configuration
+        </div>
+        <div style={{ color: '#666', fontSize: '11px', marginBottom: '18px', lineHeight: '1.5' }}>
+          Single Zero = European wheel (0 only, better odds for players).<br />
+          Double Zero = American wheel (0 + 00, standard casino).
+        </div>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          {[
+            { value: 'single', label: '⚪ Single Zero', sub: 'European — 0 only' },
+            { value: 'double', label: '⚪⚪ Double Zero', sub: 'American — 0 and 00' },
+          ].map(opt => {
+            const active = local.zeros === opt.value;
+            return (
+              <div
+                key={opt.value}
+                onClick={() => setLocal(prev => ({ ...prev, zeros: opt.value }))}
+                style={{
+                  flex: 1,
+                  padding: '16px',
+                  borderRadius: '10px',
+                  border: `2px solid ${active ? '#c62828' : 'rgba(255,255,255,0.08)'}`,
+                  background: active ? 'rgba(198,40,40,0.12)' : 'rgba(255,255,255,0.02)',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s',
+                }}
+              >
+                <div style={{ fontSize: '14px', fontWeight: 'bold', color: active ? '#ef5350' : '#555', marginBottom: '4px' }}>
+                  {opt.label}
+                </div>
+                <div style={{ fontSize: '11px', color: active ? '#aaa' : '#444' }}>
+                  {opt.sub}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px', gap: '10px' }}>
+        {isDirty && !saved && (
+          <div style={{ color: '#888', fontSize: '11px', alignSelf: 'center' }}>Unsaved changes</div>
+        )}
+        <button onClick={handleSave} style={saveBtn(saved)}>
+          {saved ? '✅ Saved' : 'Save Config'}
+        </button>
+      </div>
+    </div>
+  );
+};
+
 // ── Main SettingsPanel ─────────────────────────────────────────────────────────
 const SettingsPanel = ({ dealerUid }) => {
   const {
-    odds, betVisibility,
-    updateOdds, updateVisibility,
-    resetOddsToDefaults, resetVisibilityToDefaults,
+    odds, betVisibility, gameConfig,
+    updateOdds, updateVisibility, updateGameConfig,
+    resetOddsToDefaults, resetVisibilityToDefaults, resetGameConfigToDefaults,
     isLoaded,
   } = useSettings(dealerUid);
 
-  const [mainTab, setMainTab]   = useState('odds');       // 'odds' | 'bets'
+  const [mainTab, setMainTab]   = useState('odds');       // 'odds' | 'bets' | 'config'
   const [gameTab, setGameTab]   = useState('roulette');   // 'roulette' | 'craps' | 'baccarat'
 
   if (!isLoaded) {
@@ -306,11 +382,12 @@ const SettingsPanel = ({ dealerUid }) => {
         </div>
       </div>
 
-      {/* Main tab row — Odds vs Bet Types */}
+      {/* Main tab row — Odds vs Bet Types vs Game Config */}
       <div style={{ display: 'flex', gap: '8px', marginBottom: '28px' }}>
         {[
-          { id: 'odds', label: '📊 Odds Configurator' },
-          { id: 'bets', label: '🎛️ Bet Visibility' },
+          { id: 'odds',   label: '📊 Odds Configurator' },
+          { id: 'bets',   label: '🎛️ Bet Visibility' },
+          { id: 'config', label: '⚙️ Game Config' },
         ].map(t => (
           <button
             key={t.id}
@@ -333,18 +410,20 @@ const SettingsPanel = ({ dealerUid }) => {
         ))}
       </div>
 
-      {/* Game sub-tab row */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '24px' }}>
-        {GAMES.map(g => (
-          <button
-            key={g}
-            onClick={() => setGameTab(g)}
-            style={pill(gameTab === g, GAME_COLORS[g])}
-          >
-            {GAME_LABELS[g]}
-          </button>
-        ))}
-      </div>
+      {/* Game sub-tab row — only show for odds and bets tabs */}
+      {mainTab !== 'config' && (
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '24px' }}>
+          {GAMES.map(g => (
+            <button
+              key={g}
+              onClick={() => setGameTab(g)}
+              style={pill(gameTab === g, GAME_COLORS[g])}
+            >
+              {GAME_LABELS[g]}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Content */}
       {mainTab === 'odds' ? (
@@ -355,13 +434,19 @@ const SettingsPanel = ({ dealerUid }) => {
           onSave={updateOdds}
           onReset={resetOddsToDefaults}
         />
-      ) : (
+      ) : mainTab === 'bets' ? (
         <VisibilityGameTab
           key={`vis-${gameTab}`}
           game={gameTab}
           visibility={betVisibility[gameTab]}
           onSave={updateVisibility}
           onReset={resetVisibilityToDefaults}
+        />
+      ) : (
+        <GameConfigTab
+          gameConfig={gameConfig}
+          onSave={updateGameConfig}
+          onReset={resetGameConfigToDefaults}
         />
       )}
     </div>
