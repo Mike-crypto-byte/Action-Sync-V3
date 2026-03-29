@@ -1,4 +1,4 @@
-// App.jsx — Phase 3: Multi-streamer, vanity room codes 
+// App.jsx — Phase 3: Multi-streamer, vanity room codes
 import React, { useState, useEffect } from 'react';
 import { Dice1, Spade, ArrowLeft, Circle } from 'lucide-react';
 import { database as db, ref, onValue, set, auth } from './firebase.js';
