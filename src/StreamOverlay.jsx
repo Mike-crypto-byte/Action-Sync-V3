@@ -28,16 +28,15 @@ const StreamOverlay = ({ dealerUidFromUrl, roomCodeFromUrl }) => {
   // Listen to active game
   useEffect(() => {
     if (!roomCode) return;
-    const unsub = onValue(ref(db, `rooms/${roomCode}/activeGame`), (snap) => {
+    const unsub = onValue(ref(db, `rooms/${roomCode}/session/activeGame`), (snap) => {
       if (snap.exists()) {
-        const data = snap.val();
-        setActiveGame(data.game || null);
+        setActiveGame(snap.val() || null);
       } else {
         setActiveGame(null);
       }
     });
     return () => unsub();
-  }, []);
+  }, [roomCode]);
 
   // Listen to game state
   useEffect(() => {
@@ -80,11 +79,11 @@ const StreamOverlay = ({ dealerUidFromUrl, roomCodeFromUrl }) => {
   // Listen to starting chips
   useEffect(() => {
     if (!roomCode) return;
-    const unsub = onValue(ref(db, `rooms/${roomCode}/session/settings/startingChips`), (snap) => {
+    const unsub = onValue(ref(db, `rooms/${roomCode}/settings/startingChips`), (snap) => {
       if (snap.exists()) setStartingChips(snap.val());
     });
     return () => unsub();
-  }, []);
+  }, [roomCode]);
 
   const gameName = activeGame === 'roulette' ? '🎰 ROULETTE'
     : activeGame === 'craps' ? '🎲 CRAPS'
