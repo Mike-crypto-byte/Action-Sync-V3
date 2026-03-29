@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Dice1, Spade, ArrowLeft, Circle } from 'lucide-react';
 import { database as db, ref, onValue, set, auth } from './firebase.js';
+import { sendPasswordResetEmail } from 'firebase/auth';
 import { useAuth } from './useAuth.js';
 import { startNewSession, startStream, switchGame, useSessionHistory, resolveRoomCode, normaliseCode, changeRoomCode, isRoomCodeAvailable } from './useFirebaseSync.js';
 
@@ -100,6 +101,27 @@ const App = () => {
   const [formName, setFormName]         = useState('');
   const [formRoomCode, setFormRoomCode] = useState(''); // dealer sign-up vanity code
   const [formLoading, setFormLoading]   = useState(false);
+
+  // Forgot password state
+  const [forgotMode, setForgotMode]         = useState(false);
+  const [forgotEmail, setForgotEmail]       = useState('');
+  const [forgotLoading, setForgotLoading]   = useState(false);
+  const [forgotSent, setForgotSent]         = useState(false);
+  const [forgotError, setForgotError]       = useState(null);
+
+  const handleForgotPassword = async () => {
+    if (!forgotEmail.trim() || forgotLoading) return;
+    setForgotLoading(true);
+    setForgotError(null);
+    try {
+      await sendPasswordResetEmail(auth, forgotEmail.trim());
+      setForgotSent(true);
+    } catch (e) {
+      setForgotError(e.code === 'auth/user-not-found' ? 'No account found with that email.' : 'Failed to send reset email. Try again.');
+    } finally {
+      setForgotLoading(false);
+    }
+  };
 
   // Session history for the running leaderboard panel
   const sessionHistory = useSessionHistory(dealerUid);
@@ -345,6 +367,99 @@ const App = () => {
   }
 
 
+  // ── No room context and not signed in → Landing page ────────────────────────
+  // Show when: bare domain visit (no ?dealer= / ?room=), not authenticated,
+  // not a dealer trying to log in via dealerSignIn/dealerSignUp mode.
+  const isBareDomain = !getDealerUidFromUrl() && !getRoomCodeFromUrl() && !resolvedDealerUid;
+  if (!user && isBareDomain && authMode !== 'dealerSignIn' && authMode !== 'dealerSignUp') {
+    return (
+      <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg, #0a0e27 0%, #0f1923 60%, #141e2e 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px', fontFamily: 'inherit' }}>
+
+        {/* Hero */}
+        <div style={{ textAlign: 'center', maxWidth: '520px', marginBottom: '48px' }}>
+          <div style={{ fontSize: isMobile ? '52px' : '72px', marginBottom: '16px', filter: 'drop-shadow(0 0 24px rgba(212,175,55,0.4))' }}>🎰</div>
+          <h1 style={{ fontSize: isMobile ? '32px' : '48px', fontWeight: 'bold', color: '#d4af37', letterSpacing: '2px', margin: '0 0 10px', textShadow: '0 0 30px rgba(212,175,55,0.3)' }}>ACTION SYNC</h1>
+          <p style={{ color: '#7a8aaa', fontSize: isMobile ? '14px' : '16px', lineHeight: '1.7', margin: '0 0 8px' }}>
+            Live virtual casino companion for streamers and their viewers.
+          </p>
+          <p style={{ color: '#4a5568', fontSize: '13px', margin: 0 }}>
+            Bet virtual chips on Roulette, Craps &amp; Baccarat — together, in real time.
+          </p>
+        </div>
+
+        {/* How it works */}
+        <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '16px', maxWidth: '640px', width: '100%', marginBottom: '48px' }}>
+          {[
+            { icon: '📡', title: 'Streamer goes live', body: 'Dealer logs in, picks a game, and shares their room link or code with viewers.' },
+            { icon: '🎲', title: 'Viewers join the room', body: 'Players sign up with a display name and start with a virtual chip stack.' },
+            { icon: '🏆', title: 'Compete on the board', body: 'Place bets each round and climb the live leaderboard — no real money ever.' },
+          ].map(({ icon, title, body }) => (
+            <div key={title} style={{ flex: 1, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(212,175,55,0.12)', borderRadius: '14px', padding: '22px 20px', textAlign: 'center' }}>
+              <div style={{ fontSize: '28px', marginBottom: '10px' }}>{icon}</div>
+              <div style={{ color: '#d4af37', fontSize: '13px', fontWeight: 'bold', letterSpacing: '0.5px', marginBottom: '8px' }}>{title}</div>
+              <div style={{ color: '#6b7a94', fontSize: '12px', lineHeight: '1.7' }}>{body}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* CTA cards */}
+        <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '16px', maxWidth: '480px', width: '100%', marginBottom: '32px' }}>
+
+          {/* Player join box */}
+          <div style={{ flex: 1, background: 'rgba(212,175,55,0.06)', border: '1px solid rgba(212,175,55,0.25)', borderRadius: '14px', padding: '24px 20px' }}>
+            <div style={{ color: '#d4af37', fontSize: '12px', fontWeight: 'bold', letterSpacing: '1px', marginBottom: '12px', textTransform: 'uppercase' }}>🎲 Join a Room</div>
+            <p style={{ color: '#7a8aaa', fontSize: '12px', lineHeight: '1.6', marginBottom: '14px' }}>
+              Have a room code from your streamer? Enter it below.
+            </p>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input
+                type="text"
+                value={joinCodeInput}
+                onChange={e => { setJoinCodeInput(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,'')); setResolveError(null); }}
+                onKeyPress={e => e.key === 'Enter' && handleJoinByCode()}
+                placeholder="Room code"
+                maxLength={16}
+                style={{ flex: 1, padding: '11px 12px', background: '#0a0a0a', border: '1px solid #444', borderRadius: '8px', color: '#fff', fontSize: '14px', outline: 'none', fontFamily: 'inherit', letterSpacing: '2px' }}
+              />
+              <button
+                onClick={handleJoinByCode}
+                disabled={joinCodeLoading || !joinCodeInput.trim()}
+                style={{ padding: '11px 14px', background: joinCodeInput.trim() ? '#d4af37' : '#2a2a2a', border: 'none', borderRadius: '8px', color: joinCodeInput.trim() ? '#000' : '#555', fontWeight: 'bold', fontSize: '13px', cursor: joinCodeInput.trim() ? 'pointer' : 'not-allowed', fontFamily: 'inherit' }}
+              >
+                {joinCodeLoading ? '...' : 'Go'}
+              </button>
+            </div>
+            {resolveError && <div style={{ color: '#f44336', fontSize: '11px', marginTop: '6px' }}>{resolveError}</div>}
+          </div>
+
+          {/* Dealer box */}
+          <div style={{ flex: 1, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', padding: '24px 20px' }}>
+            <div style={{ color: '#888', fontSize: '12px', fontWeight: 'bold', letterSpacing: '1px', marginBottom: '12px', textTransform: 'uppercase' }}>🎰 Streamer / Dealer</div>
+            <p style={{ color: '#4a5568', fontSize: '12px', lineHeight: '1.6', marginBottom: '14px' }}>
+              Running a stream? Create a dealer account to host your own room.
+            </p>
+            <button
+              onClick={() => setAuthMode('dealerSignUp')}
+              style={{ width: '100%', padding: '11px', background: 'transparent', border: '1px solid #444', borderRadius: '8px', color: '#888', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '0.5px', marginBottom: '8px' }}
+            >
+              Create Dealer Account
+            </button>
+            <button
+              onClick={() => setAuthMode('dealerSignIn')}
+              style={{ width: '100%', padding: '8px', background: 'transparent', border: 'none', color: '#4a5568', fontSize: '11px', cursor: 'pointer', fontFamily: 'inherit' }}
+            >
+              Already have an account? Sign in
+            </button>
+          </div>
+        </div>
+
+        <div style={{ color: '#2a3444', fontSize: '11px', textAlign: 'center' }}>
+          Virtual entertainment only · No real money · 18+ only
+        </div>
+      </div>
+    );
+  }
+
   // ── Not signed in → show auth form ───────────────────────────────────────────
   if (!user) {
     const isSignUp     = authMode === 'playerSignUp' || authMode === 'dealerSignUp';
@@ -381,36 +496,73 @@ const App = () => {
             </div>
           )}
 
-          {/* Form fields */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
-            {isSignUp && <input type="text" value={formName} onChange={e => setFormName(e.target.value)} placeholder={isDealerForm ? 'Your display name' : 'Display name (shown on leaderboard)'} style={{ width: '100%', padding: '13px', background: '#0a0a0a', border: '2px solid #444', borderRadius: '8px', color: '#fff', fontSize: '15px', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />}
-            <input type="email" value={formEmail} onChange={e => setFormEmail(e.target.value)} placeholder="Email address" style={{ width: '100%', padding: '13px', background: '#0a0a0a', border: '2px solid #444', borderRadius: '8px', color: '#fff', fontSize: '15px', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />
-            <input type="password" value={formPassword} onChange={e => setFormPassword(e.target.value)} onKeyPress={e => e.key === 'Enter' && handleAuthSubmit()} placeholder="Password" style={{ width: '100%', padding: '13px', background: '#0a0a0a', border: '2px solid #444', borderRadius: '8px', color: '#fff', fontSize: '15px', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />
-            {authMode === 'dealerSignUp' && (
-              <div>
-                <input type="text" value={formRoomCode} onChange={e => setFormRoomCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,''))} placeholder="Choose your room code (e.g. MIKECASINO)" maxLength={16} style={{ width: '100%', padding: '13px', background: '#0a0a0a', border: '2px solid #444', borderRadius: '8px', color: '#fff', fontSize: '14px', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', letterSpacing: '1px' }} />
-                <div style={{ color: '#555', fontSize: '10px', marginTop: '5px' }}>3–16 characters · letters and numbers only · players use this to find your room</div>
+          {/* ── Forgot password view ── */}
+          {forgotMode ? (
+            <>
+              {forgotSent ? (
+                <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                  <div style={{ fontSize: '36px', marginBottom: '12px' }}>📬</div>
+                  <div style={{ color: '#4caf50', fontSize: '14px', fontWeight: 'bold', marginBottom: '8px' }}>Reset email sent!</div>
+                  <div style={{ color: '#888', fontSize: '12px', lineHeight: '1.6', marginBottom: '20px' }}>Check your inbox for a link to reset your password.</div>
+                  <button onClick={() => { setForgotMode(false); setForgotSent(false); setForgotEmail(''); setForgotError(null); }} style={{ background: 'none', border: 'none', color: '#d4af37', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit' }}>← Back to sign in</button>
+                </div>
+              ) : (
+                <>
+                  <div style={{ color: '#aaa', fontSize: '12px', lineHeight: '1.7', marginBottom: '18px' }}>Enter the email address on your account and we'll send you a reset link.</div>
+                  <input type="email" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} onKeyPress={e => e.key === 'Enter' && handleForgotPassword()} placeholder="Email address" autoFocus style={{ width: '100%', padding: '13px', background: '#0a0a0a', border: '2px solid #444', borderRadius: '8px', color: '#fff', fontSize: '15px', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: '12px' }} />
+                  {forgotError && <div style={{ background: 'rgba(244,67,54,0.1)', border: '1px solid rgba(244,67,54,0.3)', borderRadius: '8px', padding: '10px 14px', marginBottom: '12px', color: '#f44336', fontSize: '12px' }}>{forgotError}</div>}
+                  <button onClick={handleForgotPassword} disabled={forgotLoading || !forgotEmail.trim()} style={{ width: '100%', padding: '14px', background: forgotEmail.trim() ? 'linear-gradient(135deg, #d4af37 0%, #f4e5a1 100%)' : '#333', border: 'none', borderRadius: '8px', color: forgotEmail.trim() ? '#000' : '#666', fontSize: '14px', fontWeight: 'bold', cursor: forgotEmail.trim() ? 'pointer' : 'not-allowed', fontFamily: 'inherit', marginBottom: '14px' }}>
+                    {forgotLoading ? 'Sending...' : 'Send Reset Email'}
+                  </button>
+                  <div style={{ textAlign: 'center' }}>
+                    <button onClick={() => { setForgotMode(false); setForgotError(null); setForgotEmail(''); }} style={{ background: 'none', border: 'none', color: '#666', fontSize: '12px', cursor: 'pointer', fontFamily: 'inherit' }}>← Back to sign in</button>
+                  </div>
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              {/* Form fields */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
+                {isSignUp && <input type="text" value={formName} onChange={e => setFormName(e.target.value)} placeholder={isDealerForm ? 'Your display name' : 'Display name (shown on leaderboard)'} style={{ width: '100%', padding: '13px', background: '#0a0a0a', border: '2px solid #444', borderRadius: '8px', color: '#fff', fontSize: '15px', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />}
+                <input type="email" value={formEmail} onChange={e => setFormEmail(e.target.value)} placeholder="Email address" style={{ width: '100%', padding: '13px', background: '#0a0a0a', border: '2px solid #444', borderRadius: '8px', color: '#fff', fontSize: '15px', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />
+                <input type="password" value={formPassword} onChange={e => setFormPassword(e.target.value)} onKeyPress={e => e.key === 'Enter' && handleAuthSubmit()} placeholder="Password" style={{ width: '100%', padding: '13px', background: '#0a0a0a', border: '2px solid #444', borderRadius: '8px', color: '#fff', fontSize: '15px', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />
+                {authMode === 'dealerSignUp' && (
+                  <div>
+                    <input type="text" value={formRoomCode} onChange={e => setFormRoomCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,''))} placeholder="Choose your room code (e.g. MIKECASINO)" maxLength={16} style={{ width: '100%', padding: '13px', background: '#0a0a0a', border: '2px solid #444', borderRadius: '8px', color: '#fff', fontSize: '14px', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', letterSpacing: '1px' }} />
+                    <div style={{ color: '#555', fontSize: '10px', marginTop: '5px' }}>3–16 characters · letters and numbers only · players use this to find your room</div>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
 
-          {authError && <div style={{ background: 'rgba(244,67,54,0.1)', border: '1px solid rgba(244,67,54,0.3)', borderRadius: '8px', padding: '10px 14px', marginBottom: '14px', color: '#f44336', fontSize: '12px' }}>{authError}</div>}
+              {authError && <div style={{ background: 'rgba(244,67,54,0.1)', border: '1px solid rgba(244,67,54,0.3)', borderRadius: '8px', padding: '10px 14px', marginBottom: '14px', color: '#f44336', fontSize: '12px' }}>{authError}</div>}
 
-          <button onClick={handleAuthSubmit} disabled={formLoading || !canSubmit} style={{ width: '100%', padding: '15px', background: (canSubmit && !formLoading) ? 'linear-gradient(135deg, #d4af37 0%, #f4e5a1 100%)' : '#333', border: 'none', borderRadius: '8px', color: (canSubmit && !formLoading) ? '#000' : '#666', fontSize: '15px', fontWeight: 'bold', letterSpacing: '1px', cursor: (canSubmit && !formLoading) ? 'pointer' : 'not-allowed', fontFamily: 'inherit', textTransform: 'uppercase', marginBottom: '14px' }}>
-            {formLoading ? 'Please wait...' : isSignUp ? 'Create Account' : 'Sign In'}
-          </button>
+              <button onClick={handleAuthSubmit} disabled={formLoading || !canSubmit} style={{ width: '100%', padding: '15px', background: (canSubmit && !formLoading) ? 'linear-gradient(135deg, #d4af37 0%, #f4e5a1 100%)' : '#333', border: 'none', borderRadius: '8px', color: (canSubmit && !formLoading) ? '#000' : '#666', fontSize: '15px', fontWeight: 'bold', letterSpacing: '1px', cursor: (canSubmit && !formLoading) ? 'pointer' : 'not-allowed', fontFamily: 'inherit', textTransform: 'uppercase', marginBottom: '10px' }}>
+                {formLoading ? 'Please wait...' : isSignUp ? 'Create Account' : 'Sign In'}
+              </button>
 
-          <div style={{ textAlign: 'center', marginBottom: '14px' }}>
-            <button onClick={() => { setAuthError(null); setAuthMode(isDealerForm ? (isSignUp ? 'dealerSignIn' : 'dealerSignUp') : (isSignUp ? 'playerSignIn' : 'playerSignUp')); }} style={{ background: 'none', border: 'none', color: '#d4af37', fontSize: '12px', cursor: 'pointer', fontFamily: 'inherit' }}>
-              {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Create one"}
-            </button>
-          </div>
+              {/* Forgot password link — only on sign-in screens */}
+              {!isSignUp && (
+                <div style={{ textAlign: 'center', marginBottom: '10px' }}>
+                  <button onClick={() => { setForgotMode(true); setForgotEmail(formEmail); setAuthError(null); }} style={{ background: 'none', border: 'none', color: '#666', fontSize: '11px', cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'underline' }}>
+                    Forgot password?
+                  </button>
+                </div>
+              )}
 
-          <div style={{ textAlign: 'center', borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: '14px' }}>
-            <button onClick={() => { setAuthError(null); setResolveError(null); setAuthMode(isDealerForm ? 'playerSignIn' : 'dealerSignIn'); }} style={{ padding: '8px 20px', background: 'transparent', border: '1px solid #444', borderRadius: '6px', color: '#666', fontSize: '10px', cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '1px', textTransform: 'uppercase' }}>
-              {isDealerForm ? '🎲 Player Login' : '🔐 Dealer Login'}
-            </button>
-          </div>
+              <div style={{ textAlign: 'center', marginBottom: '14px' }}>
+                <button onClick={() => { setAuthError(null); setForgotMode(false); setAuthMode(isDealerForm ? (isSignUp ? 'dealerSignIn' : 'dealerSignUp') : (isSignUp ? 'playerSignIn' : 'playerSignUp')); }} style={{ background: 'none', border: 'none', color: '#d4af37', fontSize: '12px', cursor: 'pointer', fontFamily: 'inherit' }}>
+                  {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Create one"}
+                </button>
+              </div>
+
+              <div style={{ textAlign: 'center', borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: '14px' }}>
+                <button onClick={() => { setAuthError(null); setResolveError(null); setForgotMode(false); setAuthMode(isDealerForm ? 'playerSignIn' : 'dealerSignIn'); }} style={{ padding: '8px 20px', background: 'transparent', border: '1px solid #444', borderRadius: '6px', color: '#666', fontSize: '10px', cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '1px', textTransform: 'uppercase' }}>
+                  {isDealerForm ? '🎲 Player Login' : '🔐 Dealer Login'}
+                </button>
+              </div>
+            </>
+          )}
           <div style={{ marginTop: '16px', padding: '10px', background: 'rgba(212,175,55,0.07)', borderRadius: '8px', textAlign: 'center' }}>
             <div style={{ color: '#666', fontSize: '10px', lineHeight: '1.6' }}>Virtual entertainment only · No real money · 18+ only</div>
           </div>
