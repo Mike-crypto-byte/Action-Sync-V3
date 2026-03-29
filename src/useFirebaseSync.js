@@ -433,6 +433,18 @@ export async function claimRoomCode(dealerUid, code) {
   // Write lookup entry + reverse lookup in settings
   await set(ref(db, `roomCodes/${norm}`), dealerUid);
   await update(rr(dealerUid, 'settings'), { roomCode: norm });
+
+  // Auto-initialize minimal session so players can join immediately
+  const sessionSnap = await get(rr(dealerUid, 'session/status'));
+  if (!sessionSnap.exists()) {
+    await set(rr(dealerUid, 'session'), {
+      status: 'waiting',
+      sessionNumber: 0,
+      startedAt: null,
+      activeGame: null
+    });
+  }
+
   return { success: true, code: norm };
 }
 
