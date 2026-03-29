@@ -175,9 +175,11 @@ const App = () => {
   }, [isDealer, user]);
 
   // ── Session listener (players) — watches activeGame + status together ────────
+  // Keyed on user?.uid so it re-fires if auth resolves after initial mount
   useEffect(() => {
-    if (!isPlayer || !dealerUid) return;
-    const unsub = onValue(ref(db, `rooms/${dealerUid}/session`), (snap) => {
+    if (!isPlayer || !dealerUid || !user?.uid) return;
+    const sessionRef = ref(db, `rooms/${dealerUid}/session`);
+    const unsub = onValue(sessionRef, (snap) => {
       if (snap.exists()) {
         const session = snap.val();
         setSessionStatus(session.status || 'waiting');
@@ -195,7 +197,7 @@ const App = () => {
       }
     });
     return () => unsub();
-  }, [isPlayer, dealerUid]);
+  }, [isPlayer, dealerUid, user?.uid]);
 
   // ── Dealer: switch active game (session stays alive) ─────────────────────────
   const setActiveGame = async (game) => {
@@ -597,6 +599,19 @@ const App = () => {
   const playerName   = user.displayName || user.email;
   const playerUid    = user.uid;
   const isDealerMode = isDealer;
+
+  // Player: if dealerUid isn't resolved yet, show a brief connecting state
+  // rather than flashing a blank screen or wrong branch
+  if (isPlayer && !dealerUid) {
+    return (
+      <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0a0e27 0%, #1a1f3a 50%, #0f1829 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '48px', marginBottom: '20px' }}>🎰</div>
+          <div style={{ color: '#d4af37', fontSize: '14px', letterSpacing: '3px' }}>CONNECTING...</div>
+        </div>
+      </div>
+    );
+  }
 
   if (selectedGame === 'craps') {
     return <CrapsGame onBack={deactivateGame} isDealerMode={isDealerMode} playerUserId={playerUid} playerName={playerName} skipRegistration={true} roomCode={dealerUid} />;
