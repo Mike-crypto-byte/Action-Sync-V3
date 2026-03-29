@@ -130,6 +130,13 @@ export function useAuth() {
       await authHelpers.updateProfile(displayName);
       await setUserRole(cred.user.uid, PLAYER_ROLE);
 
+      // Verify dealer room exists
+      const dealerSettingsSnap = await get(ref(database, `rooms/${dealerUid}/settings`));
+      if (!dealerSettingsSnap.exists()) {
+        await authHelpers.signOut();
+        throw new Error('Dealer room not found. Check the room code and try again.');
+      }
+
       const playerRef = ref(database, `rooms/${dealerUid}/players/${cred.user.uid}`);
       await set(playerRef, {
         uid:      cred.user.uid,
@@ -164,6 +171,13 @@ export function useAuth() {
       if (r === DEALER_ROLE) {
         await authHelpers.signOut();
         throw new Error('Use dealer login for dealer accounts.');
+      }
+
+      // Verify dealer room exists
+      const dealerSettingsSnap = await get(ref(database, `rooms/${dealerUid}/settings`));
+      if (!dealerSettingsSnap.exists()) {
+        await authHelpers.signOut();
+        throw new Error('Dealer room not found. Check the room code and try again.');
       }
 
       // Create player record under this dealer if first time joining
