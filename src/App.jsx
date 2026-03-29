@@ -24,15 +24,6 @@ const getRoomCodeFromUrl = () =>
   new URLSearchParams(window.location.search).get('room') || null;
 
 const App = () => {
-    // Debug: log key state on every render
-    console.log('[APP RENDER]', {
-      isPlayer,
-      isDealer,
-      dealerUid,
-      user: user ? { uid: user.uid, displayName: user.displayName, email: user.email } : null,
-      authLoading,
-      role
-    });
   // ── Overlay route — supports both ?dealer=uid and ?room=VANITYCODE ───────────
   if (window.location.hash === '#overlay' || window.location.pathname === '/overlay') {
     return <StreamOverlay dealerUidFromUrl={getDealerUidFromUrl()} roomCodeFromUrl={getRoomCodeFromUrl()} />;
