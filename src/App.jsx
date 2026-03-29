@@ -600,9 +600,9 @@ const App = () => {
   const playerUid    = user.uid;
   const isDealerMode = isDealer;
 
-  // Player: if dealerUid isn't resolved yet, show a brief connecting state
-  // rather than flashing a blank screen or wrong branch
-  if (isPlayer && !dealerUid) {
+  // Player: if dealerUid isn't resolved yet but we expect one (URL has dealer/room param),
+  // show a brief connecting state rather than flashing a blank screen or wrong branch
+  if (isPlayer && !dealerUid && (getDealerUidFromUrl() || getRoomCodeFromUrl())) {
     return (
       <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0a0e27 0%, #1a1f3a 50%, #0f1829 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center' }}>
