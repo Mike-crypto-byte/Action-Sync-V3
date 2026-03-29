@@ -180,6 +180,12 @@ const App = () => {
     if (!isPlayer || !dealerUid || !user?.uid) return;
     const sessionRef = ref(db, `rooms/${dealerUid}/session`);
     const unsub = onValue(sessionRef, (snap) => {
+      console.log('[PLAYER SESSION LISTENER]', {
+        dealerUid,
+        userUid: user?.uid,
+        snapExists: snap.exists(),
+        session: snap.exists() ? snap.val() : null
+      });
       if (snap.exists()) {
         const session = snap.val();
         setSessionStatus(session.status || 'waiting');
