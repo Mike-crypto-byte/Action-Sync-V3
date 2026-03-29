@@ -177,6 +177,7 @@ const App = () => {
   // ── Session listener (players) — watches activeGame + status together ────────
   // Keyed on user?.uid so it re-fires if auth resolves after initial mount
   useEffect(() => {
+    console.log('[PLAYER SESSION LISTENER SETUP]', { isPlayer, dealerUid, userUid: user?.uid });
     if (!isPlayer || !dealerUid || !user?.uid) return;
     const sessionRef = ref(db, `rooms/${dealerUid}/session`);
     const unsub = onValue(sessionRef, (snap) => {
