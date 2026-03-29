@@ -76,6 +76,14 @@ export function useAuth() {
         createdAt:     Date.now(),
       });
 
+      // Initialize minimal session so players can join immediately (even before code claim)
+      await set(ref(database, `rooms/${cred.user.uid}/session`), {
+        status: 'waiting',
+        sessionNumber: 0,
+        startedAt: null,
+        activeGame: null
+      });
+
       setUser(cred.user);
       setRole(DEALER_ROLE);
 
@@ -115,6 +123,18 @@ export function useAuth() {
       setUser(cred.user);
       setRole(DEALER_ROLE);
       setNeedsRoomCode(!settingsSnap.exists());
+
+      // Ensure session exists for players to join
+      const sessionSnap = await get(ref(database, `rooms/${cred.user.uid}/session/status`));
+      if (!sessionSnap.exists()) {
+        await set(ref(database, `rooms/${cred.user.uid}/session`), {
+          status: 'waiting',
+          sessionNumber: 0,
+          startedAt: null,
+          activeGame: null
+        });
+      }
+
       return { uid: cred.user.uid };
     } catch (e) {
       setAuthError(e.message);
