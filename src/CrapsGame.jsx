@@ -248,7 +248,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
     } else if (gameState.bettingOpen && localCountdown === 0 && isAdmin) {
       updateGameState({ bettingOpen: false, countdown: 0 });
     }
-  }, [localCountdown, gameState.bettingOpen]);
+  }, [localCountdown, gameState.bettingOpen, isAdmin, updateGameState]);
 
 
 
@@ -711,8 +711,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
         : [2, 3, 4, 5, 6, 8, 9, 10, 11, 12];
       
       if (pointNumbers.includes(total) && newActiveBets.passLine > 0) {
-        setGamePhase('point');
-        setPoint(total);
+        if (isAdmin) updateGameState({ gamePhase: 'point', point: total });
       }
     } else {
       // Point phase
@@ -739,8 +738,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
           newActiveBets.passOdds = 0;
         }
         
-        setGamePhase('come-out');
-        setPoint(null);
+        if (isAdmin) updateGameState({ gamePhase: 'come-out', point: null });
       } else if (total === 7) {
         // Seven out - all line bets and place bets lose
         if (newActiveBets.passLine > 0) rollWinnings -= newActiveBets.passLine;
@@ -761,10 +759,9 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
             newActiveBets[`craplessPlace${num}`] = 0;
           });
         }
-        setGamePhase('come-out');
-        setPoint(null);
+        if (isAdmin) updateGameState({ gamePhase: 'come-out', point: null });
       }
-      
+
       // Don't Pass wins on 7 out
       if (total === 7 && newActiveBets.dontPass > 0) {
         const payout = newActiveBets.dontPass * 2;
@@ -791,7 +788,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
     const newBankroll = Math.round(bankroll + winnings);
     setBankroll(newBankroll);
     setActiveBets(newActiveBets);
-    setRollHistory(prev => [{ dice1, dice2, total, winnings: rollWinnings }, ...prev.slice(0, 19)]);
+    // rollHistory is managed in Firebase by adminSubmitRoll
     
     // Update stats
     setSessionStats(prev => ({
@@ -837,7 +834,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
         resolveRoll(gameState.lastRoll.dice1, gameState.lastRoll.dice2);
       }
     }
-  }, [gameState.lastRoll, gameState.rollNumber]);
+  }, [gameState.lastRoll, gameState.rollNumber, activeBets, resolveRoll]);
 
   // ========== FIREBASE: Admin roll writes to Firebase — all clients auto-resolve ==========
   const adminSubmitRoll = async () => {

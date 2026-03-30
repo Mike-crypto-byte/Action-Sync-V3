@@ -237,7 +237,7 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
         resolveRound(gameState.playerCards || [], gameState.bankerCards || []);
       }
     }
-  }, [gameState.winner, gameState.roundNumber]);
+  }, [gameState.winner, gameState.roundNumber, activeBets, resolveRound]);
 
   // Countdown timer — auto-closes at 0
   useEffect(() => {
@@ -263,7 +263,7 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
     } else if (gameState.bettingOpen && localCountdown === 0 && isAdmin) {
       updateGameState({ bettingOpen: false, countdown: 0 });
     }
-  }, [localCountdown, gameState.bettingOpen]);
+  }, [localCountdown, gameState.bettingOpen, isAdmin, updateGameState]);
 
 
 

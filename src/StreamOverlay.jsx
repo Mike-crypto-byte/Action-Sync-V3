@@ -45,7 +45,7 @@ const StreamOverlay = ({ dealerUidFromUrl, roomCodeFromUrl }) => {
       if (snap.exists()) setGameState(snap.val());
     });
     return () => unsub();
-  }, [activeGame]);
+  }, [activeGame, roomCode]);
 
   // Listen to leaderboard
   useEffect(() => {
@@ -60,7 +60,7 @@ const StreamOverlay = ({ dealerUidFromUrl, roomCodeFromUrl }) => {
       }
     });
     return () => unsub();
-  }, []);
+  }, [roomCode]);
 
   // Listen to presence
   useEffect(() => {
@@ -74,7 +74,7 @@ const StreamOverlay = ({ dealerUidFromUrl, roomCodeFromUrl }) => {
       }
     });
     return () => unsub();
-  }, []);
+  }, [roomCode]);
 
   // Listen to starting chips
   useEffect(() => {

@@ -242,7 +242,7 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
       // Auto-close betting when countdown hits 0 (dealer only pushes this)
       updateGameState({ bettingOpen: false, countdown: 0 });
     }
-  }, [localCountdown, gameState.bettingOpen]);
+  }, [localCountdown, gameState.bettingOpen, isAdmin, updateGameState]);
 
 
 
