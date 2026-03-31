@@ -1,7 +1,7 @@
 // App.jsx — Phase 3: Multi-streamer, vanity room codes
 import React, { useState, useEffect } from 'react';
 import { Dice1, Spade, ArrowLeft, Circle } from 'lucide-react';
-import { database as db, ref, onValue, set, auth } from './firebase.js';
+import { database as db, ref, onValue, set, update, auth } from './firebase.js';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { useAuth } from './useAuth.js';
 import { startNewSession, startStream, switchGame, useSessionHistory, resolveRoomCode, normaliseCode, changeRoomCode, isRoomCodeAvailable } from './useFirebaseSync.js';
@@ -23,12 +23,7 @@ const getDealerUidFromUrl = () =>
 const getRoomCodeFromUrl = () =>
   new URLSearchParams(window.location.search).get('room') || null;
 
-const App = () => {
-  // ── Overlay route — supports both ?dealer=uid and ?room=VANITYCODE ───────────
-  if (window.location.hash === '#overlay' || window.location.pathname === '/overlay') {
-    return <StreamOverlay dealerUidFromUrl={getDealerUidFromUrl()} roomCodeFromUrl={getRoomCodeFromUrl()} />;
-  }
-
+const AppMain = () => {
   // ── Auth ─────────────────────────────────────────────────────────────────────
   const {
     user, role, authLoading, authError, setAuthError,
@@ -39,9 +34,19 @@ const App = () => {
 
   // ── Resolved dealerUid ───────────────────────────────────────────────────────
   // For dealers: their own uid. For players: resolved from URL or code entry.
-  const [resolvedDealerUid, setResolvedDealerUid] = useState(getDealerUidFromUrl());
+  // Falls back to localStorage so returning players don't need to re-enter the code.
+  const [resolvedDealerUid, setResolvedDealerUid] = useState(
+    getDealerUidFromUrl() || localStorage.getItem('actionsync-dealerUid') || null
+  );
   const [resolveError, setResolveError]           = useState(null);
   const [resolving, setResolving]                 = useState(false);
+
+  // Persist dealerUid so returning players auto-reconnect without URL params
+  const updateDealerUid = (uid) => {
+    setResolvedDealerUid(uid);
+    if (uid) localStorage.setItem('actionsync-dealerUid', uid);
+    else localStorage.removeItem('actionsync-dealerUid');
+  };
 
   // If URL has ?room=CODE instead of ?dealer=uid, resolve it once on mount
   useEffect(() => {
@@ -50,7 +55,7 @@ const App = () => {
       setResolving(true);
       resolveRoomCode(codeFromUrl).then(uid => {
         if (uid) {
-          setResolvedDealerUid(uid);
+          updateDealerUid(uid);
         } else {
           setResolveError(`Room "${codeFromUrl}" not found. Check the code and try again.`);
         }
@@ -82,6 +87,10 @@ const App = () => {
   const [showSessionSummary, setShowSessionSummary] = useState(false);
   const [showNewSessionConfirm, setShowNewSessionConfirm] = useState(false);
   const [newSessionLoading, setNewSessionLoading]   = useState(false);
+  const [showResetConfirm, setShowResetConfirm]     = useState(false);
+  const [resetSuccess, setResetSuccess]             = useState(false);
+  const [sessionError, setSessionError]             = useState(null);
+  const [copySuccess, setCopySuccess]               = useState(false);
 
   // Phase 3 — vanity code state
   const [dealerRoomCode, setDealerRoomCode]         = useState(''); // current claimed code
@@ -177,16 +186,9 @@ const App = () => {
   // ── Session listener (players) — watches activeGame + status together ────────
   // Keyed on user?.uid so it re-fires if auth resolves after initial mount
   useEffect(() => {
-    console.log('[PLAYER SESSION LISTENER SETUP]', { isPlayer, dealerUid, userUid: user?.uid });
     if (!isPlayer || !dealerUid || !user?.uid) return;
     const sessionRef = ref(db, `rooms/${dealerUid}/session`);
     const unsub = onValue(sessionRef, (snap) => {
-      console.log('[PLAYER SESSION LISTENER]', {
-        dealerUid,
-        userUid: user?.uid,
-        snapExists: snap.exists(),
-        session: snap.exists() ? snap.val() : null
-      });
       if (snap.exists()) {
         const session = snap.val();
         setSessionStatus(session.status || 'waiting');
@@ -216,7 +218,7 @@ const App = () => {
       setSelectedGame(game);
     } catch (e) {
       console.error('Failed to switch game:', e);
-      alert('Failed to switch game: ' + e.message);
+      setSessionError('Failed to switch game: ' + e.message);
     }
   };
 
@@ -237,7 +239,7 @@ const App = () => {
     // Read dealerUid directly — don't rely on closure which may be stale
     const currentDealerUid = user?.uid;
     if (!currentDealerUid) {
-      alert('Not logged in as dealer. Please refresh and try again.');
+      setSessionError('Not logged in as dealer. Please refresh and try again.');
       return;
     }
     setNewSessionLoading(true);
@@ -265,7 +267,7 @@ const App = () => {
       setSessionStatus('waiting');
     } catch (e) {
       console.error('Failed to start new session:', e.code, e.message, e);
-      alert('Failed to end session: ' + e.message + ' (code: ' + e.code + ')');
+      setSessionError('Failed to end session: ' + e.message + ' (code: ' + e.code + ')');
     } finally {
       setNewSessionLoading(false);
     }
@@ -281,20 +283,26 @@ const App = () => {
   };
 
   // ── Dealer: reset all bankrolls mid-session ───────────────────────────────────
-  const handleResetAllBankrolls = async () => {
+  const handleResetAllBankrolls = () => setShowResetConfirm(true);
+
+  const performResetAllBankrolls = async () => {
     const uid = user?.uid;
-    if (!uid || !confirm(`Reset ALL players to $${startingChips.toLocaleString()}?`)) return;
+    if (!uid) return;
+    setShowResetConfirm(false);
     const playersSnap = await new Promise((resolve) =>
       onValue(ref(db, `rooms/${uid}/players`), resolve, { onlyOnce: true })
     );
     if (playersSnap.exists()) {
       const players = playersSnap.val();
+      const updates = {};
       for (const pUid of Object.keys(players)) {
-        await set(ref(db, `rooms/${uid}/players/${pUid}/bankroll`), startingChips);
-        await set(ref(db, `rooms/${uid}/session/leaderboard/${pUid}/bankroll`), startingChips);
+        updates[`rooms/${uid}/players/${pUid}/bankroll`] = startingChips;
+        updates[`rooms/${uid}/session/leaderboard/${pUid}/bankroll`] = startingChips;
       }
+      await update(ref(db), updates);
     }
-    alert(`✅ All players reset to $${startingChips.toLocaleString()}`);
+    setResetSuccess(true);
+    setTimeout(() => setResetSuccess(false), 3000);
   };
 
   // ── Auth form submit ──────────────────────────────────────────────────────────
@@ -331,7 +339,7 @@ const App = () => {
     try {
       const uid = await resolveRoomCode(joinCodeInput.trim());
       if (uid) {
-        setResolvedDealerUid(uid);
+        updateDealerUid(uid);
         // Update URL so refreshes preserve the room
         const params = new URLSearchParams(window.location.search);
         params.set('dealer', uid);
@@ -490,7 +498,7 @@ const App = () => {
               {dealerUid ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', background: 'rgba(76,175,80,0.1)', border: '1px solid #4caf50', borderRadius: '8px' }}>
                   <span style={{ color: '#4caf50', fontSize: '13px', flex: 1 }}>✅ Room found</span>
-                  <button onClick={() => { setResolvedDealerUid(null); setJoinCodeInput(''); }} style={{ background: 'none', border: 'none', color: '#555', fontSize: '11px', cursor: 'pointer', fontFamily: 'inherit' }}>Change</button>
+                  <button onClick={() => { updateDealerUid(null); setJoinCodeInput(''); }} style={{ background: 'none', border: 'none', color: '#555', fontSize: '11px', cursor: 'pointer', fontFamily: 'inherit' }}>Change</button>
                 </div>
               ) : (
                 <div style={{ display: 'flex', gap: '8px' }}>
@@ -840,6 +848,13 @@ const App = () => {
         </div>
 
         {/* End stream confirm modal */}
+        {sessionError && (
+          <div style={{ marginBottom: '16px', padding: '12px 16px', background: 'rgba(244,67,54,.1)', border: '1px solid rgba(244,67,54,.4)', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+            <span style={{ color: '#f44336', fontSize: '13px' }}>{sessionError}</span>
+            <button onClick={() => setSessionError(null)} style={{ background: 'none', border: 'none', color: '#f44336', cursor: 'pointer', fontSize: '16px', padding: '0 4px', lineHeight: 1 }}>×</button>
+          </div>
+        )}
+
         {showNewSessionConfirm && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
             <div style={{ background: '#1c1e2a', border: '1px solid rgba(212,175,55,.4)', borderRadius: '16px', padding: '40px', maxWidth: '420px', width: '100%', textAlign: 'center' }}>
@@ -854,6 +869,22 @@ const App = () => {
                 <button onClick={handleStartNewSession} disabled={newSessionLoading} style={{ flex: 1, padding: '14px', background: newSessionLoading ? '#333' : 'linear-gradient(135deg,#d4af37,#f4e5a1)', border: 'none', borderRadius: '8px', color: newSessionLoading ? '#666' : '#000', fontSize: '13px', fontWeight: 'bold', cursor: newSessionLoading ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
                   {newSessionLoading ? 'Ending...' : '🏁 End Stream'}
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showResetConfirm && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
+            <div style={{ background: '#1c1e2a', border: '1px solid rgba(76,175,80,.4)', borderRadius: '16px', padding: '40px', maxWidth: '400px', width: '100%', textAlign: 'center' }}>
+              <div style={{ fontSize: '40px', marginBottom: '16px' }}>🔄</div>
+              <div style={{ color: '#4caf50', fontSize: '20px', fontWeight: 'bold', marginBottom: '12px' }}>Reset All Bankrolls?</div>
+              <div style={{ color: '#888', fontSize: '13px', lineHeight: '1.8', marginBottom: '28px' }}>
+                Every player will be reset to <strong style={{ color: '#fff' }}>${startingChips.toLocaleString()}</strong>. This cannot be undone.
+              </div>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button onClick={() => setShowResetConfirm(false)} style={{ flex: 1, padding: '14px', background: 'transparent', border: '1px solid #444', borderRadius: '8px', color: '#888', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+                <button onClick={performResetAllBankrolls} style={{ flex: 1, padding: '14px', background: 'linear-gradient(135deg,#4caf50,#81c784)', border: 'none', borderRadius: '8px', color: '#000', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', fontFamily: 'inherit' }}>Reset All</button>
               </div>
             </div>
           </div>
@@ -893,6 +924,7 @@ const App = () => {
             <button onClick={handleResetAllBankrolls} style={{ width: '100%', padding: '11px', background: 'rgba(76,175,80,.15)', border: '1px solid #4caf50', borderRadius: '7px', color: '#4caf50', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', fontFamily: 'inherit', textTransform: 'uppercase' }}>
               🔄 Reset All Players to ${startingChips.toLocaleString()}
             </button>
+            {resetSuccess && <div style={{ marginTop: '8px', padding: '8px 12px', background: 'rgba(76,175,80,.15)', border: '1px solid #4caf50', borderRadius: '6px', color: '#4caf50', fontSize: '12px', textAlign: 'center' }}>✅ All players reset to ${startingChips.toLocaleString()}</div>}
           </div>
 
           {/* Share link + room code management */}
@@ -927,7 +959,7 @@ const App = () => {
                 <div style={{ color: '#888', fontSize: '10px', marginBottom: '5px', letterSpacing: '1px' }}>ROOM LINK (share this)</div>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <code style={{ flex: 1, background: 'rgba(0,0,0,.4)', color: '#fff', fontSize: '11px', padding: '10px 12px', borderRadius: '6px', wordBreak: 'break-all', fontFamily: 'monospace' }}>{vanityJoinLink}</code>
-                  <button onClick={() => { navigator.clipboard.writeText(vanityJoinLink); alert('✅ Link copied!'); }} style={{ padding: '10px 14px', background: '#d4af37', border: 'none', borderRadius: '6px', color: '#000', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>Copy</button>
+                  <button onClick={() => { navigator.clipboard.writeText(vanityJoinLink); setCopySuccess(true); setTimeout(() => setCopySuccess(false), 2000); }} style={{ padding: '10px 14px', background: copySuccess ? '#4caf50' : '#d4af37', border: 'none', borderRadius: '6px', color: '#000', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', transition: 'background 0.2s' }}>{copySuccess ? '✅ Copied!' : 'Copy'}</button>
                 </div>
               </div>
             )}
@@ -1001,6 +1033,13 @@ const App = () => {
       `}</style>
     </div>
   );
+};
+
+const App = () => {
+  if (window.location.hash === '#overlay' || window.location.pathname === '/overlay') {
+    return <StreamOverlay dealerUidFromUrl={getDealerUidFromUrl()} roomCodeFromUrl={getRoomCodeFromUrl()} />;
+  }
+  return <AppMain />;
 };
 
 export default App;

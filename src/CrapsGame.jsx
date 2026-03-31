@@ -124,6 +124,9 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
   const [resultBanner, setResultBanner] = useState(null);
   const [prevBankroll, setPrevBankroll] = useState(null);
   const [lastRoundUndoable, setLastRoundUndoable] = useState(false); // { type: 'win'|'loss'|'push', amount, message }
+  const [toast, setToast] = useState(null);
+  const [confirmAction, setConfirmAction] = useState(null);
+  const showToast = (message) => { setToast(message); setTimeout(() => setToast(null), 2500); };
   
   const showResultBanner = (type, amount, message) => {
     setResultBanner({ type, amount, message });
@@ -395,16 +398,20 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
 
 
   // Undo last result — reverts bankroll to before the last round
-  const undoLastResult = async () => {
+  const undoLastResult = () => {
     if (prevBankroll === null) return;
-    if (!confirm('Undo last result? This will revert your bankroll to before the last round.')) return;
-    setBankroll(prevBankroll);
-    await saveUserData({ bankroll: prevBankroll });
-    await updateLeaderboard(prevBankroll);
-    setLastRoundUndoable(false);
-    setPrevBankroll(null);
-    setResultBanner(null);
-    await sendSystemMessage('⚠️ Last result was VOIDED by dealer');
+    setConfirmAction({
+      message: 'Undo last result? This will revert your bankroll to before the last round.',
+      onConfirm: async () => {
+        setBankroll(prevBankroll);
+        await saveUserData({ bankroll: prevBankroll });
+        await updateLeaderboard(prevBankroll);
+        setLastRoundUndoable(false);
+        setPrevBankroll(null);
+        setResultBanner(null);
+        await sendSystemMessage('⚠️ Last result was VOIDED by dealer');
+      }
+    });
   };
 
   // System message helper
@@ -870,28 +877,34 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
   const adminStartNewRoll = adminOpenBetting;
 
   // ========== FIREBASE: Bonus chips ==========
-  const distributeBonusChips = async () => {
-    if (bonusChipsAmount <= 0) { alert('Please enter a valid bonus amount'); return; }
+  const distributeBonusChips = () => {
+    if (bonusChipsAmount <= 0) { showToast('Please enter a valid bonus amount'); return; }
     const targetName = bonusRecipient === 'all' ? `ALL ${leaderboard.length} players` : leaderboard.find(p => p.userId === bonusRecipient)?.name || 'Unknown';
-    if (confirm(`Give $${bonusChipsAmount.toLocaleString()} to ${targetName}?`)) {
-      await fbDistributeBonusChips(roomCode, leaderboard, bonusRecipient, bonusChipsAmount, userId, setBankroll);
-      alert(`Distributed $${bonusChipsAmount.toLocaleString()} to ${targetName}!`);
-      setBonusChipsAmount(0);
-    }
+    setConfirmAction({
+      message: `Give $${bonusChipsAmount.toLocaleString()} to ${targetName}?`,
+      onConfirm: async () => {
+        await fbDistributeBonusChips(roomCode, leaderboard, bonusRecipient, bonusChipsAmount, userId, setBankroll);
+        showToast(`Distributed $${bonusChipsAmount.toLocaleString()} to ${targetName}!`);
+        setBonusChipsAmount(0);
+      }
+    });
   };
 
   // ========== FIREBASE: Reset ==========
-  const adminResetSession = async () => {
-    if (confirm('Reset entire session?')) {
-      try {
-        await resetSession(roomCode, GAME_NAME);
-        setBankroll(startingChips);
-        clearAllBets();
-        setActiveBets({});
-        setSessionStats({ totalWagered: 0, biggestWin: 0, totalRolls: 0, startingBankroll: startingChips });
-        await saveUserData({ bankroll: startingChips, activeBets: {}, sessionStats: { totalWagered: 0, biggestWin: 0, totalRolls: 0, startingBankroll: startingChips }});
-      } catch (e) { console.error('Reset failed:', e); }
-    }
+  const adminResetSession = () => {
+    setConfirmAction({
+      message: 'Reset entire session?',
+      onConfirm: async () => {
+        try {
+          await resetSession(roomCode, GAME_NAME);
+          setBankroll(startingChips);
+          clearAllBets();
+          setActiveBets({});
+          setSessionStats({ totalWagered: 0, biggestWin: 0, totalRolls: 0, startingBankroll: startingChips });
+          await saveUserData({ bankroll: startingChips, activeBets: {}, sessionStats: { totalWagered: 0, biggestWin: 0, totalRolls: 0, startingBankroll: startingChips }});
+        } catch (e) { console.error('Reset failed:', e); }
+      }
+    });
   };
 
   // FIREBASE: activeUsers from usePresence
@@ -2344,22 +2357,13 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
             
             {/* Reset Stats Button */}
             <button
-              onClick={() => {
-                if (confirm('Reset your session stats? Your bankroll will not be affected.')) {
-                  setSessionStats({
-                    totalWagered: 0,
-                    biggestWin: 0,
-                    totalRolls: 0,
-                    startingBankroll: bankroll
-                  });
-                  saveUserData({ sessionStats: {
-                    totalWagered: 0,
-                    biggestWin: 0,
-                    totalRolls: 0,
-                    startingBankroll: bankroll
-                  }});
+              onClick={() => setConfirmAction({
+                message: 'Reset your session stats? Your bankroll will not be affected.',
+                onConfirm: () => {
+                  setSessionStats({ totalWagered: 0, biggestWin: 0, totalRolls: 0, startingBankroll: bankroll });
+                  saveUserData({ sessionStats: { totalWagered: 0, biggestWin: 0, totalRolls: 0, startingBankroll: bankroll } });
                 }
-              }}
+              })}
               style={{
                 width: '100%',
                 padding: '12px',
@@ -2984,6 +2988,24 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
           margin: 0;
         }
       `}</style>
+
+      {toast && (
+        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', background: 'rgba(20,24,40,0.97)', border: '1px solid rgba(212,175,55,0.4)', borderRadius: 10, padding: '12px 24px', color: '#d4af37', fontSize: 13, zIndex: 9999, pointerEvents: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.5)', whiteSpace: 'nowrap' }}>
+          {toast}
+        </div>
+      )}
+
+      {confirmAction && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.72)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 20 }}>
+          <div style={{ background: '#1c1e2a', border: '1px solid rgba(212,175,55,0.35)', borderRadius: 14, padding: '32px 28px', maxWidth: 360, width: '100%', textAlign: 'center' }}>
+            <div style={{ color: '#fff', fontSize: 14, lineHeight: 1.65, marginBottom: 24 }}>{confirmAction.message}</div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => setConfirmAction(null)} style={{ flex: 1, padding: '11px', background: 'transparent', border: '1px solid #444', borderRadius: 8, color: '#888', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13 }}>Cancel</button>
+              <button onClick={() => { confirmAction.onConfirm(); setConfirmAction(null); }} style={{ flex: 1, padding: '11px', background: '#d4af37', border: 'none', borderRadius: 8, color: '#000', fontWeight: 'bold', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13 }}>Confirm</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

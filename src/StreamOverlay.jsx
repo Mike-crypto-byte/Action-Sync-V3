@@ -41,7 +41,7 @@ const StreamOverlay = ({ dealerUidFromUrl, roomCodeFromUrl }) => {
   // Listen to game state
   useEffect(() => {
     if (!activeGame || !roomCode) return;
-    const unsub = onValue(ref(db, `rooms/${roomCode}/games/${activeGame}/state`), (snap) => {
+    const unsub = onValue(ref(db, `rooms/${roomCode}/session/games/${activeGame}/state`), (snap) => {
       if (snap.exists()) setGameState(snap.val());
     });
     return () => unsub();
