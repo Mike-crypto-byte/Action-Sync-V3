@@ -10,7 +10,8 @@ import {
   useUserData,
   usePresence,
   distributeBonusChips as fbDistributeBonusChips,
-  resetSession
+  resetSession,
+  logAuditEntry
 } from './useFirebaseSync';
 
 const GAME_NAME = 'craps';
@@ -831,6 +832,23 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
 
     await saveUserData({ bankroll: newBankroll, activeBets: newActiveBets });
     await updateLeaderboard(newBankroll);
+    if (totalWagered > 0) {
+      await logAuditEntry(roomCode, {
+        game: 'craps',
+        playerUid: userId,
+        playerName: userName,
+        rollNumber: gameState.rollNumber || 0,
+        dice: [dice1, dice2],
+        total: dice1 + dice2,
+        gamePhase: gameState.gamePhase || 'come-out',
+        point: gameState.point || null,
+        bets: { ...activeBets },
+        totalWagered,
+        netWinnings: rollWinnings,
+        bankrollBefore: bankroll,
+        bankrollAfter: newBankroll,
+      });
+    }
   };
 
   // ========== FIREBASE: Auto-resolve when dealer pushes a roll ==========

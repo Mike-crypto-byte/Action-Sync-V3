@@ -10,7 +10,8 @@ import {
   useUserData,
   usePresence,
   distributeBonusChips as fbDistributeBonusChips,
-  resetSession
+  resetSession,
+  logAuditEntry
 } from './useFirebaseSync';
 
 const GAME_NAME = 'roulette';
@@ -475,9 +476,22 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
       biggestWin: Math.max(sessionStats.biggestWin, spinWinnings)
     };
     setSessionStats(newStats);
-    
+
     await saveUserData({ bankroll: newBankroll, activeBets: newActiveBets, sessionStats: newStats });
     await updateLeaderboardEntry(userId, userName, newBankroll, isAdmin);
+    await logAuditEntry(roomCode, {
+      game: 'roulette',
+      playerUid: userId,
+      playerName: userName,
+      roundNumber: gameState.roundNumber || 0,
+      result: numStr,
+      color,
+      bets: { ...activeBets },
+      totalWagered: Object.values(activeBets).reduce((s, v) => s + v, 0),
+      netWinnings: spinWinnings,
+      bankrollBefore: bankroll,
+      bankrollAfter: newBankroll,
+    });
     setIsConfirming(false);
   };
 

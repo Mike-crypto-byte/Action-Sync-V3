@@ -10,7 +10,8 @@ import {
   useUserData,
   usePresence,
   distributeBonusChips as fbDistributeBonusChips,
-  resetSession
+  resetSession,
+  logAuditEntry
 } from './useFirebaseSync';
 
 const GAME_NAME = 'baccarat';
@@ -528,7 +529,25 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
 
     await saveUserData({ bankroll: newBankroll, activeBets: newActiveBets, sessionStats: newStats });
     await updateLeaderboard(newBankroll);
-    
+    if (totalWagered > 0) {
+      await logAuditEntry(roomCode, {
+        game: 'baccarat',
+        playerUid: userId,
+        playerName: userName,
+        roundNumber: gameState.roundNumber || 0,
+        playerCards: pCards,
+        bankerCards: bCards,
+        playerScore: pScore,
+        bankerScore: bScore,
+        winner: roundWinner,
+        bets: { ...activeBets },
+        totalWagered,
+        netWinnings: roundWinnings,
+        bankrollBefore: bankroll,
+        bankrollAfter: newBankroll,
+      });
+    }
+
     return roundWinner;
   };
 

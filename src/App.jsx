@@ -199,6 +199,8 @@ const AppMain = () => {
             .sort((a, b) => b.bankroll - a.bankroll);
           setSessionLeaderboard(players);
           setShowSessionSummary(true);
+        } else if (session.status === 'waiting' || session.status === 'active') {
+          setShowSessionSummary(false);
         }
       } else {
         setSessionStatus('waiting');

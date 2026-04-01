@@ -398,6 +398,17 @@ export async function resetGameOnly(dealerUid, gameName) {
 }
 
 // ============================================================
+// 11. logAuditEntry — immutable record of every settled game result
+//     Path: rooms/{dealerUid}/audit/{pushId}
+//     Each entry is written with push() so it is append-only and
+//     can never overwrite an existing record.
+// ============================================================
+export async function logAuditEntry(dealerUid, entry) {
+  if (!dealerUid) return;
+  await push(rr(dealerUid, 'audit'), { ...entry, timestamp: Date.now() });
+}
+
+// ============================================================
 // 10. Phase 3 — Vanity room code helpers
 // ============================================================
 
