@@ -66,6 +66,7 @@ const AppMain = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // ── Session flow ──────────────────────────────────────────────────────────────
   const [selectedGame, setSelectedGame]                   = useState(null);
   const [sessionStatus, setSessionStatus]                 = useState('waiting');
   const [hubTab, setHubTab]                               = useState('games');
@@ -81,6 +82,7 @@ const AppMain = () => {
   const [sessionError, setSessionError]                   = useState(null);
   const [copySuccess, setCopySuccess]                     = useState(false);
 
+  // ── Room code management ───────────────────────────────────────────────────────
   const [dealerRoomCode, setDealerRoomCode] = useState('');
   const [codeInput, setCodeInput]           = useState('');
   const [codeLoading, setCodeLoading]       = useState(false);
@@ -90,6 +92,7 @@ const AppMain = () => {
   const [joinCodeInput, setJoinCodeInput]   = useState('');
   const [joinCodeLoading, setJoinCodeLoading] = useState(false);
 
+  // ── Auth form (login/signup UI) ────────────────────────────────────────────────
   const [authMode, setAuthMode]         = useState('playerSignIn');
   const [formEmail, setFormEmail]       = useState('');
   const [formPassword, setFormPassword] = useState('');
@@ -97,6 +100,7 @@ const AppMain = () => {
   const [formRoomCode, setFormRoomCode] = useState('');
   const [formLoading, setFormLoading]   = useState(false);
 
+  // ── Forgot password flow ───────────────────────────────────────────────────────
   const [forgotMode, setForgotMode]     = useState(false);
   const [forgotEmail, setForgotEmail]   = useState('');
   const [forgotLoading, setForgotLoading] = useState(false);
