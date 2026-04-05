@@ -440,10 +440,10 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
     if (newActiveBets.field > 0) {
       if ([2, 3, 4, 9, 10, 11, 12].includes(total)) {
         if (total === 2) {
-          const payout = newActiveBets.field * (gameOdds.field2 + 1);
+          const payout = newActiveBets.field * (1 + gameOdds.field2.num / gameOdds.field2.den);
           winnings += payout; rollWinnings += payout - newActiveBets.field;
         } else if (total === 12) {
-          const payout = newActiveBets.field * (gameOdds.field12 + 1);
+          const payout = newActiveBets.field * (1 + gameOdds.field12.num / gameOdds.field12.den);
           winnings += payout; rollWinnings += payout - newActiveBets.field;
         } else {
           const payout = newActiveBets.field * 2; // 1:1 always
@@ -458,7 +458,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
     // Any 7
     if (newActiveBets.any7 > 0) {
       if (total === 7) {
-        const payout = newActiveBets.any7 * (gameOdds.anySeven + 1);
+        const payout = newActiveBets.any7 * (1 + gameOdds.anySeven.num / gameOdds.anySeven.den);
         winnings += payout; rollWinnings += payout - newActiveBets.any7;
       } else { rollWinnings -= newActiveBets.any7; }
       newActiveBets.any7 = 0;
@@ -467,7 +467,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
     // Any Craps (2,3,12)
     if (newActiveBets.anyCraps > 0) {
       if ([2, 3, 12].includes(total)) {
-        const payout = newActiveBets.anyCraps * (gameOdds.anyCraps + 1);
+        const payout = newActiveBets.anyCraps * (1 + gameOdds.anyCraps.num / gameOdds.anyCraps.den);
         winnings += payout; rollWinnings += payout - newActiveBets.anyCraps;
       } else { rollWinnings -= newActiveBets.anyCraps; }
       newActiveBets.anyCraps = 0;
@@ -476,28 +476,28 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
     // Individual prop bets (ace2, ace12, three, yo11 use hop odds)
     if (newActiveBets.ace2 > 0) {
       if (total === 2) {
-        const payout = newActiveBets.ace2 * (gameOdds.hop + 1);
+        const payout = newActiveBets.ace2 * (1 + gameOdds.hop.num / gameOdds.hop.den);
         winnings += payout; rollWinnings += payout - newActiveBets.ace2;
       } else { rollWinnings -= newActiveBets.ace2; }
       newActiveBets.ace2 = 0;
     }
     if (newActiveBets.ace12 > 0) {
       if (total === 12) {
-        const payout = newActiveBets.ace12 * (gameOdds.hop + 1);
+        const payout = newActiveBets.ace12 * (1 + gameOdds.hop.num / gameOdds.hop.den);
         winnings += payout; rollWinnings += payout - newActiveBets.ace12;
       } else { rollWinnings -= newActiveBets.ace12; }
       newActiveBets.ace12 = 0;
     }
     if (newActiveBets.three > 0) {
       if (total === 3) {
-        const payout = newActiveBets.three * (gameOdds.hop + 1);
+        const payout = newActiveBets.three * (1 + gameOdds.hop.num / gameOdds.hop.den);
         winnings += payout; rollWinnings += payout - newActiveBets.three;
       } else { rollWinnings -= newActiveBets.three; }
       newActiveBets.three = 0;
     }
     if (newActiveBets.yo11 > 0) {
       if (total === 11) {
-        const payout = newActiveBets.yo11 * (gameOdds.hop + 1);
+        const payout = newActiveBets.yo11 * (1 + gameOdds.hop.num / gameOdds.hop.den);
         winnings += payout; rollWinnings += payout - newActiveBets.yo11;
       } else { rollWinnings -= newActiveBets.yo11; }
       newActiveBets.yo11 = 0;
@@ -542,8 +542,8 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
         const isHardHop = hopCombo[0] === hopCombo[1];
         if (diceCombo === hopCombo) {
           const payout = isHardHop
-            ? newActiveBets[hopBet] * (gameOdds.hop + 1)
-            : newActiveBets[hopBet] * (gameOdds.hop + 1);
+            ? newActiveBets[hopBet] * (1 + gameOdds.hop.num / gameOdds.hop.den)
+            : newActiveBets[hopBet] * (1 + gameOdds.hop.num / gameOdds.hop.den);
           winnings += payout;
           rollWinnings += payout - newActiveBets[hopBet];
         } else { rollWinnings -= newActiveBets[hopBet]; }
@@ -553,10 +553,10 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
 
     // Hard ways — use settings odds
     const hardWayPayouts = {
-      4:  gameOdds.hardWay4_10 + 1,
-      10: gameOdds.hardWay4_10 + 1,
-      6:  gameOdds.hardWay6_8  + 1,
-      8:  gameOdds.hardWay6_8  + 1,
+      4:  1 + gameOdds.hardWay4_10.num / gameOdds.hardWay4_10.den,
+      10: 1 + gameOdds.hardWay4_10.num / gameOdds.hardWay4_10.den,
+      6:  1 + gameOdds.hardWay6_8.num  / gameOdds.hardWay6_8.den,
+      8:  1 + gameOdds.hardWay6_8.num  / gameOdds.hardWay6_8.den,
     };
     [4, 6, 8, 10].forEach(num => {
       const betKey = `hard${num}`;
@@ -573,14 +573,14 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
       }
     });
 
-    // Place bets — use settings odds (stored as numerator, denominator varies by number)
+    // Place bets — use settings odds { num, den }
     const placePayouts = {
-      4:  gameOdds.place4_10 / 5,
-      10: gameOdds.place4_10 / 5,
-      5:  gameOdds.place5_9  / 5,
-      9:  gameOdds.place5_9  / 5,
-      6:  gameOdds.place6_8  / 6,
-      8:  gameOdds.place6_8  / 6,
+      4:  gameOdds.place4_10.num / gameOdds.place4_10.den,
+      10: gameOdds.place4_10.num / gameOdds.place4_10.den,
+      5:  gameOdds.place5_9.num  / gameOdds.place5_9.den,
+      9:  gameOdds.place5_9.num  / gameOdds.place5_9.den,
+      6:  gameOdds.place6_8.num  / gameOdds.place6_8.den,
+      8:  gameOdds.place6_8.num  / gameOdds.place6_8.den,
     };
     [4, 5, 6, 8, 9, 10].forEach(num => {
       const betKey = `place${num}`;

@@ -62,11 +62,12 @@ const saveBtn = (saved) => ({
   transition: 'all 0.2s ease',
 });
 
-// ── Number input with +/- stepper ─────────────────────────────────────────────
-const OddsInput = ({ value, onChange, min = 1, max = 100 }) => {
+// ── Two-number odds input (num : den) ─────────────────────────────────────────
+const OddsInput = ({ value, onChange }) => {
+  // value is { num, den }
   const inputStyle = {
-    width: '56px',
-    padding: '6px 8px',
+    width: '48px',
+    padding: '6px 4px',
     background: '#0d0d0d',
     border: '1px solid #333',
     borderRadius: '6px',
@@ -78,7 +79,7 @@ const OddsInput = ({ value, onChange, min = 1, max = 100 }) => {
     fontFamily: 'inherit',
   };
   const stepBtn = {
-    width: '26px', height: '26px',
+    width: '24px', height: '26px',
     background: 'rgba(255,255,255,0.06)',
     border: '1px solid #333',
     borderRadius: '5px',
@@ -89,21 +90,26 @@ const OddsInput = ({ value, onChange, min = 1, max = 100 }) => {
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     transition: 'background 0.1s',
   };
+  const separator = { color: '#555', fontSize: '14px', fontWeight: 'bold', padding: '0 2px' };
+
+  const setNum = v => { if (!isNaN(v) && v >= 1) onChange({ ...value, num: v }); };
+  const setDen = v => { if (!isNaN(v) && v >= 1) onChange({ ...value, den: v }); };
+
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-      <button style={stepBtn} onClick={() => onChange(Math.max(min, value - 1))}>−</button>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+      <button style={stepBtn} onClick={() => setNum(Math.max(1, value.num - 1))}>−</button>
       <input
-        type="number"
-        value={value}
-        min={min}
-        max={max}
-        style={inputStyle}
-        onChange={e => {
-          const v = parseInt(e.target.value);
-          if (!isNaN(v) && v >= min && v <= max) onChange(v);
-        }}
+        type="number" value={value.num} min={1} style={inputStyle}
+        onChange={e => setNum(parseInt(e.target.value))}
       />
-      <button style={stepBtn} onClick={() => onChange(Math.min(max, value + 1))}>+</button>
+      <button style={stepBtn} onClick={() => setNum(value.num + 1)}>+</button>
+      <span style={separator}>:</span>
+      <button style={stepBtn} onClick={() => setDen(Math.max(1, value.den - 1))}>−</button>
+      <input
+        type="number" value={value.den} min={1} style={inputStyle}
+        onChange={e => setDen(parseInt(e.target.value))}
+      />
+      <button style={stepBtn} onClick={() => setDen(value.den + 1)}>+</button>
     </div>
   );
 };
@@ -157,7 +163,9 @@ const OddsGameTab = ({ game, odds, onSave, onReset }) => {
     setLocal({ ...defaults });
   };
 
-  const isDirty = Object.keys(local).some(k => local[k] !== odds[k]);
+  const isDirty = Object.keys(local).some(k =>
+    local[k].num !== odds[k].num || local[k].den !== odds[k].den
+  );
 
   return (
     <div>
@@ -171,23 +179,21 @@ const OddsGameTab = ({ game, odds, onSave, onReset }) => {
       </div>
 
       {Object.entries(labels).map(([key, lbl]) => {
-        const isModified = local[key] !== defaults[key];
+        const def = defaults[key];
+        const isModified = local[key].num !== def.num || local[key].den !== def.den;
         return (
           <div key={key} style={{ ...card, display: 'flex', alignItems: 'center', gap: '16px', padding: '14px 20px' }}>
             <div style={{ ...label }}>
               {lbl}
               <div style={{ color: '#444', fontSize: '10px', marginTop: '2px' }}>
-                Default: {defaults[key]}:1
+                Default: {def.num}:{def.den}
                 {isModified && <span style={{ color: color, marginLeft: '8px' }}>● Modified</span>}
               </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <OddsInput
-                value={local[key]}
-                onChange={v => setLocal(prev => ({ ...prev, [key]: v }))}
-              />
-              <span style={{ color: '#444', fontSize: '12px' }}>: 1</span>
-            </div>
+            <OddsInput
+              value={local[key]}
+              onChange={v => setLocal(prev => ({ ...prev, [key]: v }))}
+            />
           </div>
         );
       })}

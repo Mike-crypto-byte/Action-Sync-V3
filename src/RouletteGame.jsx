@@ -367,67 +367,67 @@ const RouletteGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
         case 'straight':
           if (betValue === numStr) {
             won = true;
-            payout = betAmount * (gameOdds.straightUp + 1);
+            payout = betAmount * (1 + gameOdds.straightUp.num / gameOdds.straightUp.den);
           }
           break;
         case 'split':
           const splitNums = betValue.split(',');
           if (splitNums.includes(numStr)) {
             won = true;
-            payout = betAmount * (gameOdds.split + 1);
+            payout = betAmount * (1 + gameOdds.split.num / gameOdds.split.den);
           }
           break;
         case 'street':
           const streetNums = betValue.split(',');
           if (streetNums.includes(numStr)) {
             won = true;
-            payout = betAmount * (gameOdds.street + 1);
+            payout = betAmount * (1 + gameOdds.street.num / gameOdds.street.den);
           }
           break;
         case 'corner':
           const cornerNums = betValue.split(',');
           if (cornerNums.includes(numStr)) {
             won = true;
-            payout = betAmount * (gameOdds.corner + 1);
+            payout = betAmount * (1 + gameOdds.corner.num / gameOdds.corner.den);
           }
           break;
         case 'line':
           const lineNums = betValue.split(',');
           if (lineNums.includes(numStr)) {
             won = true;
-            payout = betAmount * (gameOdds.sixLine + 1);
+            payout = betAmount * (1 + gameOdds.sixLine.num / gameOdds.sixLine.den);
           }
           break;
         case 'dozen':
           if (betValue === '1st' && numInt >= 1 && numInt <= 12) won = true;
           if (betValue === '2nd' && numInt >= 13 && numInt <= 24) won = true;
           if (betValue === '3rd' && numInt >= 25 && numInt <= 36) won = true;
-          if (won) payout = betAmount * (gameOdds.dozen + 1);
+          if (won) payout = betAmount * (1 + gameOdds.dozen.num / gameOdds.dozen.den);
           break;
         case 'column':
           const colNum = parseInt(betValue);
           if (numInt > 0 && (numInt - colNum) % 3 === 0) {
             won = true;
-            payout = betAmount * (gameOdds.column + 1);
+            payout = betAmount * (1 + gameOdds.column.num / gameOdds.column.den);
           }
           break;
         case 'red':
-          if (color === 'red') { won = true; payout = betAmount * (gameOdds.evenMoney + 1); }
+          if (color === 'red') { won = true; payout = betAmount * (1 + gameOdds.evenMoney.num / gameOdds.evenMoney.den); }
           break;
         case 'black':
-          if (color === 'black') { won = true; payout = betAmount * (gameOdds.evenMoney + 1); }
+          if (color === 'black') { won = true; payout = betAmount * (1 + gameOdds.evenMoney.num / gameOdds.evenMoney.den); }
           break;
         case 'even':
-          if (numInt > 0 && numInt % 2 === 0) { won = true; payout = betAmount * (gameOdds.evenMoney + 1); }
+          if (numInt > 0 && numInt % 2 === 0) { won = true; payout = betAmount * (1 + gameOdds.evenMoney.num / gameOdds.evenMoney.den); }
           break;
         case 'odd':
-          if (numInt > 0 && numInt % 2 === 1) { won = true; payout = betAmount * (gameOdds.evenMoney + 1); }
+          if (numInt > 0 && numInt % 2 === 1) { won = true; payout = betAmount * (1 + gameOdds.evenMoney.num / gameOdds.evenMoney.den); }
           break;
         case 'low':
-          if (numInt >= 1 && numInt <= 18) { won = true; payout = betAmount * (gameOdds.evenMoney + 1); }
+          if (numInt >= 1 && numInt <= 18) { won = true; payout = betAmount * (1 + gameOdds.evenMoney.num / gameOdds.evenMoney.den); }
           break;
         case 'high':
-          if (numInt >= 19 && numInt <= 36) { won = true; payout = betAmount * (gameOdds.evenMoney + 1); }
+          if (numInt >= 19 && numInt <= 36) { won = true; payout = betAmount * (1 + gameOdds.evenMoney.num / gameOdds.evenMoney.den); }
           break;
       }
       

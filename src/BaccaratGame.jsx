@@ -400,7 +400,7 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
     // Player bet
     if (newActiveBets.player > 0) {
       if (roundWinner === 'player') {
-        const payout = newActiveBets.player * (gameOdds.player + 1);
+        const payout = newActiveBets.player * (1 + gameOdds.player.num / gameOdds.player.den);
         winnings += payout;
         roundWinnings += payout - newActiveBets.player;
       } else {
@@ -412,7 +412,7 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
     // Banker bet (5% commission applied on top of configured odds)
     if (newActiveBets.banker > 0) {
       if (roundWinner === 'banker') {
-        const payout = Math.round(newActiveBets.banker + (newActiveBets.banker * gameOdds.banker * 0.95));
+        const payout = Math.round(newActiveBets.banker + (newActiveBets.banker * (gameOdds.banker.num / gameOdds.banker.den) * 0.95));
         winnings += payout;
         roundWinnings += payout - newActiveBets.banker;
       } else {
@@ -424,7 +424,7 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
     // Tie bet
     if (newActiveBets.tie > 0) {
       if (roundWinner === 'tie') {
-        const payout = newActiveBets.tie * (gameOdds.tie + 1);
+        const payout = newActiveBets.tie * (1 + gameOdds.tie.num / gameOdds.tie.den);
         winnings += payout;
         roundWinnings += payout - newActiveBets.tie;
       } else {
@@ -436,7 +436,7 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
     // Player Pair
     if (newActiveBets.playerPair > 0) {
       if (isPair(pCards[0], pCards[1])) {
-        const payout = newActiveBets.playerPair * (gameOdds.playerPair + 1);
+        const payout = newActiveBets.playerPair * (1 + gameOdds.playerPair.num / gameOdds.playerPair.den);
         winnings += payout;
         roundWinnings += payout - newActiveBets.playerPair;
       } else {
@@ -448,7 +448,7 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
     // Banker Pair
     if (newActiveBets.bankerPair > 0) {
       if (isPair(bCards[0], bCards[1])) {
-        const payout = newActiveBets.bankerPair * (gameOdds.bankerPair + 1);
+        const payout = newActiveBets.bankerPair * (1 + gameOdds.bankerPair.num / gameOdds.bankerPair.den);
         winnings += payout;
         roundWinnings += payout - newActiveBets.bankerPair;
       } else {
@@ -462,7 +462,7 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
       const isNatural = pCards.length === 2 && bCards.length === 2;
       const margin = Math.abs(pScore - bScore);
       if (isNatural && ((pScore === 9 && margin >= 4) || (bScore === 9 && margin >= 4))) {
-        const payout = newActiveBets.dragon * (gameOdds.dragon + 1);
+        const payout = newActiveBets.dragon * (1 + gameOdds.dragon.num / gameOdds.dragon.den);
         winnings += payout;
         roundWinnings += payout - newActiveBets.dragon;
       } else {
@@ -475,7 +475,7 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
     if (newActiveBets.panda > 0) {
       const isNatural = pCards.length === 2 && bCards.length === 2;
       if (isNatural && (pScore === 8 || bScore === 8) && roundWinner !== 'tie') {
-        const payout = newActiveBets.panda * (gameOdds.panda + 1);
+        const payout = newActiveBets.panda * (1 + gameOdds.panda.num / gameOdds.panda.den);
         winnings += payout;
         roundWinnings += payout - newActiveBets.panda;
       } else {

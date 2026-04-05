@@ -1,12 +1,11 @@
 // App.jsx — Phase 3: Multi-streamer, vanity room codes
 import React, { useState, useEffect } from 'react';
-import { Dice1, Spade, ArrowLeft, Circle } from 'lucide-react';
 import { database as db, ref, onValue, set, update, auth } from './firebase.js';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { useAuth } from './useAuth.js';
 import { startNewSession, startStream, switchGame, useSessionHistory, resolveRoomCode, normaliseCode, changeRoomCode, isRoomCodeAvailable } from './useFirebaseSync.js';
 
-// Import your game components
+// Import game components
 import CrapsGame from './CrapsGame';
 import BaccaratGame from './BaccaratGame';
 import RouletteGame from './RouletteGame';
@@ -14,9 +13,6 @@ import StreamOverlay from './StreamOverlay';
 import SettingsPanel from './SettingsPanel';
 
 // ── URL helpers ────────────────────────────────────────────────────────────────
-// Dealer shares join link:  ?dealer={dealerUid}  OR  ?room=VANITYCODE
-// Overlay URL:              ?dealer={dealerUid}#overlay
-// Players can also type the vanity code manually in the join form.
 const getDealerUidFromUrl = () =>
   new URLSearchParams(window.location.search).get('dealer') || null;
 
@@ -33,39 +29,30 @@ const AppMain = () => {
   } = useAuth();
 
   // ── Resolved dealerUid ───────────────────────────────────────────────────────
-  // For dealers: their own uid. For players: resolved from URL or code entry.
-  // Falls back to localStorage so returning players don't need to re-enter the code.
   const [resolvedDealerUid, setResolvedDealerUid] = useState(
     getDealerUidFromUrl() || localStorage.getItem('actionsync-dealerUid') || null
   );
-  const [resolveError, setResolveError]           = useState(null);
-  const [resolving, setResolving]                 = useState(false);
+  const [resolveError, setResolveError] = useState(null);
+  const [resolving, setResolving]       = useState(false);
 
-  // Persist dealerUid so returning players auto-reconnect without URL params
   const updateDealerUid = (uid) => {
     setResolvedDealerUid(uid);
     if (uid) localStorage.setItem('actionsync-dealerUid', uid);
     else localStorage.removeItem('actionsync-dealerUid');
   };
 
-  // If URL has ?room=CODE instead of ?dealer=uid, resolve it once on mount
   useEffect(() => {
     const codeFromUrl = getRoomCodeFromUrl();
     if (codeFromUrl && !getDealerUidFromUrl()) {
       setResolving(true);
       resolveRoomCode(codeFromUrl).then(uid => {
-        if (uid) {
-          updateDealerUid(uid);
-        } else {
-          setResolveError(`Room "${codeFromUrl}" not found. Check the code and try again.`);
-        }
+        if (uid) updateDealerUid(uid);
+        else setResolveError(`Room "${codeFromUrl}" not found. Check the code and try again.`);
         setResolving(false);
       });
     }
   }, []);
 
-  // dealerUid must be stable across async function closures — use useMemo
-  // so handlers like handleStartNewSession always see the current value.
   const dealerUid = React.useMemo(
     () => isDealer ? user?.uid : resolvedDealerUid,
     [isDealer, user?.uid, resolvedDealerUid]
@@ -79,44 +66,40 @@ const AppMain = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const [selectedGame, setSelectedGame]             = useState(null);
-  const [sessionStatus, setSessionStatus]           = useState('waiting');
-  const [hubTab, setHubTab]                         = useState('games'); // 'games' | 'settings'
-  const [startingChips, setStartingChips]           = useState(1000);
-  const [sessionLeaderboard, setSessionLeaderboard] = useState(null);
-  const [showSessionSummary, setShowSessionSummary] = useState(false);
+  const [selectedGame, setSelectedGame]                   = useState(null);
+  const [sessionStatus, setSessionStatus]                 = useState('waiting');
+  const [hubTab, setHubTab]                               = useState('games');
+  const [startingChips, setStartingChips]                 = useState(1000);
+  const [sessionLeaderboard, setSessionLeaderboard]       = useState(null);
+  const [showSessionSummary, setShowSessionSummary]       = useState(false);
   const [showNewSessionConfirm, setShowNewSessionConfirm] = useState(false);
-  const [newSessionLoading, setNewSessionLoading]   = useState(false);
-  const [showResetConfirm, setShowResetConfirm]     = useState(false);
-  const [resetSuccess, setResetSuccess]             = useState(false);
-  const [sessionError, setSessionError]             = useState(null);
-  const [copySuccess, setCopySuccess]               = useState(false);
+  const [newSessionLoading, setNewSessionLoading]         = useState(false);
+  const [showResetConfirm, setShowResetConfirm]           = useState(false);
+  const [resetSuccess, setResetSuccess]                   = useState(false);
+  const [sessionError, setSessionError]                   = useState(null);
+  const [copySuccess, setCopySuccess]                     = useState(false);
 
-  // Phase 3 — vanity code state
-  const [dealerRoomCode, setDealerRoomCode]         = useState(''); // current claimed code
-  const [codeInput, setCodeInput]                   = useState(''); // claim/change form input
-  const [codeLoading, setCodeLoading]               = useState(false);
-  const [codeError, setCodeError]                   = useState(null);
-  const [codeSuccess, setCodeSuccess]               = useState(null);
-  const [showChangeCode, setShowChangeCode]         = useState(false);
-  // Player join: manual code entry (when no URL param present)
-  const [joinCodeInput, setJoinCodeInput]           = useState('');
-  const [joinCodeLoading, setJoinCodeLoading]       = useState(false);
+  const [dealerRoomCode, setDealerRoomCode] = useState('');
+  const [codeInput, setCodeInput]           = useState('');
+  const [codeLoading, setCodeLoading]       = useState(false);
+  const [codeError, setCodeError]           = useState(null);
+  const [codeSuccess, setCodeSuccess]       = useState(null);
+  const [showChangeCode, setShowChangeCode] = useState(false);
+  const [joinCodeInput, setJoinCodeInput]   = useState('');
+  const [joinCodeLoading, setJoinCodeLoading] = useState(false);
 
-  // Auth form state
-  const [authMode, setAuthMode]         = useState('playerSignIn'); // 'playerSignIn' | 'playerSignUp' | 'dealerSignIn' | 'dealerSignUp'
+  const [authMode, setAuthMode]         = useState('playerSignIn');
   const [formEmail, setFormEmail]       = useState('');
   const [formPassword, setFormPassword] = useState('');
   const [formName, setFormName]         = useState('');
-  const [formRoomCode, setFormRoomCode] = useState(''); // dealer sign-up vanity code
+  const [formRoomCode, setFormRoomCode] = useState('');
   const [formLoading, setFormLoading]   = useState(false);
 
-  // Forgot password state
-  const [forgotMode, setForgotMode]         = useState(false);
-  const [forgotEmail, setForgotEmail]       = useState('');
-  const [forgotLoading, setForgotLoading]   = useState(false);
-  const [forgotSent, setForgotSent]         = useState(false);
-  const [forgotError, setForgotError]       = useState(null);
+  const [forgotMode, setForgotMode]     = useState(false);
+  const [forgotEmail, setForgotEmail]   = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotSent, setForgotSent]     = useState(false);
+  const [forgotError, setForgotError]   = useState(null);
 
   const handleForgotPassword = async () => {
     if (!forgotEmail.trim() || forgotLoading) return;
@@ -132,10 +115,8 @@ const AppMain = () => {
     }
   };
 
-  // Session history for the running leaderboard panel
   const sessionHistory = useSessionHistory(dealerUid);
 
-  // ── Read dealer's current room code from settings ─────────────────────────────
   useEffect(() => {
     if (!isDealer || !user?.uid) return;
     const unsub = onValue(ref(db, `rooms/${user.uid}/settings/roomCode`), (snap) => {
@@ -144,7 +125,6 @@ const AppMain = () => {
     return () => unsub();
   }, [isDealer, user?.uid]);
 
-  // ── Read dealer settings (startingChips) ─────────────────────────────────────
   useEffect(() => {
     if (!dealerUid) return;
     const unsub = onValue(ref(db, `rooms/${dealerUid}/settings/startingChips`), (snap) => {
@@ -153,7 +133,6 @@ const AppMain = () => {
     return () => unsub();
   }, [dealerUid]);
 
-  // ── Sync sessionStatus from Firebase (dealer) — survives page refresh ─────────
   useEffect(() => {
     if (!isDealer || !dealerUid) return;
     const unsub = onValue(ref(db, `rooms/${dealerUid}/session/status`), (snap) => {
@@ -163,7 +142,6 @@ const AppMain = () => {
     return () => unsub();
   }, [isDealer, dealerUid]);
 
-  // ── Sync dealer's active game from Firebase — survives page refresh ───────────
   useEffect(() => {
     if (!isDealer || !dealerUid) return;
     const unsub = onValue(ref(db, `rooms/${dealerUid}/session/activeGame`), (snap) => {
@@ -172,7 +150,6 @@ const AppMain = () => {
     return () => unsub();
   }, [isDealer, dealerUid]);
 
-  // ── Write dealerUid to URL when dealer logs in ────────────────────────────────
   useEffect(() => {
     if (isDealer && user) {
       const params = new URLSearchParams(window.location.search);
@@ -183,8 +160,6 @@ const AppMain = () => {
     }
   }, [isDealer, user]);
 
-  // ── Session listener (players) — watches activeGame + status together ────────
-  // Keyed on user?.uid so it re-fires if auth resolves after initial mount
   useEffect(() => {
     if (!isPlayer || !dealerUid || !user?.uid) return;
     const sessionRef = ref(db, `rooms/${dealerUid}/session`);
@@ -193,10 +168,8 @@ const AppMain = () => {
         const session = snap.val();
         setSessionStatus(session.status || 'waiting');
         setSelectedGame(session.activeGame || null);
-        // End-of-session summary
         if (session.status === 'ended' && session.finalLeaderboard) {
-          const players = Object.values(session.finalLeaderboard)
-            .sort((a, b) => b.bankroll - a.bankroll);
+          const players = Object.values(session.finalLeaderboard).sort((a, b) => b.bankroll - a.bankroll);
           setSessionLeaderboard(players);
           setShowSessionSummary(true);
         } else if (session.status === 'waiting' || session.status === 'active') {
@@ -210,7 +183,6 @@ const AppMain = () => {
     return () => unsub();
   }, [isPlayer, dealerUid, user?.uid]);
 
-  // ── Dealer: switch active game (session stays alive) ─────────────────────────
   const setActiveGame = async (game) => {
     const uid = user?.uid;
     if (!uid) return;
@@ -224,7 +196,6 @@ const AppMain = () => {
     }
   };
 
-  // ── Dealer: end current game, return to lobby (session stays alive) ───────────
   const deactivateGame = async () => {
     const uid = user?.uid;
     if (!uid) return;
@@ -236,19 +207,15 @@ const AppMain = () => {
     }
   };
 
-  // ── Dealer: end stream — show summary then archive ───────────────────────────
   const handleStartNewSession = async () => {
-    // Read dealerUid directly — don't rely on closure which may be stale
     const currentDealerUid = user?.uid;
     if (!currentDealerUid) {
       setSessionError('Not logged in as dealer. Please refresh and try again.');
       return;
     }
     setNewSessionLoading(true);
-    // Force token refresh to ensure Firebase auth is live before writing
     try { if (auth.currentUser) await auth.currentUser.getIdToken(true); } catch(e) { console.warn('Token refresh failed:', e); }
     try {
-      // 1. Snapshot leaderboard
       const lbSnap = await new Promise(resolve =>
         onValue(ref(db, `rooms/${currentDealerUid}/session/leaderboard`), resolve, { onlyOnce: true })
       );
@@ -262,7 +229,6 @@ const AppMain = () => {
         setSessionLeaderboard(players);
         setShowSessionSummary(true);
       }
-      // 2. Archive + reset
       await startNewSession(currentDealerUid, startingChips);
       setShowNewSessionConfirm(false);
       setSelectedGame(null);
@@ -275,16 +241,12 @@ const AppMain = () => {
     }
   };
 
-  // ── Dealer: update starting chips ────────────────────────────────────────────
   const handleSetStartingChips = async (amount) => {
     setStartingChips(amount);
     const uid = user?.uid;
-    if (uid) {
-      await set(ref(db, `rooms/${uid}/settings/startingChips`), amount);
-    }
+    if (uid) await set(ref(db, `rooms/${uid}/settings/startingChips`), amount);
   };
 
-  // ── Dealer: reset all bankrolls mid-session ───────────────────────────────────
   const handleResetAllBankrolls = () => setShowResetConfirm(true);
 
   const performResetAllBankrolls = async () => {
@@ -307,7 +269,6 @@ const AppMain = () => {
     setTimeout(() => setResetSuccess(false), 3000);
   };
 
-  // ── Auth form submit ──────────────────────────────────────────────────────────
   const handleAuthSubmit = async () => {
     if (formLoading) return;
     setAuthError(null);
@@ -327,13 +288,12 @@ const AppMain = () => {
       }
       setFormEmail(''); setFormPassword(''); setFormName(''); setFormRoomCode('');
     } catch (e) {
-      // authError is set inside useAuth, no extra action needed
+      // authError is set inside useAuth
     } finally {
       setFormLoading(false);
     }
   };
 
-  // ── Player: manual room code entry ────────────────────────────────────────────
   const handleJoinByCode = async () => {
     if (!joinCodeInput.trim()) return;
     setJoinCodeLoading(true);
@@ -342,7 +302,6 @@ const AppMain = () => {
       const uid = await resolveRoomCode(joinCodeInput.trim());
       if (uid) {
         updateDealerUid(uid);
-        // Update URL so refreshes preserve the room
         const params = new URLSearchParams(window.location.search);
         params.set('dealer', uid);
         params.delete('room');
@@ -356,7 +315,6 @@ const AppMain = () => {
     }
   };
 
-  // ── Dealer: claim / change vanity code ───────────────────────────────────────
   const handleClaimCode = async () => {
     if (!codeInput.trim() || !user?.uid) return;
     setCodeLoading(true);
@@ -373,26 +331,23 @@ const AppMain = () => {
     setCodeLoading(false);
   };
 
-  // ── Loading splash while Firebase auth restores ───────────────────────────────
+  // ── Loading splash ────────────────────────────────────────────────────────────
   if (authLoading) {
     return (
-      <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0a0e27 0%, #1a1f3a 50%, #0f1829 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '48px', marginBottom: '20px' }}>🎰</div>
-          <div style={{ color: '#d4af37', fontSize: '14px', letterSpacing: '3px' }}>LOADING...</div>
+      <div style={{ minHeight: '100vh', background: 'radial-gradient(circle at 50% 50%, rgba(212,175,55,0.08) 0%, transparent 60%), linear-gradient(135deg, #0a0e27 0%, #1a1f3a 50%, #0f1829 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center', background: 'rgba(15,18,40,0.6)', backdropFilter: 'blur(16px)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '20px', padding: '48px 56px', boxShadow: '0 8px 32px rgba(0,0,0,0.5), 0 0 60px rgba(212,175,55,0.05)' }}>
+          <div style={{ fontSize: '3rem', marginBottom: '20px', filter: 'drop-shadow(0 0 16px rgba(212,175,55,0.5))' }}>🎰</div>
+          <div style={{ color: '#d4af37', fontSize: '0.875rem', letterSpacing: '3px', textShadow: '0 0 12px rgba(212,175,55,0.4)' }} className="animate-pulse">LOADING...</div>
         </div>
       </div>
     );
   }
 
-
-  // ── No room context and not signed in → Landing page ────────────────────────
-  // Show when: bare domain visit (no ?dealer= / ?room=), not authenticated,
-  // not a dealer trying to log in via dealerSignIn/dealerSignUp mode.
+  // ── Landing page ──────────────────────────────────────────────────────────────
   const isBareDomain = !getDealerUidFromUrl() && !getRoomCodeFromUrl() && !resolvedDealerUid;
   if (!user && isBareDomain && authMode !== 'dealerSignIn' && authMode !== 'dealerSignUp') {
     return (
-      <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg, #0a0e27 0%, #0f1923 60%, #141e2e 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px', fontFamily: 'inherit' }}>
+      <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg, #0a0e27 0%, #0f1923 60%, #141e2e 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
 
         {/* Hero */}
         <div style={{ textAlign: 'center', maxWidth: '520px', marginBottom: '48px' }}>
@@ -413,8 +368,8 @@ const AppMain = () => {
             { icon: '🎲', title: 'Viewers join the room', body: 'Players sign up with a display name and start with a virtual chip stack.' },
             { icon: '🏆', title: 'Compete on the board', body: 'Place bets each round and climb the live leaderboard — no real money ever.' },
           ].map(({ icon, title, body }) => (
-            <div key={title} style={{ flex: 1, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(212,175,55,0.12)', borderRadius: '14px', padding: '22px 20px', textAlign: 'center' }}>
-              <div style={{ fontSize: '28px', marginBottom: '10px' }}>{icon}</div>
+            <div key={title} style={{ flex: 1, background: 'rgba(15,18,40,0.5)', backdropFilter: 'blur(12px)', border: '1px solid rgba(212,175,55,0.15)', borderRadius: '14px', padding: '22px 20px', textAlign: 'center', boxShadow: '0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04)' }}>
+              <div style={{ fontSize: '28px', marginBottom: '10px', filter: 'drop-shadow(0 0 8px rgba(212,175,55,0.3))' }}>{icon}</div>
               <div style={{ color: '#d4af37', fontSize: '13px', fontWeight: 'bold', letterSpacing: '0.5px', marginBottom: '8px' }}>{title}</div>
               <div style={{ color: '#6b7a94', fontSize: '12px', lineHeight: '1.7' }}>{body}</div>
             </div>
@@ -424,8 +379,8 @@ const AppMain = () => {
         {/* CTA cards */}
         <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '16px', maxWidth: '480px', width: '100%', marginBottom: '32px' }}>
 
-          {/* Player join box */}
-          <div style={{ flex: 1, background: 'rgba(212,175,55,0.06)', border: '1px solid rgba(212,175,55,0.25)', borderRadius: '14px', padding: '24px 20px' }}>
+          {/* Player join */}
+          <div style={{ flex: 1, background: 'rgba(15,18,40,0.6)', backdropFilter: 'blur(16px)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '14px', padding: '24px 20px', boxShadow: '0 8px 32px rgba(0,0,0,0.4), 0 0 40px rgba(212,175,55,0.05), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
             <div style={{ color: '#d4af37', fontSize: '12px', fontWeight: 'bold', letterSpacing: '1px', marginBottom: '12px', textTransform: 'uppercase' }}>🎲 Join a Room</div>
             <p style={{ color: '#7a8aaa', fontSize: '12px', lineHeight: '1.6', marginBottom: '14px' }}>
               Have a room code from your streamer? Enter it below.
@@ -452,48 +407,48 @@ const AppMain = () => {
           </div>
 
           {/* Dealer box */}
-          <div style={{ flex: 1, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', padding: '24px 20px' }}>
+          <div style={{ flex: 1, background: 'rgba(15,18,40,0.5)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '14px', padding: '24px 20px', boxShadow: '0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04)' }}>
             <div style={{ color: '#888', fontSize: '12px', fontWeight: 'bold', letterSpacing: '1px', marginBottom: '12px', textTransform: 'uppercase' }}>🎰 Streamer / Dealer</div>
             <p style={{ color: '#4a5568', fontSize: '12px', lineHeight: '1.6', marginBottom: '14px' }}>
               Running a stream? Create a dealer account to host your own room.
             </p>
             <button
               onClick={() => setAuthMode('dealerSignUp')}
-              style={{ width: '100%', padding: '11px', background: 'transparent', border: '1px solid #444', borderRadius: '8px', color: '#888', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '0.5px', marginBottom: '8px' }}
+              style={{ width: '100%', padding: '11px', background: 'transparent', border: '1px solid #555', borderRadius: '8px', color: '#aaa', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '0.5px', marginBottom: '8px' }}
             >
               Create Dealer Account
             </button>
             <button
               onClick={() => setAuthMode('dealerSignIn')}
-              style={{ width: '100%', padding: '8px', background: 'transparent', border: 'none', color: '#4a5568', fontSize: '11px', cursor: 'pointer', fontFamily: 'inherit' }}
+              style={{ width: '100%', padding: '8px', background: 'transparent', border: 'none', color: '#555', fontSize: '11px', cursor: 'pointer', fontFamily: 'inherit' }}
             >
               Already have an account? Sign in
             </button>
           </div>
         </div>
 
-        <div style={{ color: '#2a3444', fontSize: '11px', textAlign: 'center' }}>
+        <p style={{ color: '#2a3444', fontSize: '12px', textAlign: 'center' }}>
           Virtual entertainment only · No real money · 18+ only
-        </div>
+        </p>
       </div>
     );
   }
 
-  // ── Not signed in → show auth form ───────────────────────────────────────────
+  // ── Auth form ─────────────────────────────────────────────────────────────────
   if (!user) {
     const isSignUp     = authMode === 'playerSignUp' || authMode === 'dealerSignUp';
     const isDealerForm = authMode === 'dealerSignIn'  || authMode === 'dealerSignUp';
     const canSubmit    = isDealerForm || !!dealerUid;
 
     return (
-      <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0a0e27 0%, #1a1f3a 50%, #0f1829 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-        <div style={{ background: 'linear-gradient(135deg, #1c1e2a 0%, #252836 100%)', border: '1px solid rgba(212,175,55,0.4)', borderRadius: '15px', padding: isMobile ? '30px 20px' : '50px 40px', maxWidth: '460px', width: '100%', boxShadow: '0 12px 40px rgba(0,0,0,0.4)' }}>
+      <div style={{ minHeight: '100vh', background: 'radial-gradient(circle at 50% 30%, rgba(212,175,55,0.08) 0%, transparent 50%), linear-gradient(135deg, #0a0e27 0%, #1a1f3a 50%, #0f1829 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+        <div style={{ background: 'rgba(12,15,35,0.75)', backdropFilter: 'blur(20px)', border: '1px solid rgba(212,175,55,0.35)', borderRadius: '20px', padding: isMobile ? '30px 20px' : '50px 40px', maxWidth: '460px', width: '100%', boxShadow: '0 24px 64px rgba(0,0,0,0.6), 0 0 80px rgba(212,175,55,0.06), inset 0 1px 0 rgba(255,255,255,0.07)' }}>
           <div style={{ textAlign: 'center', marginBottom: '28px' }}>
-            <div style={{ fontSize: isMobile ? '34px' : '44px', fontWeight: 'bold', color: '#d4af37', letterSpacing: '1.5px', marginBottom: '6px', textShadow: '0 0 20px rgba(212,175,55,0.3)' }}>ACTION SYNC</div>
+            <div style={{ fontSize: isMobile ? '34px' : '44px', fontWeight: 'bold', color: '#d4af37', letterSpacing: '1.5px', marginBottom: '6px', textShadow: '0 0 30px rgba(212,175,55,0.6), 0 0 60px rgba(212,175,55,0.2)' }}>ACTION SYNC</div>
             <div style={{ color: '#d4af37', fontSize: '11px', letterSpacing: '2px', textTransform: 'uppercase' }}>{isDealerForm ? '🎰 Dealer Portal' : '🎲 Join the Action'}</div>
           </div>
 
-          {/* Player: room code entry */}
+          {/* Room code for players */}
           {!isDealerForm && (
             <div style={{ marginBottom: '18px' }}>
               <div style={{ color: '#d4af37', fontSize: '11px', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '8px', fontWeight: 'bold' }}>Room Code</div>
@@ -515,7 +470,7 @@ const AppMain = () => {
             </div>
           )}
 
-          {/* ── Forgot password view ── */}
+          {/* Forgot password flow */}
           {forgotMode ? (
             <>
               {forgotSent ? (
@@ -541,7 +496,6 @@ const AppMain = () => {
             </>
           ) : (
             <>
-              {/* Form fields */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
                 {isSignUp && <input type="text" value={formName} onChange={e => setFormName(e.target.value)} placeholder={isDealerForm ? 'Your display name' : 'Display name (shown on leaderboard)'} style={{ width: '100%', padding: '13px', background: '#0a0a0a', border: '2px solid #444', borderRadius: '8px', color: '#fff', fontSize: '15px', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />}
                 <input type="email" value={formEmail} onChange={e => setFormEmail(e.target.value)} placeholder="Email address" style={{ width: '100%', padding: '13px', background: '#0a0a0a', border: '2px solid #444', borderRadius: '8px', color: '#fff', fontSize: '15px', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />
@@ -560,7 +514,6 @@ const AppMain = () => {
                 {formLoading ? 'Please wait...' : isSignUp ? 'Create Account' : 'Sign In'}
               </button>
 
-              {/* Forgot password link — only on sign-in screens */}
               {!isSignUp && (
                 <div style={{ textAlign: 'center', marginBottom: '10px' }}>
                   <button onClick={() => { setForgotMode(true); setForgotEmail(formEmail); setAuthError(null); }} style={{ background: 'none', border: 'none', color: '#666', fontSize: '11px', cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'underline' }}>
@@ -582,6 +535,7 @@ const AppMain = () => {
               </div>
             </>
           )}
+
           <div style={{ marginTop: '16px', padding: '10px', background: 'rgba(212,175,55,0.07)', borderRadius: '8px', textAlign: 'center' }}>
             <div style={{ color: '#666', fontSize: '10px', lineHeight: '1.6' }}>Virtual entertainment only · No real money · 18+ only</div>
           </div>
@@ -590,7 +544,7 @@ const AppMain = () => {
     );
   }
 
-  // ── Dealer: claim room code screen ────────────────────────────────────────────
+  // ── Dealer: claim room code ───────────────────────────────────────────────────
   if (isDealer && needsRoomCode) {
     return (
       <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0a0e27 0%, #1a1f3a 50%, #0f1829 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
@@ -598,7 +552,7 @@ const AppMain = () => {
           <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎰</div>
           <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#d4af37', marginBottom: '10px', letterSpacing: '1px' }}>Claim Your Room Code</div>
           <div style={{ color: '#888', fontSize: '13px', lineHeight: '1.8', marginBottom: '28px' }}>
-            Players type this to find your room. Pick something memorable.<br />
+            Players type this to find your room. Pick something memorable.<br/>
             <span style={{ color: '#555', fontSize: '11px' }}>3–16 chars · letters and numbers only · can be changed later</span>
           </div>
           <input type="text" value={codeInput} onChange={e => { setCodeInput(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,'')); setCodeError(null); }} onKeyPress={e => e.key === 'Enter' && handleClaimCode()} placeholder="e.g. MIKECASINO" maxLength={16} autoFocus style={{ width: '100%', padding: '16px', background: '#0a0a0a', border: '2px solid #444', borderRadius: '8px', color: '#fff', fontSize: '18px', outline: 'none', fontFamily: 'inherit', textAlign: 'center', letterSpacing: '3px', marginBottom: '12px', boxSizing: 'border-box' }} />
@@ -612,71 +566,73 @@ const AppMain = () => {
     );
   }
 
-  // ── Signed in — route to correct game ────────────────────────────────────────
+  // ── Route to games ────────────────────────────────────────────────────────────
   const playerName   = user.displayName || user.email;
   const playerUid    = user.uid;
   const isDealerMode = isDealer;
 
-  // Player: if dealerUid isn't resolved yet but we expect one (URL has dealer/room param),
-  // show a brief connecting state rather than flashing a blank screen or wrong branch
   if (isPlayer && !dealerUid && (getDealerUidFromUrl() || getRoomCodeFromUrl())) {
     return (
       <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0a0e27 0%, #1a1f3a 50%, #0f1829 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '48px', marginBottom: '20px' }}>🎰</div>
-          <div style={{ color: '#d4af37', fontSize: '14px', letterSpacing: '3px' }}>CONNECTING...</div>
+          <div style={{ fontSize: '3rem', marginBottom: '20px' }}>🎰</div>
+          <div style={{ color: '#d4af37', fontSize: '0.875rem', letterSpacing: '3px' }} className="animate-pulse">CONNECTING...</div>
         </div>
       </div>
     );
   }
 
-  if (selectedGame === 'craps') {
-    return <CrapsGame onBack={deactivateGame} isDealerMode={isDealerMode} playerUserId={playerUid} playerName={playerName} skipRegistration={true} roomCode={dealerUid} />;
-
-  }
-
-  if (selectedGame === 'baccarat') {
-    return <BaccaratGame onBack={deactivateGame} isDealerMode={isDealerMode} playerUserId={playerUid} playerName={playerName} skipRegistration={true} roomCode={dealerUid} />;
-  }
-
-  if (selectedGame === 'roulette') {
-    return <RouletteGame onBack={deactivateGame} isDealerMode={isDealerMode} playerUserId={playerUid} playerName={playerName} skipRegistration={true} roomCode={dealerUid} />;
-  }
-
+  if (selectedGame === 'craps')    return <CrapsGame    onBack={deactivateGame} isDealerMode={isDealerMode} playerUserId={playerUid} playerName={playerName} skipRegistration={true} roomCode={dealerUid} />;
+  if (selectedGame === 'baccarat') return <BaccaratGame onBack={deactivateGame} isDealerMode={isDealerMode} playerUserId={playerUid} playerName={playerName} skipRegistration={true} roomCode={dealerUid} />;
+  if (selectedGame === 'roulette') return <RouletteGame onBack={deactivateGame} isDealerMode={isDealerMode} playerUserId={playerUid} playerName={playerName} skipRegistration={true} roomCode={dealerUid} />;
 
   // ── Player waiting screen ─────────────────────────────────────────────────────
   if (isPlayer && !selectedGame) {
     return (
-      <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0a0e27 0%, #1a1f3a 50%, #0f1829 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-        <div style={{ textAlign: 'center', maxWidth: '650px', width: '100%' }}>
+      <div style={{ minHeight: '100vh', background: 'radial-gradient(ellipse at 50% 0%, rgba(212,175,55,0.08) 0%, transparent 60%), #080b1a', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+        <div style={{ maxWidth: '520px', width: '100%' }}>
+
+          {/* Player top bar */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '18px' }}>🎰</span>
+              <span style={{ color: '#d4af37', fontWeight: '800', fontSize: '14px', letterSpacing: '2px' }}>ACTION SYNC</span>
+            </div>
+            <button onClick={signOut} style={{ padding: '5px 12px', background: 'transparent', border: '1px solid rgba(136,146,164,0.2)', borderRadius: '6px', color: 'rgba(136,146,164,0.5)', fontSize: '12px', cursor: 'pointer' }}>
+              Sign Out
+            </button>
+          </div>
+
+          <div style={{ background: 'rgba(12,15,35,0.7)', backdropFilter: 'blur(20px)', border: '1px solid rgba(212,175,55,0.12)', borderRadius: '20px', padding: isMobile ? '28px 20px' : '40px', boxShadow: '0 24px 64px rgba(0,0,0,0.6)', textAlign: 'center' }}>
+
           {showSessionSummary && sessionLeaderboard?.length > 0 ? (
             <>
-              <div style={{ fontSize: '52px', marginBottom: '15px' }}>🏆</div>
-              <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#d4af37', marginBottom: '8px', letterSpacing: '2px' }}>SESSION RESULTS</div>
-              <div style={{ color: '#888', fontSize: '14px', marginBottom: '30px' }}>Final standings · Next stream starts fresh</div>
+              <div style={{ fontSize: '3rem', marginBottom: '16px' }}>🏆</div>
+              <h2 style={{ fontSize: '1.875rem', fontWeight: 'bold', color: '#d4af37', marginBottom: '8px', letterSpacing: '2px' }}>SESSION RESULTS</h2>
+              <p style={{ color: '#8892a4', fontSize: '0.875rem', marginBottom: '32px' }}>Final standings · Next stream starts fresh</p>
 
               {/* Podium */}
-              <div style={{ display: 'flex', justifyContent: 'center', alignItems: isMobile ? 'center' : 'flex-end', gap: '12px', marginBottom: '30px', flexDirection: isMobile ? 'column' : 'row' }}>
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '32px', gap: '12px', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'center' : 'flex-end' }}>
                 {sessionLeaderboard.length >= 2 && (
-                  <div style={{ background: 'linear-gradient(180deg,rgba(192,192,192,.15),rgba(192,192,192,.05))', border: '2px solid rgba(192,192,192,.4)', borderRadius: '12px', padding: '20px 15px', width: isMobile ? '100%' : '140px', textAlign: 'center' }}>
-                    <div style={{ fontSize: '28px', marginBottom: '5px' }}>🥈</div>
-                    <div style={{ fontSize: '14px', color: '#ccc', fontWeight: 'bold' }}>{sessionLeaderboard[1].name}</div>
-                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: sessionLeaderboard[1].bankroll >= startingChips ? '#4caf50' : '#f44336' }}>${Math.round(sessionLeaderboard[1].bankroll).toLocaleString()}</div>
-                    <div style={{ fontSize: '11px', color: sessionLeaderboard[1].bankroll - startingChips >= 0 ? '#4caf50' : '#f44336' }}>{sessionLeaderboard[1].bankroll - startingChips >= 0 ? '+' : ''}${Math.round(sessionLeaderboard[1].bankroll - startingChips).toLocaleString()}</div>
+                  <div style={{ background: 'linear-gradient(to bottom, rgba(255,255,255,0.15), rgba(255,255,255,0.05))', border: '2px solid rgba(255,255,255,0.4)', borderRadius: '12px', padding: '20px', textAlign: 'center', width: isMobile ? '100%' : '140px' }}>
+                    <div style={{ fontSize: '1.875rem', marginBottom: '4px' }}>🥈</div>
+                    <div style={{ fontSize: '0.875rem', color: '#d1d5db', fontWeight: 'bold' }}>{sessionLeaderboard[1].name}</div>
+                    <div style={{ fontSize: '1.125rem', fontWeight: 'bold', color: sessionLeaderboard[1].bankroll >= startingChips ? '#4ade80' : '#f87171' }}>${Math.round(sessionLeaderboard[1].bankroll).toLocaleString()}</div>
+                    <div style={{ fontSize: '0.75rem', color: sessionLeaderboard[1].bankroll - startingChips >= 0 ? '#4ade80' : '#f87171' }}>{sessionLeaderboard[1].bankroll - startingChips >= 0 ? '+' : ''}${Math.round(sessionLeaderboard[1].bankroll - startingChips).toLocaleString()}</div>
                   </div>
                 )}
-                <div style={{ background: 'linear-gradient(180deg,rgba(212,175,55,.2),rgba(212,175,55,.05))', border: '1px solid rgba(212,175,55,.4)', borderRadius: '12px', padding: '25px 20px', width: isMobile ? '100%' : '160px', textAlign: 'center', boxShadow: '0 0 30px rgba(212,175,55,.2)' }}>
-                  <div style={{ fontSize: '36px', marginBottom: '5px' }}>🥇</div>
-                  <div style={{ fontSize: '16px', color: '#d4af37', fontWeight: 'bold' }}>{sessionLeaderboard[0].name}</div>
-                  <div style={{ fontSize: '22px', fontWeight: 'bold', color: sessionLeaderboard[0].bankroll >= startingChips ? '#4caf50' : '#f44336' }}>${Math.round(sessionLeaderboard[0].bankroll).toLocaleString()}</div>
-                  <div style={{ fontSize: '12px', color: sessionLeaderboard[0].bankroll - startingChips >= 0 ? '#4caf50' : '#f44336' }}>{sessionLeaderboard[0].bankroll - startingChips >= 0 ? '+' : ''}${Math.round(sessionLeaderboard[0].bankroll - startingChips).toLocaleString()}</div>
+                <div style={{ background: 'linear-gradient(to bottom, rgba(212,175,55,0.2), rgba(212,175,55,0.05))', border: '1px solid rgba(212,175,55,0.4)', borderRadius: '12px', padding: '24px', textAlign: 'center', boxShadow: '0 0 30px rgba(212,175,55,0.2)', width: isMobile ? '100%' : '160px' }}>
+                  <div style={{ fontSize: '2.25rem', marginBottom: '4px' }}>🥇</div>
+                  <div style={{ fontSize: '1rem', color: '#d4af37', fontWeight: 'bold' }}>{sessionLeaderboard[0].name}</div>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: sessionLeaderboard[0].bankroll >= startingChips ? '#4ade80' : '#f87171' }}>${Math.round(sessionLeaderboard[0].bankroll).toLocaleString()}</div>
+                  <div style={{ fontSize: '0.75rem', color: sessionLeaderboard[0].bankroll - startingChips >= 0 ? '#4ade80' : '#f87171' }}>{sessionLeaderboard[0].bankroll - startingChips >= 0 ? '+' : ''}${Math.round(sessionLeaderboard[0].bankroll - startingChips).toLocaleString()}</div>
                 </div>
                 {sessionLeaderboard.length >= 3 && (
-                  <div style={{ background: 'linear-gradient(180deg,rgba(205,127,50,.15),rgba(205,127,50,.05))', border: '2px solid rgba(205,127,50,.4)', borderRadius: '12px', padding: '18px 15px', width: isMobile ? '100%' : '130px', textAlign: 'center' }}>
-                    <div style={{ fontSize: '24px', marginBottom: '5px' }}>🥉</div>
-                    <div style={{ fontSize: '13px', color: '#ccc', fontWeight: 'bold' }}>{sessionLeaderboard[2].name}</div>
-                    <div style={{ fontSize: '16px', fontWeight: 'bold', color: sessionLeaderboard[2].bankroll >= startingChips ? '#4caf50' : '#f44336' }}>${Math.round(sessionLeaderboard[2].bankroll).toLocaleString()}</div>
-                    <div style={{ fontSize: '11px', color: sessionLeaderboard[2].bankroll - startingChips >= 0 ? '#4caf50' : '#f44336' }}>{sessionLeaderboard[2].bankroll - startingChips >= 0 ? '+' : ''}${Math.round(sessionLeaderboard[2].bankroll - startingChips).toLocaleString()}</div>
+                  <div style={{ background: 'linear-gradient(to bottom, rgba(205,127,50,0.15), rgba(205,127,50,0.05))', border: '2px solid rgba(205,127,50,0.4)', borderRadius: '12px', padding: '16px', textAlign: 'center', width: isMobile ? '100%' : '130px' }}>
+                    <div style={{ fontSize: '1.5rem', marginBottom: '4px' }}>🥉</div>
+                    <div style={{ fontSize: '0.875rem', color: '#d1d5db', fontWeight: 'bold' }}>{sessionLeaderboard[2].name}</div>
+                    <div style={{ fontSize: '1rem', fontWeight: 'bold', color: sessionLeaderboard[2].bankroll >= startingChips ? '#4ade80' : '#f87171' }}>${Math.round(sessionLeaderboard[2].bankroll).toLocaleString()}</div>
+                    <div style={{ fontSize: '0.75rem', color: sessionLeaderboard[2].bankroll - startingChips >= 0 ? '#4ade80' : '#f87171' }}>{sessionLeaderboard[2].bankroll - startingChips >= 0 ? '+' : ''}${Math.round(sessionLeaderboard[2].bankroll - startingChips).toLocaleString()}</div>
                   </div>
                 )}
               </div>
@@ -688,71 +644,68 @@ const AppMain = () => {
                 if (!myResult) return null;
                 const pnl = Math.round(myResult.bankroll - startingChips);
                 return (
-                  <div style={{ background: pnl >= 0 ? 'rgba(76,175,80,.1)' : 'rgba(244,67,54,.1)', border: `2px solid ${pnl >= 0 ? '#4caf50' : '#f44336'}`, borderRadius: '12px', padding: '20px', marginBottom: '25px' }}>
-                    <div style={{ fontSize: '11px', color: '#888', letterSpacing: '1px', marginBottom: '8px' }}>YOUR RESULT — #{myRank} of {sessionLeaderboard.length}</div>
-                    <div style={{ fontSize: '32px', fontWeight: 'bold', color: pnl >= 0 ? '#4caf50' : '#f44336' }}>{pnl >= 0 ? '+' : ''}${pnl.toLocaleString()}</div>
-                    <div style={{ fontSize: '13px', color: '#aaa', marginTop: '5px' }}>Final balance: ${Math.round(myResult.bankroll).toLocaleString()}</div>
+                  <div style={{ border: `2px solid ${pnl >= 0 ? '#4caf50' : '#ef5350'}`, borderRadius: '12px', padding: '20px', marginBottom: '24px', background: pnl >= 0 ? 'rgba(76,175,80,0.1)' : 'rgba(239,83,80,0.1)' }}>
+                    <div style={{ fontSize: '11px', color: '#8892a4', letterSpacing: '2px', marginBottom: '8px' }}>YOUR RESULT — #{myRank} of {sessionLeaderboard.length}</div>
+                    <div style={{ fontSize: '2.25rem', fontWeight: 'bold', color: pnl >= 0 ? '#4ade80' : '#f87171' }}>{pnl >= 0 ? '+' : ''}${pnl.toLocaleString()}</div>
+                    <div style={{ color: '#8892a4', fontSize: '0.875rem', marginTop: '4px' }}>Final balance: ${Math.round(myResult.bankroll).toLocaleString()}</div>
                   </div>
                 );
               })()}
 
-              <div style={{ color: '#666', fontSize: '13px', marginBottom: '15px' }}>Waiting for next stream...</div>
-              <div style={{ display: 'flex', justifyContent: 'center', gap: '10px' }}>
-                {[0,1,2].map(i => <div key={i} style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#d4af37', animation: `pulse 1.5s ease-in-out ${i*0.2}s infinite` }} />)}
+              <p style={{ color: '#8892a4', fontSize: '0.875rem', marginBottom: '16px' }}>Waiting for next stream...</p>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>
+                {[0,1,2].map(i => <div key={i} style={{ animationDelay: `${i*0.2}s`, width: '8px', height: '8px', borderRadius: '50%', background: '#d4af37' }} className="animate-pulse" />)}
               </div>
             </>
           ) : (
             <>
               {sessionStatus === 'active' ? (
-                // Session is live but dealer is between games
                 <>
-                  <div style={{ fontSize: '64px', marginBottom: '20px' }}>🎰</div>
-                  <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#d4af37', marginBottom: '12px', letterSpacing: '1.5px' }}>GAME OVER</div>
-                  <div style={{ color: '#888', fontSize: '16px', marginBottom: '8px' }}>Welcome, <span style={{ color: '#d4af37' }}>{playerName}</span>!</div>
-                  <div style={{ color: '#888', fontSize: '14px', marginBottom: '30px' }}>The stream is live. Next game starting soon — hold tight.</div>
-                  <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginBottom: '30px' }}>
-                    {[0,1,2].map(i => <div key={i} style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#4caf50', animation: `pulse 1.5s ease-in-out ${i*0.2}s infinite` }} />)}
+                  <div style={{ fontSize: '3.75rem', marginBottom: '20px' }}>🎰</div>
+                  <h2 style={{ fontSize: '1.875rem', fontWeight: 'bold', color: '#d4af37', marginBottom: '12px', letterSpacing: '1.5px' }}>GAME OVER</h2>
+                  <p style={{ color: '#8892a4', fontSize: '1rem', marginBottom: '8px' }}>Welcome, <span style={{ color: '#d4af37' }}>{playerName}</span>!</p>
+                  <p style={{ color: '#8892a4', fontSize: '0.875rem', marginBottom: '32px' }}>The stream is live. Next game starting soon — hold tight.</p>
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginBottom: '32px' }}>
+                    {[0,1,2].map(i => <div key={i} style={{ animationDelay: `${i*0.2}s`, width: '12px', height: '12px', borderRadius: '50%', background: '#4caf50' }} className="animate-pulse" />)}
                   </div>
-                  <div style={{ padding: '14px 20px', background: 'rgba(76,175,80,.1)', border: '1px solid rgba(76,175,80,.3)', borderRadius: '10px', color: '#4caf50', fontSize: '12px' }}>
+                  <div style={{ padding: '14px 20px', background: 'rgba(76,175,80,0.1)', backdropFilter: 'blur(8px)', border: '1px solid rgba(76,175,80,0.4)', borderRadius: '20px', color: '#4ade80', fontSize: '12px', display: 'inline-block', boxShadow: '0 0 20px rgba(76,175,80,0.2)' }}>
                     🟢 Stream is live
                   </div>
                 </>
               ) : (
-                // Session hasn't started yet — waiting for dealer
                 <>
-                  <div style={{ fontSize: '64px', marginBottom: '20px' }}>⏳</div>
-                  <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#d4af37', marginBottom: '15px', letterSpacing: '1.5px' }}>WAITING FOR DEALER</div>
-                  <div style={{ color: '#888', fontSize: '16px', marginBottom: '8px' }}>Welcome, <span style={{ color: '#d4af37' }}>{playerName}</span>!</div>
-                  <div style={{ color: '#888', fontSize: '14px', marginBottom: '30px' }}>Stream hasn't started yet. This page will update automatically when it does.</div>
-                  <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginBottom: '30px' }}>
-                    {[0,1,2].map(i => <div key={i} style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#d4af37', animation: `pulse 1.5s ease-in-out ${i*0.2}s infinite` }} />)}
+                  <div style={{ fontSize: '3.75rem', marginBottom: '20px' }}>⏳</div>
+                  <h2 style={{ fontSize: '2.25rem', fontWeight: 'bold', color: '#d4af37', marginBottom: '16px', letterSpacing: '1.5px' }}>WAITING FOR DEALER</h2>
+                  <p style={{ color: '#8892a4', fontSize: '1rem', marginBottom: '8px' }}>Welcome, <span style={{ color: '#d4af37' }}>{playerName}</span>!</p>
+                  <p style={{ color: '#8892a4', fontSize: '0.875rem', marginBottom: '32px' }}>Stream hasn't started yet. This page will update automatically when it does.</p>
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginBottom: '32px' }}>
+                    {[0,1,2].map(i => <div key={i} style={{ animationDelay: `${i*0.2}s`, width: '12px', height: '12px', borderRadius: '50%', background: '#d4af37' }} className="animate-pulse" />)}
                   </div>
                 </>
               )}
 
-              {/* Session history for player */}
               {sessionHistory.length > 0 && (
-                <div style={{ background: 'rgba(255,255,255,.03)', border: '1px solid rgba(212,175,55,.2)', borderRadius: '12px', padding: '20px', textAlign: 'left' }}>
-                  <div style={{ color: '#d4af37', fontSize: '11px', letterSpacing: '2px', marginBottom: '15px', fontWeight: 'bold' }}>📜 PAST SESSIONS</div>
+                <div style={{ background: 'rgba(12,15,35,0.55)', backdropFilter: 'blur(16px)', border: '1px solid rgba(212,175,55,0.15)', borderRadius: '16px', padding: '20px', textAlign: 'left', boxShadow: '0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04)' }}>
+                  <div style={{ color: '#d4af37', fontSize: '11px', letterSpacing: '2px', marginBottom: '16px', fontWeight: 'bold' }}>📜 PAST SESSIONS</div>
                   {sessionHistory.slice(0, 5).map((session) => {
                     const entries = session.finalLeaderboard ? Object.values(session.finalLeaderboard).sort((a,b) => b.bankroll - a.bankroll) : [];
                     const myEntry = entries.find(p => p.playerUid === playerUid);
                     const myRank  = entries.findIndex(p => p.playerUid === playerUid) + 1;
                     return (
-                      <div key={session.sessionNumber} style={{ padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,.05)' }}>
+                      <div key={session.sessionNumber} style={{ padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <div style={{ color: '#aaa', fontSize: '12px' }}>
+                          <div style={{ color: '#8892a4', fontSize: '0.75rem' }}>
                             Session #{session.sessionNumber}
-                            <span style={{ color: '#555', marginLeft: '8px', fontSize: '11px' }}>{new Date(session.startedAt).toLocaleDateString()}</span>
+                            <span style={{ color: 'rgba(136,146,164,0.5)', marginLeft: '8px', fontSize: '11px' }}>{new Date(session.startedAt).toLocaleDateString()}</span>
                           </div>
                           {myEntry ? (
                             <div style={{ textAlign: 'right' }}>
-                              <span style={{ color: myEntry.bankroll - session.startingChips >= 0 ? '#4caf50' : '#f44336', fontSize: '13px', fontWeight: 'bold' }}>
+                              <span style={{ fontSize: '0.875rem', fontWeight: 'bold', color: myEntry.bankroll - session.startingChips >= 0 ? '#4ade80' : '#f87171' }}>
                                 {myEntry.bankroll - session.startingChips >= 0 ? '+' : ''}${Math.round(myEntry.bankroll - session.startingChips).toLocaleString()}
                               </span>
-                              <span style={{ color: '#555', fontSize: '11px', marginLeft: '8px' }}>#{myRank}</span>
+                              <span style={{ color: 'rgba(136,146,164,0.5)', fontSize: '11px', marginLeft: '8px' }}>#{myRank}</span>
                             </div>
-                          ) : <span style={{ color: '#555', fontSize: '11px' }}>Did not play</span>}
+                          ) : <span style={{ color: 'rgba(136,146,164,0.5)', fontSize: '11px' }}>Did not play</span>}
                         </div>
                       </div>
                     );
@@ -760,13 +713,10 @@ const AppMain = () => {
                 </div>
               )}
 
-              <button onClick={signOut} style={{ marginTop: '20px', padding: '8px 20px', background: 'transparent', border: '1px solid #333', borderRadius: '6px', color: '#555', fontSize: '11px', cursor: 'pointer', fontFamily: 'inherit' }}>
-                Sign Out
-              </button>
             </>
           )}
+          </div>
         </div>
-        <style>{`@keyframes pulse{0%,100%{opacity:.3;transform:scale(.8)}50%{opacity:1;transform:scale(1.2)}}`}</style>
       </div>
     );
   }
@@ -776,263 +726,303 @@ const AppMain = () => {
   const vanityJoinLink = dealerRoomCode ? `${window.location.origin}${window.location.pathname}?room=${dealerRoomCode}` : null;
   const overlayLink    = `${joinLink}#overlay`;
 
+  const GAMES = [
+    { id: 'craps',    emoji: '🎲', label: 'CRAPS',    desc: 'Pass line, odds, place bets, hard ways, hop bets and more.', tags: ['15+ Bet Types','Odds','Fire Bet'],       accentColor: '#22c55e', borderColor: 'rgba(34,197,94,0.4)',  bgGradient: 'linear-gradient(135deg, rgba(20,83,45,0.7) 0%, rgba(15,60,35,0.8) 100%)' },
+    { id: 'baccarat', emoji: '🃏', label: 'BACCARAT', desc: 'Bet on Player, Banker, or Tie. Dragon and Panda bonus bets.', tags: ['Player / Banker','🐉 Dragon','🐼 Panda'], accentColor: '#3b82f6', borderColor: 'rgba(59,130,246,0.4)',  bgGradient: 'linear-gradient(135deg, rgba(30,58,138,0.7) 0%, rgba(15,30,90,0.8) 100%)' },
+    { id: 'roulette', emoji: '🎡', label: 'ROULETTE', desc: 'American double-zero roulette. Full inside and outside bets.', tags: ['0 & 00','Straight Up 35:1','Inside/Out'], accentColor: '#ef4444', borderColor: 'rgba(239,68,68,0.4)', bgGradient: 'linear-gradient(135deg, rgba(127,29,29,0.7) 0%, rgba(80,10,10,0.8) 100%)' },
+  ];
+
   return (
-    <div style={{ minHeight: '100vh', background: `radial-gradient(circle at 20% 30%,rgba(212,175,55,.15) 0%,transparent 50%),radial-gradient(circle at 80% 70%,rgba(33,150,243,.1) 0%,transparent 50%),linear-gradient(135deg,#0a0e27 0%,#1a1f3a 50%,#0f1829 100%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-      <div style={{ maxWidth: '1200px', width: '100%' }}>
+    <div style={{ minHeight: '100vh', background: 'radial-gradient(ellipse at 20% 0%, rgba(212,175,55,0.12) 0%, transparent 55%), radial-gradient(ellipse at 80% 100%, rgba(59,130,246,0.07) 0%, transparent 55%), #080b1a' }}>
 
-        {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: '50px' }}>
-          <div style={{ fontSize: '64px', fontWeight: 'bold', color: '#d4af37', letterSpacing: '8px', marginBottom: '10px', textShadow: '0 0 40px rgba(212,175,55,0.4)' }}>
-            ACTION SYNC
-          </div>
-          <div style={{ color: '#888', fontSize: '14px', letterSpacing: '4px', textTransform: 'uppercase', marginBottom: '12px' }}>
-            Dealer Mode · {user?.displayName || user?.email}
-          </div>
-          <div style={{ display: 'inline-block', padding: '8px 18px', background: sessionStatus === 'active' ? 'rgba(76,175,80,.2)' : 'rgba(212,175,55,.15)', border: `1px solid ${sessionStatus === 'active' ? '#4caf50' : '#d4af37'}`, borderRadius: '8px' }}>
-            <span style={{ color: sessionStatus === 'active' ? '#4caf50' : '#d4af37', fontSize: '12px', fontWeight: 'bold' }}>
-              {sessionStatus === 'active' ? '🟢 STREAM LIVE' : '⏸ STREAM NOT STARTED'}
-            </span>
+      {/* ── Top navbar ── */}
+      <nav style={{ position: 'sticky', top: 0, zIndex: 100, background: 'rgba(8,11,26,0.85)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(212,175,55,0.12)', padding: '0 24px' }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
+
+          {/* Logo */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+            <span style={{ fontSize: '22px' }}>🎰</span>
+            <span style={{ fontWeight: '800', fontSize: '16px', color: '#d4af37', letterSpacing: '3px', textShadow: '0 0 20px rgba(212,175,55,0.4)' }}>ACTION SYNC</span>
           </div>
 
-          {/* Hub tab navigation */}
-          <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginTop: '24px' }}>
-            {[
-              { id: 'games',    label: '🎮 Games' },
-              { id: 'settings', label: '⚙️ Settings' },
-            ].map(t => (
-              <button
-                key={t.id}
-                onClick={() => setHubTab(t.id)}
-                style={{
-                  padding: '10px 28px',
-                  background: hubTab === t.id ? 'rgba(212,175,55,0.15)' : 'transparent',
-                  border: `1px solid ${hubTab === t.id ? 'rgba(212,175,55,0.5)' : 'rgba(255,255,255,0.1)'}`,
-                  borderRadius: '8px',
-                  color: hubTab === t.id ? '#d4af37' : '#555',
-                  fontSize: '13px',
-                  fontWeight: hubTab === t.id ? 'bold' : 'normal',
-                  cursor: 'pointer',
-                  fontFamily: 'inherit',
-                  letterSpacing: '0.5px',
-                  transition: 'all 0.15s',
-                }}
-              >
-                {t.label}
-              </button>
-            ))}
+          {/* Status pill */}
+          <div style={{
+            padding: '6px 14px', borderRadius: '20px', fontSize: '12px', fontWeight: '700', letterSpacing: '0.5px',
+            background: sessionStatus === 'active' ? 'rgba(34,197,94,0.15)' : 'rgba(212,175,55,0.1)',
+            border: `1px solid ${sessionStatus === 'active' ? 'rgba(34,197,94,0.5)' : 'rgba(212,175,55,0.3)'}`,
+            color: sessionStatus === 'active' ? '#4ade80' : '#d4af37',
+            boxShadow: sessionStatus === 'active' ? '0 0 16px rgba(34,197,94,0.2)' : 'none',
+          }}>
+            {sessionStatus === 'active' ? '● LIVE' : '○ OFF AIR'}
+          </div>
+
+          {/* Right: user + sign out */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+            {!isMobile && <span style={{ color: 'rgba(136,146,164,0.7)', fontSize: '13px' }}>{user?.displayName || user?.email}</span>}
+            <button onClick={signOut} style={{ padding: '6px 14px', background: 'transparent', border: '1px solid rgba(136,146,164,0.25)', borderRadius: '8px', color: 'rgba(136,146,164,0.6)', fontSize: '12px', cursor: 'pointer' }}>
+              Sign Out
+            </button>
           </div>
         </div>
+      </nav>
 
-        {/* Tab content */}
+      {/* ── Page content ── */}
+      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: isMobile ? '24px 16px' : '32px 24px' }}>
+
+        {/* Session banner */}
+        {sessionStatus !== 'active' ? (
+          <div style={{ marginBottom: '32px', padding: '20px 28px', background: 'rgba(212,175,55,0.06)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+            <div>
+              <div style={{ color: '#d4af37', fontWeight: '700', fontSize: '15px', marginBottom: '4px' }}>Stream is off air</div>
+              <div style={{ color: 'rgba(136,146,164,0.7)', fontSize: '13px' }}>Go Live to open the session for players · select a game below to begin</div>
+            </div>
+            <button
+              onClick={async () => { await startStream(dealerUid); setSessionStatus('active'); }}
+              style={{ padding: '12px 32px', background: 'linear-gradient(135deg, #22c55e, #4ade80)', border: 'none', borderRadius: '10px', color: '#000', fontSize: '14px', fontWeight: '800', letterSpacing: '1px', cursor: 'pointer', boxShadow: '0 4px 24px rgba(34,197,94,0.4)', whiteSpace: 'nowrap' }}
+            >
+              🟢 GO LIVE
+            </button>
+          </div>
+        ) : (
+          <div style={{ marginBottom: '32px', padding: '16px 28px', background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#4ade80', boxShadow: '0 0 8px rgba(74,222,128,0.8)' }} className="animate-pulse" />
+              <span style={{ color: '#4ade80', fontWeight: '700', fontSize: '14px' }}>Stream is live</span>
+              {selectedGame && <span style={{ color: 'rgba(136,146,164,0.6)', fontSize: '13px' }}>· {selectedGame.toUpperCase()} active</span>}
+            </div>
+            <button
+              onClick={() => setShowNewSessionConfirm(true)}
+              style={{ padding: '10px 24px', background: 'rgba(212,175,55,0.1)', border: '1px solid rgba(212,175,55,0.4)', borderRadius: '10px', color: '#d4af37', fontSize: '13px', fontWeight: '700', cursor: 'pointer' }}
+            >
+              🏁 End Stream
+            </button>
+          </div>
+        )}
+
+        {/* Session error */}
+        {sessionError && (
+          <div style={{ marginBottom: '20px', padding: '12px 16px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ color: '#f87171', fontSize: '14px' }}>{sessionError}</span>
+            <button onClick={() => setSessionError(null)} style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer', fontSize: '18px', lineHeight: 1 }}>×</button>
+          </div>
+        )}
+
+        {/* Tabs */}
+        <div style={{ display: 'flex', gap: '4px', marginBottom: '24px', background: 'rgba(255,255,255,0.04)', borderRadius: '10px', padding: '4px', width: 'fit-content' }}>
+          {[{ id: 'games', label: '🎮 Games' }, { id: 'settings', label: '⚙️ Settings' }].map(t => (
+            <button key={t.id} onClick={() => setHubTab(t.id)} style={{
+              padding: '8px 20px', borderRadius: '7px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', border: 'none', transition: 'all 0.15s',
+              background: hubTab === t.id ? 'rgba(212,175,55,0.15)' : 'transparent',
+              color: hubTab === t.id ? '#d4af37' : 'rgba(136,146,164,0.5)',
+            }}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+
         {hubTab === 'settings' ? (
           <SettingsPanel dealerUid={dealerUid} />
         ) : (
           <>
-        {/* Session controls */}
-        <div style={{ display: 'flex', gap: '14px', justifyContent: 'center', marginBottom: '40px', flexWrap: 'wrap' }}>
-          {sessionStatus !== 'active' ? (
-            // Go Live — starts the session without resetting anything
-            <div style={{ textAlign: 'center' }}>
-              <button onClick={async () => { await startStream(dealerUid); setSessionStatus('active'); }} style={{ padding: '18px 50px', background: 'linear-gradient(135deg,#4caf50,#81c784)', border: 'none', borderRadius: '10px', color: '#000', fontSize: '16px', fontWeight: 'bold', letterSpacing: '1.5px', cursor: 'pointer', fontFamily: 'inherit', textTransform: 'uppercase', boxShadow: '0 4px 24px rgba(76,175,80,.4)' }}>
-                🟢 Go Live
-              </button>
-              <div style={{ color: '#555', fontSize: '11px', marginTop: '8px' }}>Opens the session for players · select a game below to start</div>
-            </div>
-          ) : (
-            // End Stream — archives session, resets bankrolls
-            <div style={{ textAlign: 'center' }}>
-              <button onClick={() => setShowNewSessionConfirm(true)} style={{ padding: '18px 50px', background: 'linear-gradient(135deg,#d4af37,#f4e5a1)', border: 'none', borderRadius: '10px', color: '#000', fontSize: '16px', fontWeight: 'bold', letterSpacing: '1.5px', cursor: 'pointer', fontFamily: 'inherit', textTransform: 'uppercase', boxShadow: '0 4px 24px rgba(212,175,55,.3)' }}>
-                🏁 End Stream
-              </button>
-              <div style={{ color: '#555', fontSize: '11px', marginTop: '8px' }}>Shows final leaderboard · archives session · resets bankrolls</div>
-            </div>
-          )}
-        </div>
-
-        {/* End stream confirm modal */}
-        {sessionError && (
-          <div style={{ marginBottom: '16px', padding: '12px 16px', background: 'rgba(244,67,54,.1)', border: '1px solid rgba(244,67,54,.4)', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
-            <span style={{ color: '#f44336', fontSize: '13px' }}>{sessionError}</span>
-            <button onClick={() => setSessionError(null)} style={{ background: 'none', border: 'none', color: '#f44336', cursor: 'pointer', fontSize: '16px', padding: '0 4px', lineHeight: 1 }}>×</button>
-          </div>
-        )}
-
-        {showNewSessionConfirm && (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
-            <div style={{ background: '#1c1e2a', border: '1px solid rgba(212,175,55,.4)', borderRadius: '16px', padding: '40px', maxWidth: '420px', width: '100%', textAlign: 'center' }}>
-              <div style={{ fontSize: '40px', marginBottom: '16px' }}>🏁</div>
-              <div style={{ color: '#d4af37', fontSize: '20px', fontWeight: 'bold', marginBottom: '12px' }}>End Stream?</div>
-              <div style={{ color: '#888', fontSize: '13px', lineHeight: '1.8', marginBottom: '10px' }}>
-                This will show the final leaderboard and reset all bankrolls to <strong style={{ color: '#fff' }}>${startingChips.toLocaleString()}</strong> for the next stream.
-              </div>
-              <div style={{ color: '#555', fontSize: '12px', marginBottom: '28px' }}>Player accounts and session history are preserved.</div>
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <button onClick={() => setShowNewSessionConfirm(false)} style={{ flex: 1, padding: '14px', background: 'transparent', border: '1px solid #444', borderRadius: '8px', color: '#888', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
-                <button onClick={handleStartNewSession} disabled={newSessionLoading} style={{ flex: 1, padding: '14px', background: newSessionLoading ? '#333' : 'linear-gradient(135deg,#d4af37,#f4e5a1)', border: 'none', borderRadius: '8px', color: newSessionLoading ? '#666' : '#000', fontSize: '13px', fontWeight: 'bold', cursor: newSessionLoading ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
-                  {newSessionLoading ? 'Ending...' : '🏁 End Stream'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {showResetConfirm && (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
-            <div style={{ background: '#1c1e2a', border: '1px solid rgba(76,175,80,.4)', borderRadius: '16px', padding: '40px', maxWidth: '400px', width: '100%', textAlign: 'center' }}>
-              <div style={{ fontSize: '40px', marginBottom: '16px' }}>🔄</div>
-              <div style={{ color: '#4caf50', fontSize: '20px', fontWeight: 'bold', marginBottom: '12px' }}>Reset All Bankrolls?</div>
-              <div style={{ color: '#888', fontSize: '13px', lineHeight: '1.8', marginBottom: '28px' }}>
-                Every player will be reset to <strong style={{ color: '#fff' }}>${startingChips.toLocaleString()}</strong>. This cannot be undone.
-              </div>
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <button onClick={() => setShowResetConfirm(false)} style={{ flex: 1, padding: '14px', background: 'transparent', border: '1px solid #444', borderRadius: '8px', color: '#888', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
-                <button onClick={performResetAllBankrolls} style={{ flex: 1, padding: '14px', background: 'linear-gradient(135deg,#4caf50,#81c784)', border: 'none', borderRadius: '8px', color: '#000', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', fontFamily: 'inherit' }}>Reset All</button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Game cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(320px,1fr))', gap: '30px', marginBottom: '40px' }}>
-          {[
-            { id: 'craps',    label: 'CRAPS',    desc: 'The classic dice game. Pass line, odds, place bets, hard ways, hop bets and more.', tags: ['15+ Bet Types','Odds Bets','Fire Bet'],    border: '#1a5f1a', bg: 'rgba(26,95,26,.4)',   accent: '#1a5f1a' },
-            { id: 'baccarat', label: 'BACCARAT', desc: 'Bet on Player, Banker, or Tie. Features Dragon and Panda bonus bets.',             tags: ['Player/Banker/Tie','🐉 Dragon','🐼 Panda'], border: '#1976d2', bg: 'rgba(13,71,161,.4)',  accent: '#2196f3' },
-            { id: 'roulette', label: 'ROULETTE', desc: 'American double-zero roulette. Inside and outside bets available.',                tags: ['0 & 00','Straight Up 35:1','Inside/Outside'],border: '#8b0000', bg: 'rgba(139,0,0,.4)',    accent: '#c62828' },
-          ].map(game => (
-            <div key={game.id} onClick={() => setActiveGame(game.id)} className="game-card" style={{ background: `linear-gradient(135deg,${game.bg},${game.bg.replace('.4','.6')})`, border: `3px solid ${game.border}`, borderRadius: '20px', padding: '35px', cursor: 'pointer', transition: 'all .3s ease', position: 'relative', overflow: 'hidden', boxShadow: '0 10px 40px rgba(0,0,0,.5)' }}>
-              <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#fff', marginBottom: '12px', letterSpacing: '1px' }}>{game.label}</div>
-              <div style={{ color: '#ddd', fontSize: '13px', lineHeight: '1.7', marginBottom: '20px' }}>{game.desc}</div>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '20px' }}>
-                {game.tags.map(t => <div key={t} style={{ background: 'rgba(212,175,55,.25)', padding: '5px 10px', borderRadius: '5px', fontSize: '11px', color: '#fff', border: '1px solid rgba(212,175,55,.4)', fontWeight: 'bold' }}>{t}</div>)}
-              </div>
-              <div style={{ padding: '12px', background: 'rgba(0,0,0,.3)', borderRadius: '8px', fontSize: '12px', color: '#fff', textAlign: 'center', fontWeight: 'bold' }}>Click to activate {game.label} →</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Session settings + share link */}
-        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
-
-          {/* Starting stack */}
-          <div style={{ padding: '24px', background: 'rgba(0,0,0,.3)', borderRadius: '14px', border: '1px solid rgba(212,175,55,.2)' }}>
-            <div style={{ color: '#d4af37', fontSize: '12px', fontWeight: 'bold', letterSpacing: '1px', marginBottom: '14px' }}>💰 STARTING STACK</div>
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
-              {[500,1000,2500,5000,10000].map(amt => (
-                <button key={amt} onClick={() => handleSetStartingChips(amt)} style={{ flex: 1, padding: '11px 6px', background: startingChips === amt ? '#d4af37' : 'rgba(255,255,255,.05)', border: startingChips === amt ? '2px solid #d4af37' : '1px solid #555', borderRadius: '7px', color: startingChips === amt ? '#000' : '#aaa', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', fontFamily: 'inherit', minWidth: '60px' }}>
-                  ${amt.toLocaleString()}
-                </button>
-              ))}
-            </div>
-            <button onClick={handleResetAllBankrolls} style={{ width: '100%', padding: '11px', background: 'rgba(76,175,80,.15)', border: '1px solid #4caf50', borderRadius: '7px', color: '#4caf50', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', fontFamily: 'inherit', textTransform: 'uppercase' }}>
-              🔄 Reset All Players to ${startingChips.toLocaleString()}
-            </button>
-            {resetSuccess && <div style={{ marginTop: '8px', padding: '8px 12px', background: 'rgba(76,175,80,.15)', border: '1px solid #4caf50', borderRadius: '6px', color: '#4caf50', fontSize: '12px', textAlign: 'center' }}>✅ All players reset to ${startingChips.toLocaleString()}</div>}
-          </div>
-
-          {/* Share link + room code management */}
-          <div style={{ padding: '24px', background: 'rgba(0,0,0,.3)', borderRadius: '14px', border: '1px solid rgba(212,175,55,.2)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <div style={{ color: '#d4af37', fontSize: '12px', fontWeight: 'bold', letterSpacing: '1px' }}>🔗 SHARE WITH PLAYERS</div>
-              {dealerRoomCode && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ color: '#fff', fontSize: '16px', fontWeight: 'bold', letterSpacing: '3px', fontFamily: 'monospace' }}>{dealerRoomCode}</span>
-                  <button onClick={() => { setShowChangeCode(!showChangeCode); setCodeError(null); setCodeSuccess(null); setCodeInput(''); }} style={{ padding: '4px 10px', background: 'transparent', border: '1px solid #555', borderRadius: '5px', color: '#888', fontSize: '10px', cursor: 'pointer', fontFamily: 'inherit' }}>Change</button>
-                </div>
-              )}
-            </div>
-
-            {/* Change code inline form */}
-            {showChangeCode && (
-              <div style={{ marginBottom: '14px', padding: '14px', background: 'rgba(212,175,55,.07)', borderRadius: '8px', border: '1px solid rgba(212,175,55,.2)' }}>
-                <div style={{ color: '#888', fontSize: '11px', marginBottom: '10px' }}>New room code (old one will be released)</div>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <input type="text" value={codeInput} onChange={e => { setCodeInput(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,'')); setCodeError(null); }} placeholder="New code" maxLength={16} style={{ flex: 1, padding: '10px 12px', background: '#0a0a0a', border: '1px solid #444', borderRadius: '6px', color: '#fff', fontSize: '14px', outline: 'none', fontFamily: 'inherit', letterSpacing: '2px' }} />
-                  <button onClick={handleClaimCode} disabled={codeLoading || codeInput.length < 3} style={{ padding: '10px 14px', background: codeInput.length >= 3 ? '#d4af37' : '#333', border: 'none', borderRadius: '6px', color: codeInput.length >= 3 ? '#000' : '#666', fontWeight: 'bold', fontSize: '12px', cursor: codeInput.length >= 3 ? 'pointer' : 'not-allowed', fontFamily: 'inherit' }}>{codeLoading ? '...' : 'Save'}</button>
-                  <button onClick={() => setShowChangeCode(false)} style={{ padding: '10px 12px', background: 'transparent', border: '1px solid #333', borderRadius: '6px', color: '#555', fontSize: '12px', cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
-                </div>
-                {codeError   && <div style={{ color: '#f44336', fontSize: '11px', marginTop: '6px' }}>{codeError}</div>}
-                {codeSuccess  && <div style={{ color: '#4caf50', fontSize: '11px', marginTop: '6px' }}>✅ {codeSuccess}</div>}
-              </div>
-            )}
-
-            {/* Vanity link — primary share option */}
-            {vanityJoinLink && (
-              <div style={{ marginBottom: '10px' }}>
-                <div style={{ color: '#888', fontSize: '10px', marginBottom: '5px', letterSpacing: '1px' }}>ROOM LINK (share this)</div>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <code style={{ flex: 1, background: 'rgba(0,0,0,.4)', color: '#fff', fontSize: '11px', padding: '10px 12px', borderRadius: '6px', wordBreak: 'break-all', fontFamily: 'monospace' }}>{vanityJoinLink}</code>
-                  <button onClick={() => { navigator.clipboard.writeText(vanityJoinLink); setCopySuccess(true); setTimeout(() => setCopySuccess(false), 2000); }} style={{ padding: '10px 14px', background: copySuccess ? '#4caf50' : '#d4af37', border: 'none', borderRadius: '6px', color: '#000', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', transition: 'background 0.2s' }}>{copySuccess ? '✅ Copied!' : 'Copy'}</button>
-                </div>
-              </div>
-            )}
-
-            <div style={{ color: '#444', fontSize: '10px', lineHeight: '1.7' }}>
-              Players can also type <span style={{ color: '#666', fontFamily: 'monospace' }}>{dealerRoomCode}</span> directly on the join screen.
-              <br />Overlay: <code style={{ color: '#555', fontFamily: 'monospace', fontSize: '10px' }}>{overlayLink}</code>
-            </div>
-          </div>
-        </div>
-
-        {/* Session History panel */}
-        {sessionHistory.length > 0 && (
-          <div style={{ padding: '24px', background: 'rgba(0,0,0,.3)', borderRadius: '14px', border: '1px solid rgba(212,175,55,.2)', marginBottom: '20px' }}>
-            <div style={{ color: '#d4af37', fontSize: '12px', fontWeight: 'bold', letterSpacing: '1px', marginBottom: '16px' }}>📜 SESSION HISTORY</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {sessionHistory.slice(0, 10).map(session => {
-                const entries = session.finalLeaderboard
-                  ? Object.values(session.finalLeaderboard).sort((a,b) => b.bankroll - a.bankroll)
-                  : [];
+            {/* Game cards */}
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>
+              {GAMES.map(game => {
+                const isActive = selectedGame === game.id;
                 return (
-                  <details key={session.sessionNumber} style={{ background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.07)', borderRadius: '8px', overflow: 'hidden' }}>
-                    <summary style={{ padding: '12px 16px', cursor: 'pointer', color: '#aaa', fontSize: '13px', display: 'flex', justifyContent: 'space-between', listStyle: 'none' }}>
-                      <span>Session #{session.sessionNumber} <span style={{ color: '#555', fontSize: '11px', marginLeft: '8px' }}>{new Date(session.startedAt).toLocaleDateString()}</span></span>
-                      <span style={{ color: '#666', fontSize: '11px' }}>{entries.length} players · ${session.startingChips?.toLocaleString()} start</span>
-                    </summary>
-                    <div style={{ padding: '0 16px 14px' }}>
-                      {entries.slice(0, 8).map((p, idx) => {
-                        const pnl = Math.round(p.bankroll - session.startingChips);
-                        return (
-                          <div key={p.playerUid || idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,.04)' }}>
-                            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                              <span style={{ color: idx === 0 ? '#d4af37' : idx === 1 ? '#c0c0c0' : idx === 2 ? '#cd7f32' : '#555', fontSize: '12px', width: '20px' }}>
-                                {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx+1}`}
-                              </span>
-                              <span style={{ color: '#ccc', fontSize: '13px' }}>{p.name}</span>
-                            </div>
-                            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                              <span style={{ color: '#fff', fontSize: '13px', fontWeight: 'bold' }}>${Math.round(p.bankroll).toLocaleString()}</span>
-                              <span style={{ color: pnl >= 0 ? '#4caf50' : '#f44336', fontSize: '11px', minWidth: '55px', textAlign: 'right' }}>{pnl >= 0 ? '+' : ''}${pnl.toLocaleString()}</span>
-                            </div>
-                          </div>
-                        );
-                      })}
+                  <div
+                    key={game.id}
+                    onClick={() => setActiveGame(game.id)}
+                    style={{
+                      background: game.bgGradient,
+                      border: `1px solid ${isActive ? game.accentColor : game.borderColor}`,
+                      borderRadius: '16px', padding: '24px', cursor: 'pointer',
+                      transition: 'all 0.2s', position: 'relative', overflow: 'hidden',
+                      boxShadow: isActive ? `0 0 0 2px ${game.accentColor}, 0 12px 40px rgba(0,0,0,0.5)` : '0 4px 20px rgba(0,0,0,0.4)',
+                    }}
+                    onMouseEnter={e => { if (!isActive) { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = `0 12px 40px rgba(0,0,0,0.5), 0 0 0 1px ${game.borderColor}`; } }}
+                    onMouseLeave={e => { if (!isActive) { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.4)'; } }}
+                  >
+                    {isActive && (
+                      <div style={{ position: 'absolute', top: '12px', right: '12px', background: game.accentColor, color: '#000', fontSize: '10px', fontWeight: '800', padding: '3px 8px', borderRadius: '20px', letterSpacing: '0.5px' }}>
+                        ACTIVE
+                      </div>
+                    )}
+                    <div style={{ fontSize: '40px', marginBottom: '12px', filter: `drop-shadow(0 0 12px ${game.accentColor}60)` }}>{game.emoji}</div>
+                    <div style={{ fontSize: '18px', fontWeight: '800', color: '#fff', marginBottom: '8px', letterSpacing: '1px' }}>{game.label}</div>
+                    <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '13px', lineHeight: '1.5', marginBottom: '16px' }}>{game.desc}</div>
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '16px' }}>
+                      {game.tags.map(t => (
+                        <span key={t} style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.8)', fontSize: '11px', fontWeight: '600', padding: '3px 8px', borderRadius: '4px' }}>{t}</span>
+                      ))}
                     </div>
-                  </details>
+                    <div style={{
+                      padding: '10px', borderRadius: '8px', textAlign: 'center', fontSize: '13px', fontWeight: '700',
+                      background: isActive ? game.accentColor : 'rgba(255,255,255,0.07)',
+                      color: isActive ? '#000' : 'rgba(255,255,255,0.7)',
+                      border: isActive ? 'none' : '1px solid rgba(255,255,255,0.1)',
+                    }}>
+                      {isActive ? `✓ ${game.label} is active` : `Activate ${game.label}`}
+                    </div>
+                  </div>
                 );
               })}
             </div>
-          </div>
-        )}
+
+            {/* Bottom row: starting stack + share link */}
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+
+              {/* Starting stack */}
+              <div style={{ padding: '20px', background: 'rgba(12,15,35,0.6)', backdropFilter: 'blur(16px)', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.07)' }}>
+                <div style={{ color: '#d4af37', fontSize: '11px', fontWeight: '700', letterSpacing: '2px', marginBottom: '14px', textTransform: 'uppercase' }}>💰 Starting Stack</div>
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '12px' }}>
+                  {[500,1000,2500,5000,10000].map(amt => (
+                    <button key={amt} onClick={() => handleSetStartingChips(amt)} style={{
+                      flex: 1, padding: '9px 4px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', cursor: 'pointer', minWidth: '56px', border: '1px solid',
+                      background: startingChips === amt ? '#d4af37' : 'rgba(255,255,255,0.04)',
+                      borderColor: startingChips === amt ? '#d4af37' : 'rgba(255,255,255,0.1)',
+                      color: startingChips === amt ? '#000' : 'rgba(136,146,164,0.7)',
+                      boxShadow: startingChips === amt ? '0 0 12px rgba(212,175,55,0.3)' : 'none',
+                    }}>
+                      ${amt >= 1000 ? (amt/1000)+'k' : amt}
+                    </button>
+                  ))}
+                </div>
+                <button onClick={handleResetAllBankrolls} style={{ width: '100%', padding: '10px', background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: '8px', color: '#4ade80', fontSize: '12px', fontWeight: '700', cursor: 'pointer', letterSpacing: '0.5px' }}>
+                  🔄 Reset All to ${startingChips.toLocaleString()}
+                </button>
+                {resetSuccess && <div style={{ marginTop: '8px', color: '#4ade80', fontSize: '12px', textAlign: 'center' }}>✅ All players reset</div>}
+              </div>
+
+              {/* Share link */}
+              <div style={{ padding: '20px', background: 'rgba(12,15,35,0.6)', backdropFilter: 'blur(16px)', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.07)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                  <div style={{ color: '#d4af37', fontSize: '11px', fontWeight: '700', letterSpacing: '2px', textTransform: 'uppercase' }}>🔗 Share with Players</div>
+                  {dealerRoomCode && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ color: '#fff', fontSize: '15px', fontWeight: '800', letterSpacing: '3px', fontFamily: 'monospace' }}>{dealerRoomCode}</span>
+                      <button onClick={() => { setShowChangeCode(!showChangeCode); setCodeError(null); setCodeSuccess(null); setCodeInput(''); }} style={{ padding: '3px 8px', background: 'transparent', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', color: 'rgba(136,146,164,0.6)', fontSize: '10px', cursor: 'pointer' }}>
+                        Change
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {showChangeCode && (
+                  <div style={{ marginBottom: '12px', padding: '12px', background: 'rgba(212,175,55,0.05)', borderRadius: '8px', border: '1px solid rgba(212,175,55,0.15)' }}>
+                    <p style={{ color: 'rgba(136,146,164,0.6)', fontSize: '11px', marginBottom: '8px' }}>New room code (old one will be released)</p>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <input value={codeInput} onChange={e => { setCodeInput(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,'')); setCodeError(null); }} placeholder="NEW CODE" maxLength={16}
+                        style={{ flex: 1, padding: '8px 12px', background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '6px', color: '#fff', fontSize: '14px', letterSpacing: '2px', outline: 'none', fontFamily: 'inherit' }} />
+                      <button onClick={handleClaimCode} disabled={codeLoading || codeInput.length < 3} style={{ padding: '8px 14px', background: '#d4af37', border: 'none', borderRadius: '6px', color: '#000', fontWeight: '700', fontSize: '13px', cursor: 'pointer', opacity: (codeLoading || codeInput.length < 3) ? 0.4 : 1 }}>{codeLoading ? '...' : 'Save'}</button>
+                      <button onClick={() => setShowChangeCode(false)} style={{ padding: '8px 12px', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: 'rgba(136,146,164,0.6)', fontSize: '13px', cursor: 'pointer' }}>✕</button>
+                    </div>
+                    {codeError   && <p style={{ color: '#f87171', fontSize: '11px', marginTop: '6px' }}>{codeError}</p>}
+                    {codeSuccess && <p style={{ color: '#4ade80', fontSize: '11px', marginTop: '6px' }}>✅ {codeSuccess}</p>}
+                  </div>
+                )}
+
+                {vanityJoinLink && (
+                  <div style={{ marginBottom: '10px' }}>
+                    <div style={{ color: 'rgba(136,146,164,0.5)', fontSize: '10px', marginBottom: '6px', letterSpacing: '2px', textTransform: 'uppercase' }}>Room Link</div>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'stretch' }}>
+                      <code style={{ flex: 1, background: 'rgba(0,0,0,0.3)', color: 'rgba(255,255,255,0.7)', fontSize: '11px', padding: '9px 12px', borderRadius: '8px', wordBreak: 'break-all', fontFamily: 'monospace', border: '1px solid rgba(255,255,255,0.07)' }}>{vanityJoinLink}</code>
+                      <button onClick={() => { navigator.clipboard.writeText(vanityJoinLink); setCopySuccess(true); setTimeout(() => setCopySuccess(false), 2000); }}
+                        style={{ padding: '9px 16px', background: copySuccess ? '#22c55e' : '#d4af37', border: 'none', borderRadius: '8px', color: '#000', fontWeight: '700', fontSize: '12px', cursor: 'pointer', whiteSpace: 'nowrap', boxShadow: copySuccess ? '0 0 12px rgba(34,197,94,0.4)' : 'none' }}>
+                        {copySuccess ? '✓ Copied' : 'Copy'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ color: 'rgba(136,146,164,0.35)', fontSize: '10px', lineHeight: '1.6', marginTop: '8px' }}>
+                  Players can type <span style={{ fontFamily: 'monospace', color: 'rgba(136,146,164,0.55)' }}>{dealerRoomCode}</span> on the join screen · Overlay: <code style={{ fontFamily: 'monospace' }}>{overlayLink}</code>
+                </div>
+              </div>
+            </div>
+
+            {/* Session history */}
+            {sessionHistory.length > 0 && (
+              <div style={{ padding: '20px', background: 'rgba(12,15,35,0.6)', backdropFilter: 'blur(16px)', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.07)' }}>
+                <div style={{ color: '#d4af37', fontSize: '11px', fontWeight: '700', letterSpacing: '2px', marginBottom: '14px', textTransform: 'uppercase' }}>📜 Session History</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {sessionHistory.slice(0, 10).map(session => {
+                    const entries = session.finalLeaderboard ? Object.values(session.finalLeaderboard).sort((a,b) => b.bankroll - a.bankroll) : [];
+                    return (
+                      <details key={session.sessionNumber} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '10px', overflow: 'hidden' }}>
+                        <summary style={{ padding: '12px 16px', cursor: 'pointer', color: 'rgba(136,146,164,0.8)', fontSize: '13px', display: 'flex', justifyContent: 'space-between', listStyle: 'none', userSelect: 'none' }}>
+                          <span>Session #{session.sessionNumber} <span style={{ color: 'rgba(136,146,164,0.4)', marginLeft: '8px', fontSize: '11px' }}>{new Date(session.startedAt).toLocaleDateString()}</span></span>
+                          <span style={{ color: 'rgba(136,146,164,0.4)', fontSize: '11px' }}>{entries.length} players · ${session.startingChips?.toLocaleString()} start</span>
+                        </summary>
+                        <div style={{ padding: '4px 16px 12px' }}>
+                          {entries.slice(0, 8).map((p, idx) => {
+                            const pnl = Math.round(p.bankroll - session.startingChips);
+                            return (
+                              <div key={p.playerUid || idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                  <span style={{ fontSize: '13px', width: '22px', color: idx === 0 ? '#d4af37' : idx === 1 ? '#9ca3af' : idx === 2 ? '#cd7f32' : 'rgba(136,146,164,0.4)' }}>
+                                    {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx+1}`}
+                                  </span>
+                                  <span style={{ color: 'rgba(255,255,255,0.75)', fontSize: '13px' }}>{p.name}</span>
+                                </div>
+                                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                  <span style={{ color: '#fff', fontSize: '13px', fontWeight: '700' }}>${Math.round(p.bankroll).toLocaleString()}</span>
+                                  <span style={{ fontSize: '12px', minWidth: '52px', textAlign: 'right', color: pnl >= 0 ? '#4ade80' : '#f87171', fontWeight: '600' }}>{pnl >= 0 ? '+' : ''}${pnl.toLocaleString()}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </details>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Hint */}
+            <p style={{ color: 'rgba(136,146,164,0.3)', fontSize: '11px', textAlign: 'center', marginTop: '24px', lineHeight: '1.7' }}>
+              Activate a game above to push it to all players · Switch games freely mid-session
+              <br />Virtual entertainment only · No real money · 18+ only
+            </p>
           </>
         )}
+      </div>
 
-        {/* Footer */}
-        <div style={{ padding: '24px', background: 'rgba(0,0,0,.3)', borderRadius: '14px', border: '1px solid rgba(255,255,255,.08)', textAlign: 'center', marginTop: '20px' }}>
-          <button onClick={signOut} style={{ padding: '10px 28px', background: 'transparent', border: '1px solid #444', borderRadius: '7px', color: '#666', fontSize: '12px', cursor: 'pointer', fontFamily: 'inherit', marginBottom: '16px' }}>
-            Sign Out
-          </button>
-          <div style={{ color: '#555', fontSize: '11px', lineHeight: '1.7' }}>
-            Select a game above to push it to all players · Switch games freely mid-session · Use "Go Live" to start each stream · "End Stream" to archive and reset
-            <br /><span style={{ color: '#444', fontSize: '10px' }}>Virtual entertainment only · No real money · 18+ only</span>
+      {/* ── Modals ── */}
+      {showNewSessionConfirm && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }} onClick={() => setShowNewSessionConfirm(false)}>
+          <div style={{ background: 'rgba(10,12,28,0.97)', backdropFilter: 'blur(20px)', border: '1px solid rgba(212,175,55,0.25)', borderRadius: '20px', padding: '36px', maxWidth: '400px', width: '100%', boxShadow: '0 32px 80px rgba(0,0,0,0.8)' }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: '3rem', textAlign: 'center', marginBottom: '12px' }}>🏁</div>
+            <div style={{ color: '#d4af37', textAlign: 'center', fontSize: '20px', fontWeight: '800', marginBottom: '12px' }}>End Stream?</div>
+            <p style={{ textAlign: 'center', color: 'rgba(136,146,164,0.8)', fontSize: '14px', lineHeight: 1.6, marginBottom: '6px' }}>
+              This will lock in the final leaderboard and end the session.
+            </p>
+            <p style={{ color: 'rgba(136,146,164,0.4)', fontSize: '12px', textAlign: 'center', marginBottom: '24px' }}>Set the starting stack before the next session begins. Player accounts and history are preserved.</p>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button onClick={() => setShowNewSessionConfirm(false)} style={{ flex: 1, padding: '12px', background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '10px', color: 'rgba(136,146,164,0.7)', fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+              <button onClick={handleStartNewSession} disabled={newSessionLoading} style={{ flex: 1, padding: '12px', background: 'linear-gradient(135deg, #d4af37, #f0c93a)', border: 'none', borderRadius: '10px', color: '#000', fontSize: '14px', fontWeight: '800', cursor: 'pointer', fontFamily: 'inherit' }}>
+                {newSessionLoading ? 'Ending...' : '🏁 End Stream'}
+              </button>
+            </div>
           </div>
         </div>
+      )}
 
-      </div>
-      <style>{`
-        @keyframes pulse{0%,100%{opacity:.3;transform:scale(.8)}50%{opacity:1;transform:scale(1.2)}}
-        .game-card:hover{transform:translateY(-8px);box-shadow:0 20px 60px rgba(0,0,0,.7)!important}
-        *{box-sizing:border-box}
-      `}</style>
+      {showResetConfirm && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }} onClick={() => setShowResetConfirm(false)}>
+          <div style={{ background: 'rgba(10,12,28,0.97)', backdropFilter: 'blur(20px)', border: '1px solid rgba(34,197,94,0.25)', borderRadius: '20px', padding: '36px', maxWidth: '400px', width: '100%', boxShadow: '0 32px 80px rgba(0,0,0,0.8)' }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: '3rem', textAlign: 'center', marginBottom: '12px' }}>🔄</div>
+            <div style={{ color: '#4ade80', textAlign: 'center', fontSize: '20px', fontWeight: '800', marginBottom: '12px' }}>Reset All Bankrolls?</div>
+            <p style={{ textAlign: 'center', color: 'rgba(136,146,164,0.8)', fontSize: '14px', lineHeight: 1.6, marginBottom: '24px' }}>
+              Every player will be reset to <strong style={{ color: '#f0e6d3' }}>${startingChips.toLocaleString()}</strong>. This cannot be undone.
+            </p>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button onClick={() => setShowResetConfirm(false)} style={{ flex: 1, padding: '12px', background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '10px', color: 'rgba(136,146,164,0.7)', fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+              <button onClick={performResetAllBankrolls} style={{ flex: 1, padding: '12px', background: '#22c55e', border: 'none', borderRadius: '10px', color: '#000', fontWeight: '800', fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit' }}>Reset All</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

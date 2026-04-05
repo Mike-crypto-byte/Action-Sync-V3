@@ -14,42 +14,43 @@ import { ref, onValue, set, update } from 'firebase/database';
 import { database as db } from './firebase';
 
 // ── Default odds ───────────────────────────────────────────────────────────────
+// Each entry is { num, den } representing a "num to den" payout ratio.
 export const DEFAULT_ODDS = {
   roulette: {
-    straightUp:  35,
-    split:       17,
-    street:      11,
-    corner:       8,
-    fiveNumber:   6,
-    sixLine:      5,
-    dozen:        2,
-    column:       2,
-    evenMoney:    1,
+    straightUp:  { num: 35, den: 1 },
+    split:       { num: 17, den: 1 },
+    street:      { num: 11, den: 1 },
+    corner:      { num:  8, den: 1 },
+    fiveNumber:  { num:  6, den: 1 },
+    sixLine:     { num:  5, den: 1 },
+    dozen:       { num:  2, den: 1 },
+    column:      { num:  2, den: 1 },
+    evenMoney:   { num:  1, den: 1 },
   },
   craps: {
-    passLine:     1,
-    dontPass:     1,
-    come:         1,
-    dontCome:     1,
-    place4_10:    9,   // paid as 9:5
-    place5_9:     7,   // paid as 7:5
-    place6_8:     7,   // paid as 7:6
-    field2:       2,
-    field12:      3,
-    anySeven:     4,
-    anyCraps:     7,
-    hardWay4_10:  7,
-    hardWay6_8:   9,
-    hop:         15,
+    passLine:    { num:  1, den: 1 },
+    dontPass:    { num:  1, den: 1 },
+    come:        { num:  1, den: 1 },
+    dontCome:    { num:  1, den: 1 },
+    place4_10:   { num:  9, den: 5 },
+    place5_9:    { num:  7, den: 5 },
+    place6_8:    { num:  7, den: 6 },
+    field2:      { num:  2, den: 1 },
+    field12:     { num:  3, den: 1 },
+    anySeven:    { num:  4, den: 1 },
+    anyCraps:    { num:  7, den: 1 },
+    hardWay4_10: { num:  7, den: 1 },
+    hardWay6_8:  { num:  9, den: 1 },
+    hop:         { num: 15, den: 1 },
   },
   baccarat: {
-    player:      1,
-    banker:      1,   // commission handled separately in game logic
-    tie:         8,
-    playerPair: 11,
-    bankerPair: 11,
-    dragon:     40,
-    panda:      25,
+    player:     { num:  1, den: 1 },
+    banker:     { num:  1, den: 1 },  // commission handled separately in game logic
+    tie:        { num:  8, den: 1 },
+    playerPair: { num: 11, den: 1 },
+    bankerPair: { num: 11, den: 1 },
+    dragon:     { num: 40, den: 1 },
+    panda:      { num: 25, den: 1 },
   },
 };
 
@@ -186,12 +187,29 @@ export function useSettings(dealerUid) {
     const unsub = onValue(settingsRef, (snap) => {
       if (snap.exists()) {
         const data = snap.val();
-        // Deep merge with defaults so new bet types added later still appear
+        // Deep merge with defaults so new bet types added later still appear.
+        // Values are { num, den } objects; handle legacy integer values gracefully.
         if (data.odds) {
+          const mergeOdds = (defaults, saved) => {
+            const result = {};
+            for (const key of Object.keys(defaults)) {
+              const def = defaults[key];
+              const sav = saved?.[key];
+              if (sav === undefined || sav === null) {
+                result[key] = { ...def };
+              } else if (typeof sav === 'object' && 'num' in sav) {
+                result[key] = { num: sav.num ?? def.num, den: sav.den ?? def.den };
+              } else {
+                // Legacy: saved as plain integer — treat as numerator, keep default denominator
+                result[key] = { num: Number(sav), den: def.den };
+              }
+            }
+            return result;
+          };
           setOdds({
-            roulette: { ...DEFAULT_ODDS.roulette, ...data.odds.roulette },
-            craps:    { ...DEFAULT_ODDS.craps,    ...data.odds.craps    },
-            baccarat: { ...DEFAULT_ODDS.baccarat, ...data.odds.baccarat },
+            roulette: mergeOdds(DEFAULT_ODDS.roulette, data.odds.roulette),
+            craps:    mergeOdds(DEFAULT_ODDS.craps,    data.odds.craps),
+            baccarat: mergeOdds(DEFAULT_ODDS.baccarat, data.odds.baccarat),
           });
         }
         if (data.betVisibility) {
