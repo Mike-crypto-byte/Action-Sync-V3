@@ -74,8 +74,10 @@ const AppMain = () => {
   const [showSessionSummary, setShowSessionSummary]       = useState(false);
   const [showNewSessionConfirm, setShowNewSessionConfirm] = useState(false);
   const [newSessionLoading, setNewSessionLoading]         = useState(false);
-  const [showResetConfirm, setShowResetConfirm]           = useState(false);
-  const [resetSuccess, setResetSuccess]                   = useState(false);
+  const [showGoLiveModal, setShowGoLiveModal]               = useState(false);
+  const [goLiveLoading, setGoLiveLoading]                   = useState(false);
+  const [showResetConfirm, setShowResetConfirm]             = useState(false);
+  const [resetSuccess, setResetSuccess]                     = useState(false);
   const [sessionError, setSessionError]                   = useState(null);
   const [copySuccess, setCopySuccess]                     = useState(false);
 
@@ -777,7 +779,7 @@ const AppMain = () => {
               <div style={{ color: 'rgba(136,146,164,0.7)', fontSize: '13px' }}>Go Live to open the session for players · select a game below to begin</div>
             </div>
             <button
-              onClick={async () => { await startStream(dealerUid); setSessionStatus('active'); }}
+              onClick={() => setShowGoLiveModal(true)}
               style={{ padding: '12px 32px', background: 'linear-gradient(135deg, #22c55e, #4ade80)', border: 'none', borderRadius: '10px', color: '#000', fontSize: '14px', fontWeight: '800', letterSpacing: '1px', cursor: 'pointer', boxShadow: '0 4px 24px rgba(34,197,94,0.4)', whiteSpace: 'nowrap' }}
             >
               🟢 GO LIVE
@@ -1002,6 +1004,64 @@ const AppMain = () => {
               <button onClick={() => setShowNewSessionConfirm(false)} style={{ flex: 1, padding: '12px', background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '10px', color: 'rgba(136,146,164,0.7)', fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
               <button onClick={handleStartNewSession} disabled={newSessionLoading} style={{ flex: 1, padding: '12px', background: 'linear-gradient(135deg, #d4af37, #f0c93a)', border: 'none', borderRadius: '10px', color: '#000', fontSize: '14px', fontWeight: '800', cursor: 'pointer', fontFamily: 'inherit' }}>
                 {newSessionLoading ? 'Ending...' : '🏁 End Stream'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showGoLiveModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }} onClick={() => { if (!goLiveLoading) setShowGoLiveModal(false); }}>
+          <div style={{ background: 'rgba(10,12,28,0.97)', backdropFilter: 'blur(20px)', border: '1px solid rgba(34,197,94,0.25)', borderRadius: '20px', padding: '36px', maxWidth: '420px', width: '100%', boxShadow: '0 32px 80px rgba(0,0,0,0.8)' }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: '3rem', textAlign: 'center', marginBottom: '12px' }}>🟢</div>
+            <div style={{ color: '#4ade80', textAlign: 'center', fontSize: '20px', fontWeight: '800', marginBottom: '8px' }}>Going Live</div>
+            <p style={{ textAlign: 'center', color: 'rgba(136,146,164,0.7)', fontSize: '13px', marginBottom: '28px' }}>Set the starting stack for all players this session.</p>
+
+            <div style={{ color: '#d4af37', fontSize: '11px', fontWeight: '700', letterSpacing: '2px', marginBottom: '12px', textTransform: 'uppercase' }}>💰 Starting Stack</div>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '24px' }}>
+              {[500, 1000, 2500, 5000, 10000].map(amt => (
+                <button
+                  key={amt}
+                  onClick={() => handleSetStartingChips(amt)}
+                  style={{
+                    flex: 1, minWidth: '64px', padding: '10px 4px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', cursor: 'pointer', border: '1px solid',
+                    background: startingChips === amt ? '#d4af37' : 'rgba(255,255,255,0.04)',
+                    borderColor: startingChips === amt ? '#d4af37' : 'rgba(255,255,255,0.1)',
+                    color: startingChips === amt ? '#000' : '#888',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  ${amt.toLocaleString()}
+                </button>
+              ))}
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button
+                onClick={() => setShowGoLiveModal(false)}
+                disabled={goLiveLoading}
+                style={{ flex: 1, padding: '12px', background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '10px', color: 'rgba(136,146,164,0.7)', fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  setGoLiveLoading(true);
+                  try {
+                    await handleSetStartingChips(startingChips);
+                    await startStream(dealerUid);
+                    setSessionStatus('active');
+                    setShowGoLiveModal(false);
+                  } catch (e) {
+                    setSessionError('Failed to go live: ' + e.message);
+                  } finally {
+                    setGoLiveLoading(false);
+                  }
+                }}
+                disabled={goLiveLoading}
+                style={{ flex: 1, padding: '12px', background: 'linear-gradient(135deg, #22c55e, #4ade80)', border: 'none', borderRadius: '10px', color: '#000', fontSize: '14px', fontWeight: '800', cursor: 'pointer', fontFamily: 'inherit' }}
+              >
+                {goLiveLoading ? 'Starting...' : '🟢 Go Live'}
               </button>
             </div>
           </div>
