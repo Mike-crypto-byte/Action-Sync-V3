@@ -144,6 +144,419 @@ function Step({ number, title, body, delay = 0 }) {
   );
 }
 
+/* ══════════════════════════════════════════════════════════════
+   DEMO SECTION
+   Self-contained animated simulation: betting → spinning → result → repeat
+   ══════════════════════════════════════════════════════════════ */
+
+
+const ROUNDS = [
+  {
+    number: 14, color: 'red',
+    bets: [
+      { player: 'xXDragonSlayerXx', avatar: '🐉', bet: 'RED',   amount: 800,  payout:   800 },
+      { player: 'CryptoQueen_99',   avatar: '👑', bet: 'RED',   amount: 500,  payout:   500 },
+      { player: 'NightOwlBets',     avatar: '🦉', bet: '14',    amount: 200,  payout:  7000 },
+      { player: 'StakeMaster',      avatar: '🎯', bet: 'BLACK', amount: 1000, payout: -1000 },
+      { player: 'ProfitPete',       avatar: '💰', bet: 'EVEN',  amount: 300,  payout:   300 },
+    ],
+  },
+  {
+    number: 7, color: 'red',
+    bets: [
+      { player: 'CryptoQueen_99',   avatar: '👑', bet: 'ODD',   amount: 600,  payout:   600 },
+      { player: 'StakeMaster',      avatar: '🎯', bet: 'RED',   amount: 900,  payout:   900 },
+      { player: 'xXDragonSlayerXx', avatar: '🐉', bet: '7',    amount: 150,  payout:  5250 },
+      { player: 'NightOwlBets',     avatar: '🦉', bet: 'BLACK', amount: 400,  payout:  -400 },
+      { player: 'ProfitPete',       avatar: '💰', bet: 'RED',   amount: 700,  payout:   700 },
+    ],
+  },
+  {
+    number: 0, color: 'green',
+    bets: [
+      { player: 'StakeMaster',      avatar: '🎯', bet: '0',     amount: 100,  payout:  3500 },
+      { player: 'xXDragonSlayerXx', avatar: '🐉', bet: 'RED',  amount: 1200, payout: -1200 },
+      { player: 'CryptoQueen_99',   avatar: '👑', bet: 'BLACK', amount: 800,  payout:  -800 },
+      { player: 'NightOwlBets',     avatar: '🦉', bet: 'EVEN',  amount: 500,  payout:  -500 },
+      { player: 'ProfitPete',       avatar: '💰', bet: 'ODD',   amount: 400,  payout:  -400 },
+    ],
+  },
+];
+
+const INIT_LB = [
+  { name: 'xXDragonSlayerXx', avatar: '🐉', chips: 12480 },
+  { name: 'CryptoQueen_99',   avatar: '👑', chips: 10340 },
+  { name: 'NightOwlBets',     avatar: '🦉', chips:  8750 },
+  { name: 'StakeMaster',      avatar: '🎯', chips:  7920 },
+  { name: 'ProfitPete',       avatar: '💰', chips:  6640 },
+];
+
+function RouletteWheel({ spinning, result }) {
+  const sectors = [
+    '#c0392b','#1a1a1a','#c0392b','#1a1a1a','#c0392b','#1a1a1a','#c0392b','#1a1a1a',
+    '#c0392b','#1a1a1a','#c0392b','#1a1a1a','#c0392b','#1a1a1a','#c0392b','#1a1a1a',
+    '#2ecc71','#c0392b','#1a1a1a','#c0392b','#1a1a1a','#c0392b','#1a1a1a','#c0392b',
+    '#1a1a1a','#c0392b','#1a1a1a','#c0392b','#1a1a1a','#c0392b','#1a1a1a','#c0392b',
+    '#1a1a1a','#c0392b','#1a1a1a','#c0392b','#1a1a1a',
+  ];
+  const n = sectors.length;
+  const deg = 360 / n;
+  const conicStops = sectors.map((c, i) => `${c} ${i * deg}deg ${(i + 1) * deg}deg`).join(', ');
+
+  const resultColor = result
+    ? result.color === 'red' ? '#c0392b' : result.color === 'green' ? '#22c55e' : '#e2e8f0'
+    : Gold;
+
+  return (
+    <div style={{ position: 'relative', width: '140px', height: '140px', flexShrink: 0 }}>
+      {/* Outer ring */}
+      <div style={{
+        position: 'absolute', inset: 0,
+        borderRadius: '50%',
+        background: `conic-gradient(${conicStops})`,
+        animation: spinning ? 'lp-wheel-spin 1.8s cubic-bezier(0.2,0.8,0.4,1) forwards' : 'none',
+        boxShadow: '0 0 0 4px #1a1a2e, 0 0 24px rgba(0,0,0,0.6)',
+      }} />
+      {/* Inner hub */}
+      <div style={{
+        position: 'absolute', inset: '28%',
+        borderRadius: '50%',
+        background: '#0d1026',
+        border: '2px solid rgba(255,255,255,0.1)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        flexDirection: 'column',
+        boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.8)',
+      }}>
+        {spinning ? (
+          <div className="animate-pulse" style={{ color: Gold, fontSize: '16px', fontWeight: 900 }}>…</div>
+        ) : result ? (
+          <>
+            <div style={{ color: resultColor, fontSize: '18px', fontWeight: 900, lineHeight: 1 }}>{result.number}</div>
+          </>
+        ) : (
+          <div style={{ fontSize: '20px' }}>🎡</div>
+        )}
+      </div>
+      {/* Pointer */}
+      <div style={{
+        position: 'absolute', top: '-8px', left: '50%', transform: 'translateX(-50%)',
+        width: 0, height: 0,
+        borderLeft: '6px solid transparent', borderRight: '6px solid transparent',
+        borderTop: '14px solid #d4af37',
+        filter: 'drop-shadow(0 2px 4px rgba(212,175,55,0.5))',
+      }} />
+    </div>
+  );
+}
+
+function DemoSection({ isMobile }) {
+  const [roundIdx, setRoundIdx]     = useState(0);
+  const [phase, setPhase]           = useState('betting'); // 'betting' | 'spinning' | 'result'
+  const [countdown, setCountdown]   = useState(8);
+  const [visibleBets, setVisibleBets] = useState([]);
+  const [leaderboard, setLeaderboard] = useState(INIT_LB.map(p => ({ ...p })));
+  const [deltas, setDeltas]         = useState({});
+  const [flashKeys, setFlashKeys]   = useState({});
+  const [roundNum, setRoundNum]     = useState(4);
+
+  const timerRef = useRef(null);
+
+  const round = ROUNDS[roundIdx];
+
+  // Main state machine
+  useEffect(() => {
+    setPhase('betting');
+    setCountdown(8);
+    setVisibleBets([]);
+    setDeltas({});
+    setFlashKeys({});
+  }, [roundIdx]);
+
+  // Countdown tick when betting
+  useEffect(() => {
+    if (phase !== 'betting') return;
+    if (countdown <= 0) {
+      setPhase('spinning');
+      return;
+    }
+    timerRef.current = setTimeout(() => setCountdown(c => c - 1), 1000);
+    return () => clearTimeout(timerRef.current);
+  }, [phase, countdown]);
+
+  // Trickle in bets during betting phase
+  useEffect(() => {
+    if (phase !== 'betting') return;
+    const delays = [1200, 2600, 4000, 5400, 6600];
+    const timers = round.bets.map((bet, i) =>
+      setTimeout(() => setVisibleBets(prev => [...prev, bet]), delays[i] ?? 7000)
+    );
+    return () => timers.forEach(clearTimeout);
+  }, [phase, round]);
+
+  // Spinning → result
+  useEffect(() => {
+    if (phase !== 'spinning') return;
+    const t = setTimeout(() => {
+      // Apply payouts
+      setLeaderboard(prev => {
+        const next = prev.map(p => {
+          const bet = round.bets.find(b => b.player === p.name);
+          return bet ? { ...p, chips: p.chips + bet.payout } : { ...p };
+        });
+        return next.sort((a, b) => b.chips - a.chips);
+      });
+      const d = {};
+      const fk = {};
+      round.bets.forEach(b => { d[b.player] = b.payout; fk[b.player] = Date.now(); });
+      setDeltas(d);
+      setFlashKeys(fk);
+      setPhase('result');
+    }, 2400);
+    return () => clearTimeout(t);
+  }, [phase, round]);
+
+  // Result → next round
+  useEffect(() => {
+    if (phase !== 'result') return;
+    const t = setTimeout(() => {
+      setRoundIdx(i => (i + 1) % ROUNDS.length);
+      setRoundNum(n => n + 1);
+    }, 4000);
+    return () => clearTimeout(t);
+  }, [phase]);
+
+  const resultColor = round.color === 'red' ? '#ef4444' : round.color === 'green' ? '#22c55e' : '#e2e8f0';
+
+  return (
+    <section style={{
+      position: 'relative', zIndex: 1,
+      padding: isMobile ? '72px 16px' : '96px 40px',
+      borderTop: '1px solid rgba(255,255,255,0.05)',
+    }}>
+      <div style={{ maxWidth: '960px', margin: '0 auto' }}>
+
+        {/* Header */}
+        <div style={{ textAlign: 'center', marginBottom: '48px' }}>
+          <div className="lp-fade-up" style={{ color: Gold, fontSize: '0.75rem', fontWeight: 700, letterSpacing: '3px', textTransform: 'uppercase', marginBottom: '12px' }}>Live demo</div>
+          <h2 className="lp-fade-up-2" style={{ margin: 0, fontSize: isMobile ? '1.8rem' : '2.4rem', fontWeight: 800, color: '#e2e8f0', letterSpacing: '-0.5px' }}>
+            Watch it in action.
+          </h2>
+          <p className="lp-fade-up-3" style={{ color: '#64748b', fontSize: '0.9rem', marginTop: '12px' }}>
+            A real round of Action Sync — bets open, wheel spins, leaderboard updates live.
+          </p>
+        </div>
+
+        {/* Browser chrome frame */}
+        <div style={{
+          background: 'rgba(13,16,38,0.95)',
+          border: '1px solid rgba(255,255,255,0.1)',
+          borderRadius: '16px',
+          overflow: 'hidden',
+          boxShadow: '0 32px 80px rgba(0,0,0,0.7)',
+        }}>
+          {/* Browser bar */}
+          <div style={{
+            background: 'rgba(0,0,0,0.4)',
+            padding: '10px 16px',
+            display: 'flex', alignItems: 'center', gap: '8px',
+            borderBottom: '1px solid rgba(255,255,255,0.06)',
+          }}>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              {['#ff5f57','#febc2e','#28c840'].map((c, i) => (
+                <div key={i} style={{ width: '11px', height: '11px', borderRadius: '50%', background: c }} />
+              ))}
+            </div>
+            <div style={{
+              flex: 1, maxWidth: '320px', margin: '0 auto',
+              background: 'rgba(255,255,255,0.06)',
+              borderRadius: '6px', padding: '4px 12px',
+              color: '#4a5568', fontSize: '0.75rem', textAlign: 'center',
+            }}>
+              🔒 actionsync.app · Room: <span style={{ color: Gold }}>MIKESTREAM</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: 'auto' }}>
+              <div className="lp-live-dot" style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#22c55e' }} />
+              <span style={{ color: '#22c55e', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '1px' }}>LIVE</span>
+            </div>
+          </div>
+
+          {/* App content */}
+          <div style={{
+            display: 'flex',
+            flexDirection: isMobile ? 'column' : 'row',
+            minHeight: '420px',
+          }}>
+
+            {/* ── LEFT: Dealer / Game view ── */}
+            <div style={{
+              flex: 1.2,
+              padding: '24px',
+              borderRight: isMobile ? 'none' : '1px solid rgba(255,255,255,0.06)',
+              borderBottom: isMobile ? '1px solid rgba(255,255,255,0.06)' : 'none',
+              display: 'flex', flexDirection: 'column', gap: '20px',
+            }}>
+              {/* Game header */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ color: '#94a3b8', fontSize: '0.7rem', letterSpacing: '1px', textTransform: 'uppercase' }}>Current Game</div>
+                  <div style={{ color: '#e2e8f0', fontWeight: 700, fontSize: '1rem' }}>🎡 Roulette · Round {roundNum}</div>
+                </div>
+                <div style={{
+                  padding: '4px 12px',
+                  background: phase === 'spinning' ? 'rgba(212,175,55,0.15)' : phase === 'result' ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)',
+                  border: `1px solid ${phase === 'spinning' ? 'rgba(212,175,55,0.4)' : phase === 'result' ? 'rgba(34,197,94,0.4)' : 'rgba(239,68,68,0.4)'}`,
+                  borderRadius: '20px',
+                  color: phase === 'spinning' ? Gold : phase === 'result' ? '#22c55e' : '#ef4444',
+                  fontSize: '0.7rem', fontWeight: 700, letterSpacing: '1px',
+                }}>
+                  {phase === 'betting' ? `BETS OPEN · ${countdown}s` : phase === 'spinning' ? 'SPINNING...' : 'RESULT'}
+                </div>
+              </div>
+
+              {/* Wheel + result */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+                <RouletteWheel spinning={phase === 'spinning'} result={phase === 'result' ? round : null} />
+                <div style={{ flex: 1 }}>
+                  {phase === 'result' ? (
+                    <div style={{
+                      background: `${resultColor}10`,
+                      border: `1px solid ${resultColor}30`,
+                      borderRadius: '12px', padding: '16px',
+                      textAlign: 'center',
+                    }}>
+                      <div style={{ color: '#94a3b8', fontSize: '0.7rem', letterSpacing: '1px', marginBottom: '4px' }}>WINNING NUMBER</div>
+                      <div style={{ fontSize: '2.5rem', fontWeight: 900, color: resultColor, lineHeight: 1 }}>{round.number}</div>
+                      <div style={{
+                        display: 'inline-block', marginTop: '8px',
+                        padding: '2px 10px', borderRadius: '20px',
+                        background: `${resultColor}20`, color: resultColor,
+                        fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase',
+                      }}>{round.color}</div>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {[
+                        { label: 'Red / Black', odds: '1:1' },
+                        { label: 'Even / Odd', odds: '1:1' },
+                        { label: 'Straight Up', odds: '35:1' },
+                      ].map(o => (
+                        <div key={o.label} style={{
+                          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                          padding: '8px 12px',
+                          background: 'rgba(255,255,255,0.03)',
+                          borderRadius: '8px',
+                          border: '1px solid rgba(255,255,255,0.06)',
+                        }}>
+                          <span style={{ color: '#94a3b8', fontSize: '0.78rem' }}>{o.label}</span>
+                          <span style={{ color: Gold, fontSize: '0.78rem', fontWeight: 700 }}>{o.odds}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Bet feed */}
+              <div>
+                <div style={{ color: '#4a5568', fontSize: '0.7rem', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '8px' }}>Recent Bets</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minHeight: '100px' }}>
+                  {visibleBets.slice(-4).map((b, i) => (
+                    <div key={i} style={{
+                      display: 'flex', alignItems: 'center', gap: '8px',
+                      padding: '7px 10px',
+                      background: 'rgba(255,255,255,0.03)',
+                      borderRadius: '8px',
+                      animation: 'fadeInUp 0.35s ease both',
+                      border: '1px solid rgba(255,255,255,0.04)',
+                    }}>
+                      <span style={{ fontSize: '14px' }}>{b.avatar}</span>
+                      <span style={{ color: '#94a3b8', fontSize: '0.78rem', flex: 1 }}>{b.player}</span>
+                      <span style={{ background: 'rgba(212,175,55,0.15)', color: Gold, fontSize: '0.7rem', fontWeight: 700, padding: '2px 8px', borderRadius: '6px' }}>{b.bet}</span>
+                      <span style={{ color: '#e2e8f0', fontSize: '0.78rem', fontWeight: 600 }}>🪙 {b.amount.toLocaleString()}</span>
+                    </div>
+                  ))}
+                  {visibleBets.length === 0 && (
+                    <div style={{ color: '#2a3444', fontSize: '0.8rem', padding: '10px', textAlign: 'center' }}>Waiting for bets...</div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* ── RIGHT: Leaderboard ── */}
+            <div style={{ flex: 1, padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <div style={{ color: '#94a3b8', fontSize: '0.7rem', letterSpacing: '1px', textTransform: 'uppercase' }}>Live Leaderboard</div>
+                <div style={{ color: '#e2e8f0', fontWeight: 700, fontSize: '1rem', marginTop: '2px' }}>Room: MIKESTREAM</div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {leaderboard.map((p, i) => {
+                  const delta = deltas[p.name];
+                  const isFlashing = !!flashKeys[p.name];
+                  const rankEmoji = ['🥇','🥈','🥉','4','5'][i] ?? (i + 1);
+                  return (
+                    <div key={p.name} style={{
+                      display: 'flex', alignItems: 'center', gap: '10px',
+                      padding: '10px 12px',
+                      background: i === 0 ? 'rgba(212,175,55,0.07)' : 'rgba(255,255,255,0.025)',
+                      border: i === 0 ? '1px solid rgba(212,175,55,0.2)' : '1px solid rgba(255,255,255,0.04)',
+                      borderRadius: '10px',
+                      transition: 'background 0.5s ease',
+                    }}>
+                      <span style={{ fontSize: '1rem', width: '22px', textAlign: 'center', flexShrink: 0 }}>{rankEmoji}</span>
+                      <span style={{ fontSize: '14px', flexShrink: 0 }}>{p.avatar}</span>
+                      <span style={{ flex: 1, color: i === 0 ? Gold : '#94a3b8', fontWeight: i === 0 ? 700 : 500, fontSize: '0.82rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
+                      {isFlashing && delta !== undefined && (
+                        <span style={{
+                          color: delta >= 0 ? '#22c55e' : '#ef4444',
+                          fontSize: '0.72rem', fontWeight: 700,
+                          animation: 'fadeInUp 0.4s ease both',
+                          flexShrink: 0,
+                        }}>
+                          {delta >= 0 ? '+' : ''}{delta.toLocaleString()}
+                        </span>
+                      )}
+                      <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: '0.85rem', flexShrink: 0 }}>
+                        🪙 {p.chips.toLocaleString()}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Round progress bar */}
+              <div style={{ marginTop: 'auto' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <span style={{ color: '#4a5568', fontSize: '0.7rem' }}>Round progress</span>
+                  <span style={{ color: '#4a5568', fontSize: '0.7rem' }}>
+                    {phase === 'betting' ? `${8 - countdown}/8s` : phase === 'spinning' ? 'Spinning' : 'Complete'}
+                  </span>
+                </div>
+                <div style={{ height: '4px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', overflow: 'hidden' }}>
+                  <div style={{
+                    height: '100%',
+                    background: phase === 'result' ? '#22c55e' : Gold,
+                    borderRadius: '4px',
+                    width: phase === 'betting'
+                      ? `${((8 - countdown) / 8) * 100}%`
+                      : phase === 'spinning' ? '90%' : '100%',
+                    transition: 'width 0.9s ease, background 0.3s ease',
+                  }} />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Caption */}
+        <p style={{ textAlign: 'center', color: '#374151', fontSize: '0.78rem', marginTop: '16px' }}>
+          Simulated demo — real sessions sync live across every viewer's device via Firebase
+        </p>
+      </div>
+    </section>
+  );
+}
+
 /* ══════════════════════════════════════════════════════════════ */
 export default function LandingPage({ isMobile, joinCodeInput, setJoinCodeInput, handleJoinByCode, joinCodeLoading, resolveError, setResolveError, setAuthMode }) {
 
@@ -396,6 +809,8 @@ export default function LandingPage({ isMobile, joinCodeInput, setJoinCodeInput,
           ))}
         </div>
       </section>
+
+      <DemoSection isMobile={isMobile} />
 
       {/* ═══════════════════════════════ STATS BAR ═══════════════════════════════ */}
       <section style={{

@@ -109,6 +109,11 @@ body {
 }
 .lp-nav-link:hover { color: #d4af37 !important; }
 
+@keyframes lp-wheel-spin {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(1440deg); }
+}
+
 .lp-input:focus {
   outline: none;
   border-color: rgba(212,175,55,0.6) !important;
