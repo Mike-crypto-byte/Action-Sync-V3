@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { database as db, ref, onValue, set, update, auth } from './firebase.js';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { useAuth } from './useAuth.js';
-import { startNewSession, startStream, switchGame, useSessionHistory, resolveRoomCode, normaliseCode, changeRoomCode, isRoomCodeAvailable } from './useFirebaseSync.js';
+import { startNewSession, startStream, switchGame, useSessionHistory, resolveRoomCode, normaliseCode, changeRoomCode, isRoomCodeAvailable, useVODs } from './useFirebaseSync.js';
 
 // Import game components
 import CrapsGame from './CrapsGame';
@@ -11,6 +11,8 @@ import BaccaratGame from './BaccaratGame';
 import RouletteGame from './RouletteGame';
 import StreamOverlay from './StreamOverlay';
 import SettingsPanel from './SettingsPanel';
+import VODScriptEditor from './VODScriptEditor';
+import VODPlayer from './VODPlayer';
 
 // ── URL helpers ────────────────────────────────────────────────────────────────
 const getDealerUidFromUrl = () =>
@@ -122,6 +124,10 @@ const AppMain = () => {
   };
 
   const sessionHistory = useSessionHistory(dealerUid);
+  const vods           = useVODs(dealerUid);
+
+  // ── VOD player (player-side) ──────────────────────────────────────────────
+  const [selectedVodId, setSelectedVodId] = useState(null);
 
   useEffect(() => {
     if (!isDealer || !user?.uid) return;
@@ -592,6 +598,19 @@ const AppMain = () => {
   if (selectedGame === 'baccarat') return <BaccaratGame onBack={deactivateGame} isDealerMode={isDealerMode} playerUserId={playerUid} playerName={playerName} skipRegistration={true} roomCode={dealerUid} />;
   if (selectedGame === 'roulette') return <RouletteGame onBack={deactivateGame} isDealerMode={isDealerMode} playerUserId={playerUid} playerName={playerName} skipRegistration={true} roomCode={dealerUid} />;
 
+  // ── Player: VOD session ───────────────────────────────────────────────────
+  if (isPlayer && selectedVodId) {
+    return (
+      <VODPlayer
+        dealerUid={dealerUid}
+        vodId={selectedVodId}
+        playerUid={playerUid}
+        playerName={playerName}
+        onBack={() => setSelectedVodId(null)}
+      />
+    );
+  }
+
   // ── Player waiting screen ─────────────────────────────────────────────────────
   if (isPlayer && !selectedGame) {
     return (
@@ -688,6 +707,43 @@ const AppMain = () => {
                     {[0,1,2].map(i => <div key={i} style={{ animationDelay: `${i*0.2}s`, width: '12px', height: '12px', borderRadius: '50%', background: '#d4af37' }} className="animate-pulse" />)}
                   </div>
                 </>
+              )}
+
+              {/* VOD library */}
+              {vods.length > 0 && (
+                <div style={{ background: 'rgba(12,15,35,0.55)', backdropFilter: 'blur(16px)', border: '1px solid rgba(212,175,55,0.15)', borderRadius: '16px', padding: '20px', textAlign: 'left', boxShadow: '0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04)', marginBottom: '16px' }}>
+                  <div style={{ color: '#d4af37', fontSize: '11px', letterSpacing: '2px', marginBottom: '16px', fontWeight: 'bold' }}>📹 VOD LIBRARY — PLAY ANYTIME</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {vods.map(vod => {
+                      const roundCount = vod.script ? Object.keys(vod.script).length : 0;
+                      const lbCount    = vod.leaderboard ? Object.keys(vod.leaderboard).length : 0;
+                      const myEntry    = vod.leaderboard?.[playerUid];
+                      return (
+                        <button
+                          key={vod.id}
+                          onClick={() => setSelectedVodId(vod.id)}
+                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(212,175,55,0.12)', borderRadius: '10px', cursor: 'pointer', textAlign: 'left', gap: '12px' }}
+                        >
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ color: '#fff', fontSize: '13px', fontWeight: '700', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{vod.title}</div>
+                            <div style={{ color: 'rgba(136,146,164,0.5)', fontSize: '11px' }}>
+                              {roundCount} round{roundCount !== 1 ? 's' : ''} · ${(vod.startingChips || 1000).toLocaleString()} start · {lbCount} completion{lbCount !== 1 ? 's' : ''}
+                            </div>
+                          </div>
+                          <div style={{ flexShrink: 0, textAlign: 'right' }}>
+                            {myEntry ? (
+                              <div style={{ color: myEntry.bankroll >= (vod.startingChips || 1000) ? '#4ade80' : '#f87171', fontSize: '12px', fontWeight: '700' }}>
+                                {myEntry.bankroll - (vod.startingChips || 1000) >= 0 ? '+' : ''}${Math.round(myEntry.bankroll - (vod.startingChips || 1000)).toLocaleString()}
+                              </div>
+                            ) : (
+                              <div style={{ color: '#d4af37', fontSize: '11px', fontWeight: '700' }}>▶ Play</div>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               )}
 
               {sessionHistory.length > 0 && (
@@ -815,7 +871,7 @@ const AppMain = () => {
 
         {/* Tabs */}
         <div style={{ display: 'flex', gap: '4px', marginBottom: '24px', background: 'rgba(255,255,255,0.04)', borderRadius: '10px', padding: '4px', width: 'fit-content' }}>
-          {[{ id: 'games', label: '🎮 Games' }, { id: 'settings', label: '⚙️ Settings' }].map(t => (
+          {[{ id: 'games', label: '🎮 Games' }, { id: 'videos', label: '📹 Videos' }, { id: 'settings', label: '⚙️ Settings' }].map(t => (
             <button key={t.id} onClick={() => setHubTab(t.id)} style={{
               padding: '8px 20px', borderRadius: '7px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', border: 'none', transition: 'all 0.15s',
               background: hubTab === t.id ? 'rgba(212,175,55,0.15)' : 'transparent',
@@ -828,6 +884,8 @@ const AppMain = () => {
 
         {hubTab === 'settings' ? (
           <SettingsPanel dealerUid={dealerUid} />
+        ) : hubTab === 'videos' ? (
+          <VODScriptEditor dealerUid={dealerUid} />
         ) : (
           <>
             {/* Game cards */}

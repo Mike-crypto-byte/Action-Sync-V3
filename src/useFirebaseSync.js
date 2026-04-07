@@ -469,3 +469,80 @@ export async function changeRoomCode(dealerUid, oldCode, newCode) {
   }
   return result;
 }
+
+// ============================================================
+// 12. VOD helpers
+//
+// Schema: rooms/{dealerUid}/vods/{vodId}/
+//   title, youtubeVideoId, startingChips, createdAt
+//   script/{n}: { roundNumber, game, betOpenAt, countdown, winner }
+//   leaderboard/{playerUid}: { playerUid, name, bankroll, completedAt }
+// ============================================================
+
+export function useVODs(dealerUid) {
+  const [vods, setVods] = useState([]);
+
+  useEffect(() => {
+    if (!dealerUid) return;
+    const unsub = onValue(rr(dealerUid, 'vods'), (snap) => {
+      if (snap.exists()) {
+        const list = Object.entries(snap.val())
+          .map(([id, data]) => ({ id, ...data }))
+          .sort((a, b) => b.createdAt - a.createdAt);
+        setVods(list);
+      } else {
+        setVods([]);
+      }
+    });
+    return () => unsub();
+  }, [dealerUid]);
+
+  return vods;
+}
+
+export async function saveVOD(dealerUid, { vodId, title, youtubeVideoId, startingChips, firstBetOpensAt }) {
+  const fields = { title, youtubeVideoId, startingChips, firstBetOpensAt: firstBetOpensAt ?? 0 };
+  if (vodId) {
+    await update(rr(dealerUid, `vods/${vodId}`), fields);
+    return vodId;
+  }
+  const newRef = await push(rr(dealerUid, 'vods'), { ...fields, createdAt: Date.now() });
+  return newRef.key;
+}
+
+export async function saveVODScript(dealerUid, vodId, rounds) {
+  // rounds is an array; store as a flat object keyed by index
+  const scriptObj = {};
+  rounds.forEach((round, i) => { scriptObj[String(i)] = round; });
+  await set(rr(dealerUid, `vods/${vodId}/script`), scriptObj);
+}
+
+export async function deleteVOD(dealerUid, vodId) {
+  await set(rr(dealerUid, `vods/${vodId}`), null);
+}
+
+export function useVODLeaderboard(dealerUid, vodId) {
+  const [leaderboard, setLeaderboard] = useState([]);
+
+  useEffect(() => {
+    if (!dealerUid || !vodId) return;
+    const unsub = onValue(rr(dealerUid, `vods/${vodId}/leaderboard`), (snap) => {
+      if (snap.exists()) {
+        const entries = Object.values(snap.val())
+          .sort((a, b) => b.bankroll - a.bankroll);
+        setLeaderboard(entries);
+      } else {
+        setLeaderboard([]);
+      }
+    });
+    return () => unsub();
+  }, [dealerUid, vodId]);
+
+  return leaderboard;
+}
+
+export async function completeVOD(dealerUid, vodId, playerUid, name, bankroll) {
+  await set(rr(dealerUid, `vods/${vodId}/leaderboard/${playerUid}`), {
+    playerUid, name, bankroll, completedAt: Date.now(),
+  });
+}
