@@ -97,6 +97,10 @@ const AppMain = () => {
 
   // ── Auth form (login/signup UI) ────────────────────────────────────────────────
   const [authMode, setAuthMode]         = useState('playerSignIn');
+  // Tracks whether the user explicitly clicked an auth CTA.
+  // Prevents the landing-page → auth form → player-mode-switch → landing-page loop.
+  const [authRequested, setAuthRequested] = useState(false);
+  const requestAuth = (mode) => { setAuthMode(mode); setAuthRequested(true); };
   const [formEmail, setFormEmail]       = useState('');
   const [formPassword, setFormPassword] = useState('');
   const [formName, setFormName]         = useState('');
@@ -358,7 +362,7 @@ const AppMain = () => {
 
   // ── Landing page ──────────────────────────────────────────────────────────────
   const isBareDomain = !getDealerUidFromUrl() && !getRoomCodeFromUrl() && !resolvedDealerUid;
-  if (!user && isBareDomain && authMode !== 'dealerSignIn' && authMode !== 'dealerSignUp') {
+  if (!user && isBareDomain && !authRequested) {
     return (
       <LandingPage
         isMobile={isMobile}
@@ -368,7 +372,7 @@ const AppMain = () => {
         joinCodeLoading={joinCodeLoading}
         resolveError={resolveError}
         setResolveError={setResolveError}
-        setAuthMode={setAuthMode}
+        setAuthMode={requestAuth}
       />
     );
   }
