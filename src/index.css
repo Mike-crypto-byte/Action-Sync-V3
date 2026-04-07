@@ -20,3 +20,100 @@ body {
 .animate-pulse {
   animation: pulse 1.5s ease-in-out infinite;
 }
+
+/* ── Landing page animations ── */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(32px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes floatY {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-10px); }
+}
+
+@keyframes glowPulse {
+  0%, 100% { box-shadow: 0 0 40px rgba(212,175,55,0.15), 0 0 80px rgba(212,175,55,0.05); }
+  50%       { box-shadow: 0 0 60px rgba(212,175,55,0.3),  0 0 120px rgba(212,175,55,0.1); }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes liveDot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.4; transform: scale(0.7); }
+}
+
+.lp-fade-up   { animation: fadeInUp 0.8s ease both; }
+.lp-fade-up-2 { animation: fadeInUp 0.8s ease 0.15s both; }
+.lp-fade-up-3 { animation: fadeInUp 0.8s ease 0.3s both; }
+.lp-fade-up-4 { animation: fadeInUp 0.8s ease 0.45s both; }
+.lp-fade-in   { animation: fadeIn 1.2s ease both; }
+.lp-float     { animation: floatY 4s ease-in-out infinite; }
+.lp-glow      { animation: glowPulse 3s ease-in-out infinite; }
+.lp-live-dot  { animation: liveDot 1.4s ease-in-out infinite; }
+
+.lp-shimmer-text {
+  background: linear-gradient(90deg, #d4af37 0%, #f5e07a 40%, #d4af37 60%, #b8941f 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: shimmer 4s linear infinite;
+}
+
+.lp-card-hover {
+  transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+.lp-card-hover:hover {
+  transform: translateY(-4px);
+  border-color: rgba(212,175,55,0.4) !important;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.5), 0 0 40px rgba(212,175,55,0.1) !important;
+}
+
+.lp-btn-primary {
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+.lp-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(212,175,55,0.4);
+  background: #e8c547 !important;
+}
+.lp-btn-primary:active { transform: translateY(0); }
+
+.lp-btn-outline {
+  transition: transform 0.18s ease, border-color 0.18s ease, color 0.18s ease, background 0.18s ease;
+}
+.lp-btn-outline:hover {
+  transform: translateY(-2px);
+  background: rgba(212,175,55,0.08) !important;
+  border-color: rgba(212,175,55,0.6) !important;
+  color: #d4af37 !important;
+}
+
+.lp-nav-link {
+  transition: color 0.18s ease;
+}
+.lp-nav-link:hover { color: #d4af37 !important; }
+
+.lp-input:focus {
+  outline: none;
+  border-color: rgba(212,175,55,0.6) !important;
+  box-shadow: 0 0 0 3px rgba(212,175,55,0.12);
+}
+
+/* hide scrollbar on landing */
+.lp-root { scroll-behavior: smooth; }

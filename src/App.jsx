@@ -13,6 +13,7 @@ import StreamOverlay from './StreamOverlay';
 import SettingsPanel from './SettingsPanel';
 import VODScriptEditor from './VODScriptEditor';
 import VODPlayer from './VODPlayer';
+import LandingPage from './LandingPage';
 
 // ── URL helpers ────────────────────────────────────────────────────────────────
 const getDealerUidFromUrl = () =>
@@ -359,90 +360,16 @@ const AppMain = () => {
   const isBareDomain = !getDealerUidFromUrl() && !getRoomCodeFromUrl() && !resolvedDealerUid;
   if (!user && isBareDomain && authMode !== 'dealerSignIn' && authMode !== 'dealerSignUp') {
     return (
-      <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg, #0a0e27 0%, #0f1923 60%, #141e2e 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-
-        {/* Hero */}
-        <div style={{ textAlign: 'center', maxWidth: '520px', marginBottom: '48px' }}>
-          <div style={{ fontSize: isMobile ? '52px' : '72px', marginBottom: '16px', filter: 'drop-shadow(0 0 24px rgba(212,175,55,0.4))' }}>🎰</div>
-          <h1 style={{ fontSize: isMobile ? '32px' : '48px', fontWeight: 'bold', color: '#d4af37', letterSpacing: '2px', margin: '0 0 10px', textShadow: '0 0 30px rgba(212,175,55,0.3)' }}>ACTION SYNC</h1>
-          <p style={{ color: '#7a8aaa', fontSize: isMobile ? '14px' : '16px', lineHeight: '1.7', margin: '0 0 8px' }}>
-            Live virtual casino companion for streamers and their viewers.
-          </p>
-          <p style={{ color: '#4a5568', fontSize: '13px', margin: 0 }}>
-            Bet virtual chips on Roulette, Craps &amp; Baccarat — together, in real time.
-          </p>
-        </div>
-
-        {/* How it works */}
-        <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '16px', maxWidth: '640px', width: '100%', marginBottom: '48px' }}>
-          {[
-            { icon: '📡', title: 'Streamer goes live', body: 'Dealer logs in, picks a game, and shares their room link or code with viewers.' },
-            { icon: '🎲', title: 'Viewers join the room', body: 'Players sign up with a display name and start with a virtual chip stack.' },
-            { icon: '🏆', title: 'Compete on the board', body: 'Place bets each round and climb the live leaderboard — no real money ever.' },
-          ].map(({ icon, title, body }) => (
-            <div key={title} style={{ flex: 1, background: 'rgba(15,18,40,0.5)', backdropFilter: 'blur(12px)', border: '1px solid rgba(212,175,55,0.15)', borderRadius: '14px', padding: '22px 20px', textAlign: 'center', boxShadow: '0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04)' }}>
-              <div style={{ fontSize: '28px', marginBottom: '10px', filter: 'drop-shadow(0 0 8px rgba(212,175,55,0.3))' }}>{icon}</div>
-              <div style={{ color: '#d4af37', fontSize: '13px', fontWeight: 'bold', letterSpacing: '0.5px', marginBottom: '8px' }}>{title}</div>
-              <div style={{ color: '#6b7a94', fontSize: '12px', lineHeight: '1.7' }}>{body}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* CTA cards */}
-        <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '16px', maxWidth: '480px', width: '100%', marginBottom: '32px' }}>
-
-          {/* Player join */}
-          <div style={{ flex: 1, background: 'rgba(15,18,40,0.6)', backdropFilter: 'blur(16px)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '14px', padding: '24px 20px', boxShadow: '0 8px 32px rgba(0,0,0,0.4), 0 0 40px rgba(212,175,55,0.05), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
-            <div style={{ color: '#d4af37', fontSize: '12px', fontWeight: 'bold', letterSpacing: '1px', marginBottom: '12px', textTransform: 'uppercase' }}>🎲 Join a Room</div>
-            <p style={{ color: '#7a8aaa', fontSize: '12px', lineHeight: '1.6', marginBottom: '14px' }}>
-              Have a room code from your streamer? Enter it below.
-            </p>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <input
-                type="text"
-                value={joinCodeInput}
-                onChange={e => { setJoinCodeInput(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,'')); setResolveError(null); }}
-                onKeyPress={e => e.key === 'Enter' && handleJoinByCode()}
-                placeholder="Room code"
-                maxLength={16}
-                style={{ flex: 1, padding: '11px 12px', background: '#0a0a0a', border: '1px solid #444', borderRadius: '8px', color: '#fff', fontSize: '14px', outline: 'none', fontFamily: 'inherit', letterSpacing: '2px' }}
-              />
-              <button
-                onClick={handleJoinByCode}
-                disabled={joinCodeLoading || !joinCodeInput.trim()}
-                style={{ padding: '11px 14px', background: joinCodeInput.trim() ? '#d4af37' : '#2a2a2a', border: 'none', borderRadius: '8px', color: joinCodeInput.trim() ? '#000' : '#555', fontWeight: 'bold', fontSize: '13px', cursor: joinCodeInput.trim() ? 'pointer' : 'not-allowed', fontFamily: 'inherit' }}
-              >
-                {joinCodeLoading ? '...' : 'Go'}
-              </button>
-            </div>
-            {resolveError && <div style={{ color: '#f44336', fontSize: '11px', marginTop: '6px' }}>{resolveError}</div>}
-          </div>
-
-          {/* Dealer box */}
-          <div style={{ flex: 1, background: 'rgba(15,18,40,0.5)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '14px', padding: '24px 20px', boxShadow: '0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04)' }}>
-            <div style={{ color: '#888', fontSize: '12px', fontWeight: 'bold', letterSpacing: '1px', marginBottom: '12px', textTransform: 'uppercase' }}>🎰 Streamer / Dealer</div>
-            <p style={{ color: '#4a5568', fontSize: '12px', lineHeight: '1.6', marginBottom: '14px' }}>
-              Running a stream? Create a dealer account to host your own room.
-            </p>
-            <button
-              onClick={() => setAuthMode('dealerSignUp')}
-              style={{ width: '100%', padding: '11px', background: 'transparent', border: '1px solid #555', borderRadius: '8px', color: '#aaa', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '0.5px', marginBottom: '8px' }}
-            >
-              Create Dealer Account
-            </button>
-            <button
-              onClick={() => setAuthMode('dealerSignIn')}
-              style={{ width: '100%', padding: '8px', background: 'transparent', border: 'none', color: '#555', fontSize: '11px', cursor: 'pointer', fontFamily: 'inherit' }}
-            >
-              Already have an account? Sign in
-            </button>
-          </div>
-        </div>
-
-        <p style={{ color: '#2a3444', fontSize: '12px', textAlign: 'center' }}>
-          Virtual entertainment only · No real money · 18+ only
-        </p>
-      </div>
+      <LandingPage
+        isMobile={isMobile}
+        joinCodeInput={joinCodeInput}
+        setJoinCodeInput={setJoinCodeInput}
+        handleJoinByCode={handleJoinByCode}
+        joinCodeLoading={joinCodeLoading}
+        resolveError={resolveError}
+        setResolveError={setResolveError}
+        setAuthMode={setAuthMode}
+      />
     );
   }
 
