@@ -640,12 +640,12 @@ const AppMain = () => {
                 </>
               )}
 
-              {/* VOD library */}
-              {vods.length > 0 && (
+              {/* VOD library — only show published VODs to players */}
+              {vods.filter(v => v.published ?? true).length > 0 && (
                 <div style={{ background: 'rgba(12,15,35,0.55)', backdropFilter: 'blur(16px)', border: '1px solid rgba(212,175,55,0.15)', borderRadius: '16px', padding: '20px', textAlign: 'left', boxShadow: '0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04)', marginBottom: '16px' }}>
                   <div style={{ color: '#d4af37', fontSize: '11px', letterSpacing: '2px', marginBottom: '16px', fontWeight: 'bold' }}>📹 VOD LIBRARY — PLAY ANYTIME</div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {vods.map(vod => {
+                    {vods.filter(v => v.published ?? true).map(vod => {
                       const roundCount = vod.script ? Object.keys(vod.script).length : 0;
                       const lbCount    = vod.leaderboard ? Object.keys(vod.leaderboard).length : 0;
                       const myEntry    = vod.leaderboard?.[playerUid];

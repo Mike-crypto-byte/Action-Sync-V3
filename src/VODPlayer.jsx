@@ -13,7 +13,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { onValue, ref } from 'firebase/database';
 import { database as db } from './firebase';
-import { completeVOD, useVODLeaderboard } from './useFirebaseSync';
+import { completeVOD, useVODLeaderboard, saveVODPlayerSession, loadVODPlayerSession } from './useFirebaseSync';
 
 // ── YouTube IFrame API loader (shared singleton) ─────────────────────────────
 let _ytLoading = false;
@@ -106,19 +106,16 @@ export default function VODPlayer({ dealerUid, vodId, playerUid, playerName, onB
 
   const leaderboard = useVODLeaderboard(dealerUid, vodId);
 
-  // ── Load VOD data ──────────────────────────────────────────────────────────
+  // ── Load VOD data + restore player session ────────────────────────────────
   useEffect(() => {
     if (!dealerUid || !vodId) return;
-    const unsub = onValue(ref(db, `rooms/${dealerUid}/vods/${vodId}`), (snap) => {
+    const unsub = onValue(ref(db, `rooms/${dealerUid}/vods/${vodId}`), async (snap) => {
       if (!snap.exists()) return;
       const data = snap.val();
       setVodData(data);
 
-      const startingChips = data.startingChips || 1000;
-      if (bankrollRef.current == null) {
-        bankrollRef.current = startingChips;
-        setBankroll(startingChips);
-      }
+      // Use VOD-specific odds; fall back to standard baccarat defaults
+      setOdds(data.odds || null);
 
       // Build rounds array with derived betting windows
       const raw = data.script
@@ -133,18 +130,26 @@ export default function VODPlayer({ dealerUid, vodId, playerUid, playerName, onB
         resolveAt:  r.resultAt + 5,
       }));
       setRounds(parsed);
-    }, { onlyOnce: true });
-    return () => unsub();
-  }, [dealerUid, vodId]);
 
-  // ── Load dealer's baccarat odds ────────────────────────────────────────────
-  useEffect(() => {
-    if (!dealerUid) return;
-    const unsub = onValue(ref(db, `rooms/${dealerUid}/settings/odds/baccarat`), (snap) => {
-      setOdds(snap.exists() ? snap.val() : null);
+      // Restore saved session if it exists; otherwise start fresh
+      if (bankrollRef.current == null) {
+        const saved = await loadVODPlayerSession(dealerUid, vodId, playerUid);
+        if (saved) {
+          bankrollRef.current = saved.bankroll;
+          setBankroll(saved.bankroll);
+          firedRef.current    = saved.firedIndices;
+          lockedRef.current   = saved.lockedIndices;
+          resolvedRef.current = saved.resolvedIndices;
+          lastTimeRef.current = saved.lastTime;
+        } else {
+          const startingChips = data.startingChips || 1000;
+          bankrollRef.current = startingChips;
+          setBankroll(startingChips);
+        }
+      }
     }, { onlyOnce: true });
     return () => unsub();
-  }, [dealerUid]);
+  }, [dealerUid, vodId, playerUid]);
 
   // ── Core: process current video time ──────────────────────────────────────
   const processTime = useCallback((currentTime, roundsSnap) => {
@@ -260,6 +265,22 @@ export default function VODPlayer({ dealerUid, vodId, playerUid, playerName, onB
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vodData?.youtubeVideoId]);
+
+  // ── Persist player session every 10 s ─────────────────────────────────────
+  useEffect(() => {
+    if (!dealerUid || !vodId || !playerUid) return;
+    const id = setInterval(() => {
+      if (completedRef.current || bankrollRef.current == null) return;
+      saveVODPlayerSession(dealerUid, vodId, playerUid, {
+        bankroll:        bankrollRef.current,
+        firedIndices:    firedRef.current,
+        lockedIndices:   lockedRef.current,
+        resolvedIndices: resolvedRef.current,
+        lastTime:        lastTimeRef.current,
+      }).catch(() => {});
+    }, 10000);
+    return () => clearInterval(id);
+  }, [dealerUid, vodId, playerUid]);
 
   // Re-attach poll when rounds or processTime changes (e.g. odds load after player ready)
   useEffect(() => {

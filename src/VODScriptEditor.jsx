@@ -75,6 +75,12 @@ const S = {
 
 const defaultForm = () => ({ resultAt: '', winner: '', editIndex: null });
 
+const defaultOdds = () => ({
+  player: { num: 1,  den: 1  },   // 1:1
+  banker: { num: 19, den: 20 },   // 19:20 (5% commission)
+  tie:    { num: 8,  den: 1  },   // 8:1
+});
+
 // ════════════════════════════════════════════════════════════════════════════════
 export default function VODScriptEditor({ dealerUid }) {
   const vods = useVODs(dealerUid);
@@ -95,6 +101,9 @@ export default function VODScriptEditor({ dealerUid }) {
   const playerContainerRef                  = useRef(null);
   const pollRef                             = useRef(null);
 
+  const [vodOdds, setVodOdds]     = useState(defaultOdds());
+  const [published, setPublished] = useState(false);
+
   const [saving, setSaving]     = useState(false);
   const [saveError, setSaveError] = useState(null);
   const [deleting, setDeleting] = useState(null);
@@ -106,6 +115,8 @@ export default function VODScriptEditor({ dealerUid }) {
     setVodUrl(vod.youtubeVideoId ? `https://youtu.be/${vod.youtubeVideoId}` : '');
     setVodStartingChips(vod.startingChips || 1000);
     setFirstBetOpensAt(vod.firstBetOpensAt ?? 0);
+    setVodOdds(vod.odds ? { ...defaultOdds(), ...vod.odds } : defaultOdds());
+    setPublished(vod.published ?? true); // existing VODs without the field default to published
     const scriptArr = vod.script
       ? Object.values(vod.script).sort((a, b) => a.resultAt - b.resultAt)
       : [];
@@ -121,6 +132,8 @@ export default function VODScriptEditor({ dealerUid }) {
     setVodUrl('');
     setVodStartingChips(1000);
     setFirstBetOpensAt(0);
+    setVodOdds(defaultOdds());
+    setPublished(false);
     setRounds([]);
     setForm(defaultForm());
     setSaveError(null);
@@ -233,7 +246,7 @@ export default function VODScriptEditor({ dealerUid }) {
     setSaveError(null);
     try {
       const vodId = editingId === '__new__' ? null : editingId;
-      const newId = await saveVOD(dealerUid, { vodId, title: vodTitle.trim(), youtubeVideoId: videoId, startingChips: vodStartingChips, firstBetOpensAt });
+      const newId = await saveVOD(dealerUid, { vodId, title: vodTitle.trim(), youtubeVideoId: videoId, startingChips: vodStartingChips, firstBetOpensAt, odds: vodOdds, published });
       await saveVODScript(dealerUid, newId || vodId, rounds);
       setEditingId(newId || vodId);
     } catch (e) {
@@ -276,7 +289,16 @@ export default function VODScriptEditor({ dealerUid }) {
               return (
                 <div key={vod.id} style={{ ...S.card, display: 'flex', alignItems: 'center', gap: '16px', padding: '16px 20px' }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ color: '#fff', fontSize: '14px', fontWeight: '700', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{vod.title}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                      <div style={{ color: '#fff', fontSize: '14px', fontWeight: '700', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{vod.title}</div>
+                      <span style={{ fontSize: '10px', fontWeight: '700', padding: '2px 7px', borderRadius: '4px', flexShrink: 0,
+                        background: (vod.published ?? true) ? 'rgba(74,222,128,0.12)' : 'rgba(255,255,255,0.06)',
+                        color: (vod.published ?? true) ? '#4ade80' : 'rgba(136,146,164,0.5)',
+                        border: `1px solid ${(vod.published ?? true) ? 'rgba(74,222,128,0.3)' : 'rgba(255,255,255,0.1)'}`,
+                      }}>
+                        {(vod.published ?? true) ? 'LIVE' : 'DRAFT'}
+                      </span>
+                    </div>
                     <div style={{ color: 'rgba(136,146,164,0.5)', fontSize: '11px' }}>
                       {roundCount} round{roundCount !== 1 ? 's' : ''} · ${(vod.startingChips || 1000).toLocaleString()} start · {lbCount} completion{lbCount !== 1 ? 's' : ''}
                     </div>
@@ -347,7 +369,7 @@ export default function VODScriptEditor({ dealerUid }) {
             </div>
 
             {/* First bet opens at — VOD-level field */}
-            <div>
+            <div style={{ marginBottom: '12px' }}>
               <div style={{ color: 'rgba(136,146,164,0.6)', fontSize: '11px', marginBottom: '6px' }}>
                 Round 1 betting opens at
                 <span style={{ color: 'rgba(136,146,164,0.35)', marginLeft: '6px' }}>(seconds — usually 0 or a few seconds in)</span>
@@ -366,6 +388,38 @@ export default function VODScriptEditor({ dealerUid }) {
                     ⏱ Use {playerTime}s
                   </button>
                 )}
+              </div>
+            </div>
+
+            {/* Baccarat odds for this VOD */}
+            <div>
+              <div style={{ color: 'rgba(136,146,164,0.6)', fontSize: '11px', marginBottom: '10px' }}>Baccarat payout odds</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {/* Player — always 1:1 */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#3b82f6', fontSize: '12px', fontWeight: '700', minWidth: '56px' }}>Player</span>
+                  <span style={{ color: 'rgba(136,146,164,0.4)', fontSize: '11px' }}>1:1 (standard)</span>
+                </div>
+                {/* Banker — commission toggle */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ color: '#ef4444', fontSize: '12px', fontWeight: '700', minWidth: '56px' }}>Banker</span>
+                  <button onClick={() => setVodOdds(o => ({ ...o, banker: { num: 19, den: 20 } }))} style={S.btn(vodOdds.banker.num === 19 && vodOdds.banker.den === 20)}>
+                    19:20 (5% comm)
+                  </button>
+                  <button onClick={() => setVodOdds(o => ({ ...o, banker: { num: 1, den: 1 } }))} style={S.btn(vodOdds.banker.num === 1 && vodOdds.banker.den === 1)}>
+                    1:1 (no comm)
+                  </button>
+                </div>
+                {/* Tie — payout toggle */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ color: '#22c55e', fontSize: '12px', fontWeight: '700', minWidth: '56px' }}>Tie</span>
+                  <button onClick={() => setVodOdds(o => ({ ...o, tie: { num: 8, den: 1 } }))} style={S.btn(vodOdds.tie.num === 8)}>
+                    8:1
+                  </button>
+                  <button onClick={() => setVodOdds(o => ({ ...o, tie: { num: 9, den: 1 } }))} style={S.btn(vodOdds.tie.num === 9)}>
+                    9:1
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -489,7 +543,7 @@ export default function VODScriptEditor({ dealerUid }) {
       </div>
 
       {/* Save bar */}
-      <div style={{ marginTop: '20px', display: 'flex', gap: '12px', alignItems: 'center' }}>
+      <div style={{ marginTop: '20px', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
         <button
           onClick={handleSave}
           disabled={saving}
@@ -497,6 +551,20 @@ export default function VODScriptEditor({ dealerUid }) {
         >
           {saving ? 'Saving...' : '💾 Save VOD'}
         </button>
+
+        {/* Publish toggle */}
+        <button
+          onClick={() => setPublished(p => !p)}
+          style={{
+            padding: '12px 20px', borderRadius: '10px', fontSize: '13px', fontWeight: '700', cursor: 'pointer', border: '1px solid',
+            background: published ? 'rgba(74,222,128,0.12)' : 'rgba(255,255,255,0.04)',
+            borderColor: published ? 'rgba(74,222,128,0.4)' : 'rgba(255,255,255,0.15)',
+            color: published ? '#4ade80' : 'rgba(136,146,164,0.6)',
+          }}
+        >
+          {published ? '● Published' : '○ Draft'}
+        </button>
+
         {editingId && editingId !== '__new__' && (
           <button onClick={() => handleDelete(editingId)} disabled={deleting === editingId} style={{ padding: '12px 20px', background: 'transparent', border: '1px solid rgba(239,68,68,0.35)', borderRadius: '10px', color: 'rgba(239,68,68,0.7)', fontSize: '13px', cursor: 'pointer' }}>
             {deleting === editingId ? 'Deleting...' : 'Delete VOD'}

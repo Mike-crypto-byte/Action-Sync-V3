@@ -500,14 +500,46 @@ export function useVODs(dealerUid) {
   return vods;
 }
 
-export async function saveVOD(dealerUid, { vodId, title, youtubeVideoId, startingChips, firstBetOpensAt }) {
-  const fields = { title, youtubeVideoId, startingChips, firstBetOpensAt: firstBetOpensAt ?? 0 };
+export async function saveVOD(dealerUid, { vodId, title, youtubeVideoId, startingChips, firstBetOpensAt, odds, published }) {
+  const fields = {
+    title,
+    youtubeVideoId,
+    startingChips,
+    firstBetOpensAt: firstBetOpensAt ?? 0,
+    odds: odds ?? null,
+    published: published ?? false,
+  };
   if (vodId) {
     await update(rr(dealerUid, `vods/${vodId}`), fields);
     return vodId;
   }
   const newRef = await push(rr(dealerUid, 'vods'), { ...fields, createdAt: Date.now() });
   return newRef.key;
+}
+
+export async function saveVODPlayerSession(dealerUid, vodId, playerUid, { bankroll, firedIndices, lockedIndices, resolvedIndices, lastTime }) {
+  // Store index sets as objects keyed by string index for Firebase compat
+  const toObj = (set) => [...set].reduce((acc, i) => { acc[String(i)] = true; return acc; }, {});
+  await set(rr(dealerUid, `vods/${vodId}/playerSessions/${playerUid}`), {
+    bankroll, lastTime, updatedAt: Date.now(),
+    firedIndices:    toObj(firedIndices),
+    lockedIndices:   toObj(lockedIndices),
+    resolvedIndices: toObj(resolvedIndices),
+  });
+}
+
+export async function loadVODPlayerSession(dealerUid, vodId, playerUid) {
+  const snap = await get(rr(dealerUid, `vods/${vodId}/playerSessions/${playerUid}`));
+  if (!snap.exists()) return null;
+  const d = snap.val();
+  const toSet = (obj) => new Set(Object.keys(obj || {}).map(Number));
+  return {
+    bankroll:        d.bankroll,
+    lastTime:        d.lastTime ?? 0,
+    firedIndices:    toSet(d.firedIndices),
+    lockedIndices:   toSet(d.lockedIndices),
+    resolvedIndices: toSet(d.resolvedIndices),
+  };
 }
 
 export async function saveVODScript(dealerUid, vodId, rounds) {
