@@ -92,7 +92,8 @@ export default function VODPlayer({ dealerUid, vodId, playerUid, playerName, onB
   const [countdownLeft, setCountdownLeft] = useState(0);
 
   const firedRef    = useRef(new Set());   // indices that have opened
-  const resolvedRef = useRef(new Set());   // indices that have resolved
+  const lockedRef   = useRef(new Set());   // indices where bets are locked (betCloseAt passed)
+  const resolvedRef = useRef(new Set());   // indices that have resolved (resolveAt passed)
 
   const [resultBanner, setResultBanner] = useState(null);
   const [completed, setCompleted]       = useState(false);
@@ -129,6 +130,7 @@ export default function VODPlayer({ dealerUid, vodId, playerUid, playerName, onB
         index:      i,
         betOpenAt:  i === 0 ? firstBetOpensAt : raw[i - 1].resultAt,
         betCloseAt: r.resultAt,
+        resolveAt:  r.resultAt + 5,
       }));
       setRounds(parsed);
     }, { onlyOnce: true });
@@ -159,8 +161,14 @@ export default function VODPlayer({ dealerUid, vodId, playerUid, playerName, onB
         activeBetsRef.current = null;
       }
 
-      // Close + resolve
-      if (currentTime >= round.betCloseAt && firedRef.current.has(idx) && !resolvedRef.current.has(idx)) {
+      // Lock bets at betCloseAt — switch to 'waiting', freeze bet UI
+      if (currentTime >= round.betCloseAt && firedRef.current.has(idx) && !lockedRef.current.has(idx)) {
+        lockedRef.current.add(idx);
+        setBettingPhase('waiting');
+      }
+
+      // Reveal result 5 s later at resolveAt
+      if (currentTime >= round.resolveAt && lockedRef.current.has(idx) && !resolvedRef.current.has(idx)) {
         resolvedRef.current.add(idx);
 
         const locked      = activeBetsRef.current || {};
