@@ -78,9 +78,9 @@ if (typeof document !== 'undefined' && !document.getElementById('vod-result-anim
   const s = document.createElement('style');
   s.id = 'vod-result-anim-css';
   s.textContent = `
-    @keyframes vodResultIn  { from { opacity:0; transform:scale(0.7) translateY(30px); } to { opacity:1; transform:scale(1) translateY(0); } }
-    @keyframes vodResultOut { from { opacity:1; transform:scale(1); } to { opacity:0; transform:scale(1.1); } }
-    @keyframes vodPulseGlow { 0%,100% { box-shadow: 0 0 40px rgba(var(--glow),0.5); } 50% { box-shadow: 0 0 80px rgba(var(--glow),0.9), 0 0 120px rgba(var(--glow),0.4); } }
+    @keyframes vodBannerIn  { from { opacity:0; transform:scale(0.85) translateY(12px); } to { opacity:1; transform:scale(1) translateY(0); } }
+    @keyframes vodBannerOut { from { opacity:1; transform:scale(1); } to { opacity:0; transform:scale(0.95) translateY(-8px); } }
+    @keyframes vodShake     { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-6px)} 40%{transform:translateX(6px)} 60%{transform:translateX(-4px)} 80%{transform:translateX(4px)} }
   `;
   document.head.appendChild(s);
 }
@@ -107,8 +107,7 @@ export default function VODPlayer({ dealerUid, vodId, playerUid, playerName, onB
   const lockedRef   = useRef(new Set());   // indices where bets are locked (betCloseAt passed)
   const resolvedRef = useRef(new Set());   // indices that have resolved (resolveAt passed)
 
-  const [resultBanner, setResultBanner]   = useState(null);
-  const [resultOverlay, setResultOverlay] = useState(null);   // { net, winner, exiting }
+  const [resultBanner, setResultBanner]   = useState(null);  // { net, winner, totalBet, exiting }
   const [completed, setCompleted]         = useState(false);
   const completedRef                      = useRef(false);
   const [restarting, setRestarting]       = useState(false);
@@ -207,13 +206,7 @@ export default function VODPlayer({ dealerUid, vodId, playerUid, playerName, onB
 
         const totalBet = Object.values(locked).reduce((s, v) => s + (v || 0), 0);
         const net = newBankroll - before;
-        setResultBanner({ net, winner: round.winner, totalBet });
-
-        if (totalBet > 0) {
-          setResultOverlay({ net, winner: round.winner, exiting: false });
-          setTimeout(() => setResultOverlay(o => o ? { ...o, exiting: true } : null), 2200);
-          setTimeout(() => setResultOverlay(null), 2700);
-        }
+        setResultBanner({ net, winner: round.winner, totalBet, exiting: false });
 
         currentRoundRef.current = null;
         setBettingPhase(null);
@@ -221,7 +214,9 @@ export default function VODPlayer({ dealerUid, vodId, playerUid, playerName, onB
         activeBetsRef.current = null;
         setCurrentBets({});
 
-        setTimeout(() => setResultBanner(null), 4000);
+        // Fade-out then clear
+        setTimeout(() => setResultBanner(b => b ? { ...b, exiting: true } : null), 3000);
+        setTimeout(() => setResultBanner(null), 3500);
       }
     }
 
@@ -264,7 +259,6 @@ export default function VODPlayer({ dealerUid, vodId, playerUid, playerName, onB
     setCurrentRound(null);
     setCurrentBets({});
     setResultBanner(null);
-    setResultOverlay(null);
     // Seek YouTube back to start and restart poll
     if (ytPlayerRef.current) {
       try { ytPlayerRef.current.seekTo(0, true); ytPlayerRef.current.playVideo(); } catch (_) {}
@@ -469,65 +463,45 @@ export default function VODPlayer({ dealerUid, vodId, playerUid, playerName, onB
         {/* YouTube embed */}
         <div ref={playerDivRef} style={{ width: '100%', aspectRatio: '16/9', background: '#000', borderRadius: '12px', overflow: 'hidden', marginBottom: '16px' }} />
 
-        {/* Animated win/loss overlay */}
-        {resultOverlay && (() => {
-          const win  = resultOverlay.net > 0;
-          const push = resultOverlay.net === 0;
-          const color     = win ? '#4ade80' : push ? '#d4af37' : '#f87171';
-          const glowRgb   = win ? '74,222,128' : push ? '212,175,55' : '248,113,113';
-          const emoji     = win ? '🏆' : push ? '🤝' : '💸';
-          const label     = win ? 'YOU WIN' : push ? 'PUSH' : 'YOU LOSE';
+        {/* Result banner — animated, sits in the betting area */}
+        {resultBanner && (() => {
+          const hasBet  = resultBanner.totalBet > 0;
+          const win     = hasBet && resultBanner.net > 0;
+          const isPush  = hasBet && resultBanner.net === 0;
+          const lose    = hasBet && resultBanner.net < 0;
+          const color   = win ? '#4ade80' : isPush ? '#d4af37' : lose ? '#f87171' : 'rgba(136,146,164,0.5)';
+          const bg      = win ? 'rgba(74,222,128,0.1)' : isPush ? 'rgba(212,175,55,0.08)' : lose ? 'rgba(248,113,113,0.1)' : 'rgba(255,255,255,0.04)';
+          const border  = win ? 'rgba(74,222,128,0.4)' : isPush ? 'rgba(212,175,55,0.3)' : lose ? 'rgba(248,113,113,0.4)' : 'rgba(255,255,255,0.08)';
+          const glow    = win ? '0 0 32px rgba(74,222,128,0.25)' : lose ? '0 0 32px rgba(248,113,113,0.2)' : 'none';
+          const emoji   = win ? '🏆' : isPush ? '🤝' : lose ? '💸' : null;
+          const label   = win ? 'YOU WIN' : isPush ? 'PUSH' : lose ? 'YOU LOSE' : null;
+          const anim    = resultBanner.exiting ? 'vodBannerOut 0.5s ease-in forwards' : (lose ? 'vodBannerIn 0.35s cubic-bezier(0.34,1.56,0.64,1) forwards, vodShake 0.4s ease 0.35s' : 'vodBannerIn 0.35s cubic-bezier(0.34,1.56,0.64,1) forwards');
           return (
             <div style={{
-              position: 'fixed', inset: 0, zIndex: 200,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: `radial-gradient(ellipse at center, rgba(${glowRgb},0.18) 0%, rgba(8,11,26,0.85) 70%)`,
-              pointerEvents: 'none',
+              marginBottom: '16px', borderRadius: '14px', textAlign: 'center',
+              padding: hasBet ? '24px 20px' : '14px 20px',
+              background: bg, border: `2px solid ${border}`,
+              boxShadow: glow, animation: anim,
             }}>
-              <div style={{
-                textAlign: 'center',
-                background: `rgba(8,11,26,0.92)`,
-                border: `2px solid ${color}`,
-                borderRadius: '24px',
-                padding: '40px 60px',
-                backdropFilter: 'blur(20px)',
-                animation: (resultOverlay.exiting
-                  ? 'vodResultOut 0.5s ease-in forwards'
-                  : 'vodResultIn 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards') + `, vodPulseGlow 1.2s ease-in-out infinite`,
-                '--glow': glowRgb,
-                boxShadow: `0 0 60px rgba(${glowRgb},0.4)`,
-              }}>
-                <div style={{ fontSize: '56px', marginBottom: '12px', lineHeight: 1 }}>{emoji}</div>
-                <div style={{ fontSize: '28px', fontWeight: '900', color, letterSpacing: '4px', marginBottom: '10px' }}>{label}</div>
-                <div style={{ fontSize: '36px', fontWeight: '800', color }}>
-                  {resultOverlay.net > 0 ? '+' : ''}{fmtMoney(resultOverlay.net)}
+              {hasBet ? (
+                <>
+                  <div style={{ fontSize: '40px', lineHeight: 1, marginBottom: '8px' }}>{emoji}</div>
+                  <div style={{ fontSize: '14px', fontWeight: '800', color, letterSpacing: '3px', marginBottom: '6px' }}>{label}</div>
+                  <div style={{ fontSize: '2rem', fontWeight: '900', color }}>
+                    {resultBanner.net > 0 ? '+' : ''}{fmtMoney(resultBanner.net)}
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'rgba(136,146,164,0.5)', letterSpacing: '1px', marginTop: '6px' }}>
+                    {WINNER_LABEL[resultBanner.winner]} wins
+                  </div>
+                </>
+              ) : (
+                <div style={{ fontSize: '12px', color: 'rgba(136,146,164,0.4)', letterSpacing: '2px' }}>
+                  {WINNER_LABEL[resultBanner.winner]} wins · no bets placed
                 </div>
-                <div style={{ fontSize: '12px', color: 'rgba(136,146,164,0.6)', letterSpacing: '2px', marginTop: '8px' }}>
-                  {WINNER_LABEL[resultOverlay.winner]} wins
-                </div>
-              </div>
+              )}
             </div>
           );
         })()}
-
-        {/* Result banner */}
-        {resultBanner && (
-          <div style={{
-            marginBottom: '16px', padding: '16px 20px', borderRadius: '12px', textAlign: 'center',
-            background: resultBanner.net > 0 ? 'rgba(76,175,80,0.15)' : resultBanner.net === 0 ? 'rgba(212,175,55,0.1)' : 'rgba(239,68,68,0.12)',
-            border: `1px solid ${resultBanner.net > 0 ? 'rgba(76,175,80,0.4)' : resultBanner.net === 0 ? 'rgba(212,175,55,0.3)' : 'rgba(239,68,68,0.4)'}`,
-          }}>
-            <div style={{ fontSize: '12px', color: 'rgba(136,146,164,0.7)', letterSpacing: '2px', marginBottom: '6px' }}>
-              {WINNER_LABEL[resultBanner.winner]} wins
-            </div>
-            <div style={{ fontSize: '1.75rem', fontWeight: '800', color: resultBanner.net > 0 ? '#4ade80' : resultBanner.net === 0 ? '#d4af37' : '#f87171' }}>
-              {resultBanner.net > 0 ? '+' : ''}{fmtMoney(resultBanner.net)}
-            </div>
-            {resultBanner.totalBet === 0 && (
-              <div style={{ color: 'rgba(136,146,164,0.4)', fontSize: '11px', marginTop: '4px' }}>No bets placed</div>
-            )}
-          </div>
-        )}
 
         {/* Betting panel */}
         {(bettingPhase === 'open' || bettingPhase === 'waiting') && currentRound && (
