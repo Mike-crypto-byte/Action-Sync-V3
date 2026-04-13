@@ -90,7 +90,7 @@ export default function VODScriptEditor({ dealerUid }) {
   const [vodUrl, setVodUrl]                     = useState('');
   const [vodStartingChips, setVodStartingChips] = useState(1000);
   const [firstBetOpensAt, setFirstBetOpensAt]   = useState(0);   // VOD-level: when round 1 betting opens
-  const [vodRevealDelay, setVodRevealDelay]     = useState(5);   // VOD-level default: seconds after betCloseAt to reveal result
+  const [vodRevealDelay, setVodRevealDelay]     = useState(10);  // VOD-level default: seconds after betCloseAt to reveal result
 
   const [rounds, setRounds]   = useState([]);
   const [form, setForm]       = useState(defaultForm());

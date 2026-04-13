@@ -140,7 +140,7 @@ export default function VODPlayer({ dealerUid, vodId, playerUid, playerName, onB
         ? Object.values(data.script).sort((a, b) => a.resultAt - b.resultAt)
         : [];
       const firstBetOpensAt = data.firstBetOpensAt ?? 0;
-      const vodRevealDelay  = data.revealDelay ?? 5;
+      const vodRevealDelay  = data.revealDelay ?? 10;
       const parsed = raw.map((r, i) => {
         const prevResolveAt = i === 0 ? firstBetOpensAt : raw[i - 1].resultAt + (raw[i - 1].revealDelay ?? vodRevealDelay);
         return {
@@ -221,7 +221,9 @@ export default function VODPlayer({ dealerUid, vodId, playerUid, playerName, onB
         setBankroll(newBankroll);
 
         const totalBet = Object.values(locked).reduce((s, v) => s + (v || 0), 0);
-        const net = newBankroll - before;
+        // before is already post-deduction; add back totalBet to get pre-bet baseline
+        // so: win = positive profit, push = 0, loss = negative stake
+        const net = newBankroll - (before + totalBet);
         setResultBanner({ net, winner: round.winner, totalBet, exiting: false });
 
         currentRoundRef.current = null;
