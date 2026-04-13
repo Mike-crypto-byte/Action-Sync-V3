@@ -73,7 +73,7 @@ const S = {
   }),
 };
 
-const defaultForm = () => ({ resultAt: '', winner: '', editIndex: null });
+const defaultForm = () => ({ resultAt: '', winner: '', revealDelay: '', editIndex: null });
 
 const defaultOdds = () => ({
   player: { num: 1,  den: 1  },   // 1:1
@@ -89,7 +89,8 @@ export default function VODScriptEditor({ dealerUid }) {
   const [vodTitle, setVodTitle]                 = useState('');
   const [vodUrl, setVodUrl]                     = useState('');
   const [vodStartingChips, setVodStartingChips] = useState(1000);
-  const [firstBetOpensAt, setFirstBetOpensAt]   = useState(0);  // VOD-level: when round 1 betting opens
+  const [firstBetOpensAt, setFirstBetOpensAt]   = useState(0);   // VOD-level: when round 1 betting opens
+  const [vodRevealDelay, setVodRevealDelay]     = useState(5);   // VOD-level default: seconds after betCloseAt to reveal result
 
   const [rounds, setRounds]   = useState([]);
   const [form, setForm]       = useState(defaultForm());
@@ -115,6 +116,7 @@ export default function VODScriptEditor({ dealerUid }) {
     setVodUrl(vod.youtubeVideoId ? `https://youtu.be/${vod.youtubeVideoId}` : '');
     setVodStartingChips(vod.startingChips || 1000);
     setFirstBetOpensAt(vod.firstBetOpensAt ?? 0);
+    setVodRevealDelay(vod.revealDelay ?? 5);
     setVodOdds(vod.odds ? { ...defaultOdds(), ...vod.odds } : defaultOdds());
     setPublished(vod.published ?? true); // existing VODs without the field default to published
     const scriptArr = vod.script
@@ -132,6 +134,7 @@ export default function VODScriptEditor({ dealerUid }) {
     setVodUrl('');
     setVodStartingChips(1000);
     setFirstBetOpensAt(0);
+    setVodRevealDelay(5);
     setVodOdds(defaultOdds());
     setPublished(false);
     setRounds([]);
@@ -215,6 +218,8 @@ export default function VODScriptEditor({ dealerUid }) {
 
     setSaveError(null);
     const round = { game: 'baccarat', resultAt, winner: form.winner };
+    const perRoundDelay = form.revealDelay !== '' ? parseFloat(form.revealDelay) : NaN;
+    if (!isNaN(perRoundDelay) && perRoundDelay >= 0) round.revealDelay = perRoundDelay;
 
     setRounds(prev => {
       const next = form.editIndex != null
@@ -228,7 +233,7 @@ export default function VODScriptEditor({ dealerUid }) {
   };
 
   const editRound = (i) => {
-    setForm({ resultAt: String(rounds[i].resultAt), winner: rounds[i].winner, editIndex: i });
+    setForm({ resultAt: String(rounds[i].resultAt), winner: rounds[i].winner, revealDelay: rounds[i].revealDelay != null ? String(rounds[i].revealDelay) : '', editIndex: i });
     setSaveError(null);
   };
 
@@ -246,7 +251,7 @@ export default function VODScriptEditor({ dealerUid }) {
     setSaveError(null);
     try {
       const vodId = editingId === '__new__' ? null : editingId;
-      const newId = await saveVOD(dealerUid, { vodId, title: vodTitle.trim(), youtubeVideoId: videoId, startingChips: vodStartingChips, firstBetOpensAt, odds: vodOdds, published });
+      const newId = await saveVOD(dealerUid, { vodId, title: vodTitle.trim(), youtubeVideoId: videoId, startingChips: vodStartingChips, firstBetOpensAt, revealDelay: vodRevealDelay, odds: vodOdds, published });
       await saveVODScript(dealerUid, newId || vodId, rounds);
       setEditingId(newId || vodId);
     } catch (e) {
@@ -391,6 +396,28 @@ export default function VODScriptEditor({ dealerUid }) {
               </div>
             </div>
 
+            {/* Default result reveal delay */}
+            <div style={{ marginBottom: '12px' }}>
+              <div style={{ color: 'rgba(136,146,164,0.6)', fontSize: '11px', marginBottom: '6px' }}>
+                Default reveal delay
+                <span style={{ color: 'rgba(136,146,164,0.35)', marginLeft: '6px' }}>— seconds after bets lock before result shows</span>
+              </div>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                {[3, 5, 8, 10, 15].map(s => (
+                  <button key={s} onClick={() => setVodRevealDelay(s)} style={S.btn(vodRevealDelay === s)}>
+                    {s}s
+                  </button>
+                ))}
+                <input
+                  type="number"
+                  min="0"
+                  value={vodRevealDelay}
+                  onChange={e => setVodRevealDelay(Math.max(0, Number(e.target.value)))}
+                  style={{ ...S.input, width: '64px' }}
+                />
+              </div>
+            </div>
+
             {/* Baccarat odds for this VOD */}
             <div>
               <div style={{ color: 'rgba(136,146,164,0.6)', fontSize: '11px', marginBottom: '10px' }}>Baccarat payout odds</div>
@@ -471,6 +498,29 @@ export default function VODScriptEditor({ dealerUid }) {
               </div>
             </div>
 
+            {/* Per-round reveal delay override */}
+            <div style={{ marginBottom: '14px' }}>
+              <div style={{ color: 'rgba(136,146,164,0.6)', fontSize: '11px', marginBottom: '6px' }}>
+                Reveal delay override
+                <span style={{ color: 'rgba(136,146,164,0.35)', marginLeft: '6px' }}>— leave blank to use default ({vodRevealDelay}s)</span>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <input
+                  type="number"
+                  min="0"
+                  value={form.revealDelay}
+                  onChange={e => setForm(f => ({ ...f, revealDelay: e.target.value }))}
+                  placeholder={String(vodRevealDelay)}
+                  style={{ ...S.input, width: '80px', color: form.revealDelay !== '' ? '#d4af37' : undefined }}
+                />
+                {form.revealDelay !== '' && (
+                  <button onClick={() => setForm(f => ({ ...f, revealDelay: '' }))} style={{ padding: '4px 8px', background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '5px', color: 'rgba(136,146,164,0.5)', fontSize: '10px', cursor: 'pointer' }}>
+                    Clear
+                  </button>
+                )}
+              </div>
+            </div>
+
             {/* Winner */}
             <div style={{ marginBottom: '16px' }}>
               <div style={{ color: 'rgba(136,146,164,0.6)', fontSize: '11px', marginBottom: '6px' }}>Baccarat result</div>
@@ -520,21 +570,26 @@ export default function VODScriptEditor({ dealerUid }) {
                   <span style={{ color: 'rgba(136,146,164,0.3)', fontSize: '10px', minWidth: '22px' }}>#</span>
                   <span style={{ color: 'rgba(136,146,164,0.3)', fontSize: '10px', minWidth: '72px' }}>BET OPENS</span>
                   <span style={{ color: 'rgba(136,146,164,0.3)', fontSize: '10px', minWidth: '72px' }}>RESULT AT</span>
+                  <span style={{ color: 'rgba(136,146,164,0.3)', fontSize: '10px', minWidth: '44px' }}>DELAY</span>
                   <span style={{ color: 'rgba(136,146,164,0.3)', fontSize: '10px', flex: 1 }}>WINNER</span>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '260px', overflowY: 'auto' }}>
-                  {roundsWithWindows.map((r, i) => (
+                  {roundsWithWindows.map((r, i) => {
+                    const delay = r.revealDelay != null ? r.revealDelay : vodRevealDelay;
+                    const isOverride = r.revealDelay != null;
+                    return (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 10px', background: form.editIndex === i ? 'rgba(212,175,55,0.08)' : 'rgba(255,255,255,0.03)', borderRadius: '8px', border: `1px solid ${form.editIndex === i ? 'rgba(212,175,55,0.25)' : 'rgba(255,255,255,0.05)'}` }}>
                       <span style={{ color: 'rgba(136,146,164,0.4)', fontSize: '11px', minWidth: '22px' }}>#{r.roundNumber || i + 1}</span>
                       <span style={{ color: '#666', fontSize: '11px', fontFamily: 'monospace', minWidth: '72px' }}>{fmtTime(r.betOpenAt)}</span>
                       <span style={{ color: '#888', fontSize: '11px', fontFamily: 'monospace', minWidth: '72px' }}>{fmtTime(r.resultAt)}</span>
+                      <span style={{ fontSize: '11px', fontFamily: 'monospace', minWidth: '44px', color: isOverride ? '#d4af37' : 'rgba(136,146,164,0.3)' }}>{delay}s{isOverride ? '*' : ''}</span>
                       <span style={{ flex: 1, fontSize: '12px', fontWeight: '700', color: WINNER_COLORS[r.winner] || '#fff' }}>
                         {WINNER_LABELS[r.winner] || r.winner}
                       </span>
                       <button onClick={() => editRound(i)} style={{ padding: '3px 8px', background: 'transparent', border: '1px solid rgba(212,175,55,0.25)', borderRadius: '5px', color: '#d4af37', fontSize: '10px', cursor: 'pointer' }}>Edit</button>
                       <button onClick={() => deleteRound(i)} style={{ padding: '3px 6px', background: 'transparent', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '5px', color: 'rgba(239,68,68,0.6)', fontSize: '10px', cursor: 'pointer' }}>✕</button>
                     </div>
-                  ))}
+                  ); })}
                 </div>
               </>
             )}

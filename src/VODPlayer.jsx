@@ -1,11 +1,12 @@
 // VODPlayer.jsx — Player view for a VOD session
 //
 // Timing model:
-//   Each round has { resultAt, winner }.
+//   Each round has { resultAt, winner, revealDelay? }.
 //   Betting windows are derived from adjacent timestamps:
 //     round[0].betOpenAt  = vod.firstBetOpensAt  (dealer set, defaults 0)
 //     round[N].betOpenAt  = round[N-1].resultAt
 //     round[N].betCloseAt = round[N].resultAt
+//     round[N].resolveAt  = round[N].resultAt + (round.revealDelay ?? vod.revealDelay ?? 5)
 //
 //   The YouTube player position drives everything — pausing freezes the
 //   countdown naturally because countdown = betCloseAt - currentTime.
@@ -122,12 +123,13 @@ export default function VODPlayer({ dealerUid, vodId, playerUid, playerName, onB
         ? Object.values(data.script).sort((a, b) => a.resultAt - b.resultAt)
         : [];
       const firstBetOpensAt = data.firstBetOpensAt ?? 0;
+      const vodRevealDelay  = data.revealDelay ?? 5;
       const parsed = raw.map((r, i) => ({
         ...r,
         index:      i,
         betOpenAt:  i === 0 ? firstBetOpensAt : raw[i - 1].resultAt,
         betCloseAt: r.resultAt,
-        resolveAt:  r.resultAt + 5,
+        resolveAt:  r.resultAt + (r.revealDelay ?? vodRevealDelay),
       }));
       setRounds(parsed);
 
