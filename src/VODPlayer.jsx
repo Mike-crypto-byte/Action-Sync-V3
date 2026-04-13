@@ -89,7 +89,6 @@ if (typeof document !== 'undefined' && !document.getElementById('vod-result-anim
 export default function VODPlayer({ dealerUid, vodId, playerUid, playerName, onBack }) {
   const [vodData, setVodData]         = useState(null);
   const [rounds, setRounds]           = useState([]);   // pre-computed with betOpenAt/betCloseAt
-  const [odds, setOdds]               = useState(null);
 
   const [bankroll, setBankroll]       = useState(null);
   const bankrollRef                   = useRef(null);
@@ -115,9 +114,14 @@ export default function VODPlayer({ dealerUid, vodId, playerUid, playerName, onB
   const [restarting, setRestarting]       = useState(false);
 
   const ytPlayerRef    = useRef(null);
+  const [ytReady, setYtReady] = useState(false);  // true once YT onReady fires
   const pollRef        = useRef(null);
   const playerDivRef   = useRef(null);
   const lastTimeRef    = useRef(0);   // tracks furthest position reached — blocks backward seeks
+
+  // Refs that shadow mutable state — keep processTime stable (no closure on state)
+  const oddsRef         = useRef(null);
+  const currentRoundRef = useRef(null);
 
   const leaderboard = useVODLeaderboard(dealerUid, vodId);
 
@@ -130,7 +134,7 @@ export default function VODPlayer({ dealerUid, vodId, playerUid, playerName, onB
       setVodData(data);
 
       // Use VOD-specific odds; fall back to standard baccarat defaults
-      setOdds(data.odds || null);
+      oddsRef.current = data.odds || null;
 
       // Build rounds array with derived betting windows
       const raw = data.script
@@ -168,6 +172,8 @@ export default function VODPlayer({ dealerUid, vodId, playerUid, playerName, onB
   }, [dealerUid, vodId, playerUid]);
 
   // ── Core: process current video time ──────────────────────────────────────
+  // No state in deps — uses refs for odds and currentRound so the callback
+  // identity stays stable and never causes the poll interval to restart.
   const processTime = useCallback((currentTime, roundsSnap) => {
     if (completedRef.current) return;
 
@@ -177,24 +183,25 @@ export default function VODPlayer({ dealerUid, vodId, playerUid, playerName, onB
       // Open betting
       if (currentTime >= round.betOpenAt && !firedRef.current.has(idx)) {
         firedRef.current.add(idx);
+        currentRoundRef.current = round;
         setBettingPhase('open');
         setCurrentRound(round);
         activeBetsRef.current = null;
       }
 
-      // Lock bets at betCloseAt — switch to 'waiting', freeze bet UI
+      // Lock bets at betCloseAt
       if (currentTime >= round.betCloseAt && firedRef.current.has(idx) && !lockedRef.current.has(idx)) {
         lockedRef.current.add(idx);
         setBettingPhase('waiting');
       }
 
-      // Reveal result 5 s later at resolveAt
+      // Reveal result at resolveAt
       if (currentTime >= round.resolveAt && lockedRef.current.has(idx) && !resolvedRef.current.has(idx)) {
         resolvedRef.current.add(idx);
 
         const locked      = activeBetsRef.current || {};
         const before      = bankrollRef.current ?? 0;
-        const newBankroll = resolveBaccarat(round.winner, locked, before, odds);
+        const newBankroll = resolveBaccarat(round.winner, locked, before, oddsRef.current);
         bankrollRef.current = newBankroll;
         setBankroll(newBankroll);
 
@@ -202,13 +209,13 @@ export default function VODPlayer({ dealerUid, vodId, playerUid, playerName, onB
         const net = newBankroll - before;
         setResultBanner({ net, winner: round.winner, totalBet });
 
-        // Animated full-screen overlay
         if (totalBet > 0) {
           setResultOverlay({ net, winner: round.winner, exiting: false });
           setTimeout(() => setResultOverlay(o => o ? { ...o, exiting: true } : null), 2200);
           setTimeout(() => setResultOverlay(null), 2700);
         }
 
+        currentRoundRef.current = null;
         setBettingPhase(null);
         setCurrentRound(null);
         activeBetsRef.current = null;
@@ -218,11 +225,11 @@ export default function VODPlayer({ dealerUid, vodId, playerUid, playerName, onB
       }
     }
 
-    // Live countdown update
-    if (currentRound) {
-      setCountdownLeft(Math.max(0, Math.ceil(currentRound.betCloseAt - currentTime)));
+    // Live countdown — read from ref, no state dependency
+    if (currentRoundRef.current) {
+      setCountdownLeft(Math.max(0, Math.ceil(currentRoundRef.current.betCloseAt - currentTime)));
     }
-  }, [currentRound, odds]);
+  }, []);  // stable — all mutable data accessed via refs
 
   // ── Handle video ended ─────────────────────────────────────────────────────
   const handleVideoEnded = useCallback(async () => {
@@ -286,26 +293,12 @@ export default function VODPlayer({ dealerUid, vodId, playerUid, playerName, onB
         height: '100%',
         playerVars: { rel: 0, modestbranding: 1, playsinline: 1 },
         events: {
-          onReady: () => { ytPlayerRef.current = player; },
+          onReady: () => { ytPlayerRef.current = player; setYtReady(true); },
           onStateChange: (e) => {
             if (e.data === window.YT.PlayerState.ENDED) handleVideoEnded();
           },
         },
       });
-
-      pollRef.current = setInterval(() => {
-        if (!ytPlayerRef.current) return;
-        try {
-          const t = ytPlayerRef.current.getCurrentTime();
-          // Block backward seeks — snap player forward to furthest reached position
-          if (t < lastTimeRef.current - 1) {
-            ytPlayerRef.current.seekTo(lastTimeRef.current, true);
-            return;
-          }
-          if (t > lastTimeRef.current) lastTimeRef.current = t;
-          processTime(t, rounds);
-        } catch (_) {}
-      }, 500);
     });
 
     return () => {
@@ -313,6 +306,7 @@ export default function VODPlayer({ dealerUid, vodId, playerUid, playerName, onB
       if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
       if (player) { try { player.destroy(); } catch (_) {} }
       ytPlayerRef.current = null;
+      setYtReady(false);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vodData?.youtubeVideoId]);
@@ -333,9 +327,11 @@ export default function VODPlayer({ dealerUid, vodId, playerUid, playerName, onB
     return () => clearInterval(id);
   }, [dealerUid, vodId, playerUid]);
 
-  // Re-attach poll when rounds or processTime changes (e.g. odds load after player ready)
+  // ── Single poll: starts once YT is ready AND rounds are loaded ───────────────
+  // processTime is stable ([] deps), rounds only changes once on load,
+  // ytReady flips once — so this effect fires exactly once in normal operation.
   useEffect(() => {
-    if (!ytPlayerRef.current) return;
+    if (!ytReady || rounds.length === 0) return;
     if (pollRef.current) clearInterval(pollRef.current);
     pollRef.current = setInterval(() => {
       if (!ytPlayerRef.current) return;
@@ -348,9 +344,9 @@ export default function VODPlayer({ dealerUid, vodId, playerUid, playerName, onB
         if (t > lastTimeRef.current) lastTimeRef.current = t;
         processTime(t, rounds);
       } catch (_) {}
-    }, 500);
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [rounds, processTime]);
+    }, 250);
+    return () => { if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; } };
+  }, [ytReady, rounds, processTime]);
 
   // ── Betting actions ────────────────────────────────────────────────────────
   const placeBet = (betType) => {
