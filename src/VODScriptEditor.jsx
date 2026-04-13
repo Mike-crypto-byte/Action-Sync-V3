@@ -325,11 +325,10 @@ export default function VODScriptEditor({ dealerUid }) {
 
   // ── Editor view ────────────────────────────────────────────────────────────
   // Derive betting windows for the script preview table
-  const roundsWithWindows = rounds.map((r, i) => ({
-    ...r,
-    betOpenAt:  i === 0 ? firstBetOpensAt : rounds[i - 1].resultAt,
-    betCloseAt: r.resultAt,
-  }));
+  const roundsWithWindows = rounds.map((r, i) => {
+    const prevResolveAt = i === 0 ? firstBetOpensAt : rounds[i - 1].resultAt + (rounds[i - 1].revealDelay ?? vodRevealDelay);
+    return { ...r, betOpenAt: prevResolveAt, betCloseAt: r.resultAt };
+  });
 
   return (
     <div>
@@ -480,8 +479,8 @@ export default function VODScriptEditor({ dealerUid }) {
             {/* Result timestamp */}
             <div style={{ marginBottom: '14px' }}>
               <div style={{ color: 'rgba(136,146,164,0.6)', fontSize: '11px', marginBottom: '6px' }}>
-                Result reveals at (seconds)
-                <span style={{ color: 'rgba(136,146,164,0.35)', marginLeft: '6px' }}>— betting closes here too</span>
+                Bets close at (seconds)
+                <span style={{ color: 'rgba(136,146,164,0.35)', marginLeft: '6px' }}>— results show after the delay</span>
               </div>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                 <input
@@ -569,7 +568,7 @@ export default function VODScriptEditor({ dealerUid }) {
                 <div style={{ display: 'flex', gap: '10px', padding: '0 10px 6px', borderBottom: '1px solid rgba(255,255,255,0.06)', marginBottom: '6px' }}>
                   <span style={{ color: 'rgba(136,146,164,0.3)', fontSize: '10px', minWidth: '22px' }}>#</span>
                   <span style={{ color: 'rgba(136,146,164,0.3)', fontSize: '10px', minWidth: '72px' }}>BET OPENS</span>
-                  <span style={{ color: 'rgba(136,146,164,0.3)', fontSize: '10px', minWidth: '72px' }}>RESULT AT</span>
+                  <span style={{ color: 'rgba(136,146,164,0.3)', fontSize: '10px', minWidth: '72px' }}>BETS CLOSE</span>
                   <span style={{ color: 'rgba(136,146,164,0.3)', fontSize: '10px', minWidth: '44px' }}>DELAY</span>
                   <span style={{ color: 'rgba(136,146,164,0.3)', fontSize: '10px', flex: 1 }}>WINNER</span>
                 </div>

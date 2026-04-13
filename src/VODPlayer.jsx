@@ -73,16 +73,15 @@ const BET_TYPES   = ['player', 'banker', 'tie'];
 
 function fmtMoney(n) { return '$' + Math.round(n).toLocaleString(); }
 
-// ── Inject result animation CSS once ─────────────────────────────────────────
-if (typeof document !== 'undefined' && !document.getElementById('vod-result-anim-css')) {
-  const s = document.createElement('style');
-  s.id = 'vod-result-anim-css';
+// ── Inject result animation CSS (always update so hot-reload or code changes apply) ──
+if (typeof document !== 'undefined') {
+  let s = document.getElementById('vod-result-anim-css');
+  if (!s) { s = document.createElement('style'); s.id = 'vod-result-anim-css'; document.head.appendChild(s); }
   s.textContent = `
     @keyframes vodBannerIn  { from { opacity:0; transform:scale(0.85) translateY(12px); } to { opacity:1; transform:scale(1) translateY(0); } }
     @keyframes vodBannerOut { from { opacity:1; transform:scale(1); } to { opacity:0; transform:scale(0.95) translateY(-8px); } }
     @keyframes vodShake     { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-6px)} 40%{transform:translateX(6px)} 60%{transform:translateX(-4px)} 80%{transform:translateX(4px)} }
   `;
-  document.head.appendChild(s);
 }
 
 // ════════════════════════════════════════════════════════════════════════════════
@@ -121,6 +120,7 @@ export default function VODPlayer({ dealerUid, vodId, playerUid, playerName, onB
   // Refs that shadow mutable state — keep processTime stable (no closure on state)
   const oddsRef         = useRef(null);
   const currentRoundRef = useRef(null);
+  const currentBetsRef  = useRef({});   // mirrors currentBets state — readable inside processTime
 
   const leaderboard = useVODLeaderboard(dealerUid, vodId);
 
@@ -141,13 +141,16 @@ export default function VODPlayer({ dealerUid, vodId, playerUid, playerName, onB
         : [];
       const firstBetOpensAt = data.firstBetOpensAt ?? 0;
       const vodRevealDelay  = data.revealDelay ?? 5;
-      const parsed = raw.map((r, i) => ({
-        ...r,
-        index:      i,
-        betOpenAt:  i === 0 ? firstBetOpensAt : raw[i - 1].resultAt,
-        betCloseAt: r.resultAt,
-        resolveAt:  r.resultAt + (r.revealDelay ?? vodRevealDelay),
-      }));
+      const parsed = raw.map((r, i) => {
+        const prevResolveAt = i === 0 ? firstBetOpensAt : raw[i - 1].resultAt + (raw[i - 1].revealDelay ?? vodRevealDelay);
+        return {
+          ...r,
+          index:      i,
+          betOpenAt:  prevResolveAt,
+          betCloseAt: r.resultAt,
+          resolveAt:  r.resultAt + (r.revealDelay ?? vodRevealDelay),
+        };
+      });
       setRounds(parsed);
 
       // Restore saved session if it exists; otherwise start fresh
@@ -188,9 +191,22 @@ export default function VODPlayer({ dealerUid, vodId, playerUid, playerName, onB
         activeBetsRef.current = null;
       }
 
-      // Lock bets at betCloseAt
+      // Lock bets at betCloseAt — auto-confirm any unconfirmed bets the player placed
       if (currentTime >= round.betCloseAt && firedRef.current.has(idx) && !lockedRef.current.has(idx)) {
         lockedRef.current.add(idx);
+        // If player placed chips but didn't click Confirm, auto-confirm them now
+        if (activeBetsRef.current === null && Object.keys(currentBetsRef.current).length > 0) {
+          const pending = currentBetsRef.current;
+          const total = Object.values(pending).reduce((s, v) => s + (v || 0), 0);
+          if (total > 0) {
+            const newBankroll = (bankrollRef.current ?? 0) - total;
+            bankrollRef.current = newBankroll;
+            setBankroll(newBankroll);
+            activeBetsRef.current = { ...pending };
+            currentBetsRef.current = {};
+            setCurrentBets({});
+          }
+        }
         setBettingPhase('waiting');
       }
 
@@ -209,6 +225,7 @@ export default function VODPlayer({ dealerUid, vodId, playerUid, playerName, onB
         setResultBanner({ net, winner: round.winner, totalBet, exiting: false });
 
         currentRoundRef.current = null;
+        currentBetsRef.current = {};
         setBettingPhase(null);
         setCurrentRound(null);
         activeBetsRef.current = null;
@@ -256,6 +273,8 @@ export default function VODPlayer({ dealerUid, vodId, playerUid, playerName, onB
     setBankroll(startingChips);
     setCompleted(false);
     setBettingPhase(null);
+    currentBetsRef.current = {};
+    currentRoundRef.current = null;
     setCurrentRound(null);
     setCurrentBets({});
     setResultBanner(null);
@@ -346,7 +365,11 @@ export default function VODPlayer({ dealerUid, vodId, playerUid, playerName, onB
   const placeBet = (betType) => {
     if (bettingPhase !== 'open') return;
     if ((bankroll ?? 0) < selectedChip) return;
-    setCurrentBets(prev => ({ ...prev, [betType]: (prev[betType] || 0) + selectedChip }));
+    setCurrentBets(prev => {
+      const next = { ...prev, [betType]: (prev[betType] || 0) + selectedChip };
+      currentBetsRef.current = next;
+      return next;
+    });
   };
 
   const confirmBets = () => {
@@ -357,6 +380,7 @@ export default function VODPlayer({ dealerUid, vodId, playerUid, playerName, onB
     bankrollRef.current = newBankroll;
     setBankroll(newBankroll);
     activeBetsRef.current = { ...currentBets };
+    currentBetsRef.current = {};
     setCurrentBets({});
     setBettingPhase('waiting');
   };
@@ -586,7 +610,7 @@ export default function VODPlayer({ dealerUid, vodId, playerUid, playerName, onB
                     {totalCurrentBet > 0 ? `Confirm — ${fmtMoney(totalCurrentBet)}` : 'Place a bet'}
                   </button>
                   {totalCurrentBet > 0 && (
-                    <button onClick={() => setCurrentBets({})} style={{ padding: '11px 14px', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: 'rgba(136,146,164,0.6)', fontSize: '13px', cursor: 'pointer' }}>
+                    <button onClick={() => { currentBetsRef.current = {}; setCurrentBets({}); }} style={{ padding: '11px 14px', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: 'rgba(136,146,164,0.6)', fontSize: '13px', cursor: 'pointer' }}>
                       Clear
                     </button>
                   )}
