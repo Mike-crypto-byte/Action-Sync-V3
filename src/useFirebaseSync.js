@@ -553,6 +553,10 @@ export async function deleteVOD(dealerUid, vodId) {
   await set(rr(dealerUid, `vods/${vodId}`), null);
 }
 
+export async function deleteVODPlayerSession(dealerUid, vodId, playerUid) {
+  await set(rr(dealerUid, `vods/${vodId}/playerSessions/${playerUid}`), null);
+}
+
 export function useVODLeaderboard(dealerUid, vodId) {
   const [leaderboard, setLeaderboard] = useState([]);
 

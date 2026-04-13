@@ -479,6 +479,14 @@ const AppMain = () => {
             </>
           )}
 
+          {isBareDomain && (
+            <div style={{ marginTop: '12px', textAlign: 'center' }}>
+              <button onClick={() => setAuthRequested(false)} style={{ background: 'none', border: 'none', color: 'rgba(136,146,164,0.45)', fontSize: '11px', cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'underline' }}>
+                ← Back to home
+              </button>
+            </div>
+          )}
+
           <div style={{ marginTop: '16px', padding: '10px', background: 'rgba(212,175,55,0.07)', borderRadius: '8px', textAlign: 'center' }}>
             <div style={{ color: '#666', fontSize: '10px', lineHeight: '1.6' }}>Virtual entertainment only · No real money · 18+ only</div>
           </div>

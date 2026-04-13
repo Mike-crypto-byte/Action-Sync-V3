@@ -14,7 +14,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { onValue, ref } from 'firebase/database';
 import { database as db } from './firebase';
-import { completeVOD, useVODLeaderboard, saveVODPlayerSession, loadVODPlayerSession } from './useFirebaseSync';
+import { completeVOD, useVODLeaderboard, saveVODPlayerSession, loadVODPlayerSession, deleteVODPlayerSession } from './useFirebaseSync';
 
 // ── YouTube IFrame API loader (shared singleton) ─────────────────────────────
 let _ytLoading = false;
@@ -73,6 +73,18 @@ const BET_TYPES   = ['player', 'banker', 'tie'];
 
 function fmtMoney(n) { return '$' + Math.round(n).toLocaleString(); }
 
+// ── Inject result animation CSS once ─────────────────────────────────────────
+if (typeof document !== 'undefined' && !document.getElementById('vod-result-anim-css')) {
+  const s = document.createElement('style');
+  s.id = 'vod-result-anim-css';
+  s.textContent = `
+    @keyframes vodResultIn  { from { opacity:0; transform:scale(0.7) translateY(30px); } to { opacity:1; transform:scale(1) translateY(0); } }
+    @keyframes vodResultOut { from { opacity:1; transform:scale(1); } to { opacity:0; transform:scale(1.1); } }
+    @keyframes vodPulseGlow { 0%,100% { box-shadow: 0 0 40px rgba(var(--glow),0.5); } 50% { box-shadow: 0 0 80px rgba(var(--glow),0.9), 0 0 120px rgba(var(--glow),0.4); } }
+  `;
+  document.head.appendChild(s);
+}
+
 // ════════════════════════════════════════════════════════════════════════════════
 export default function VODPlayer({ dealerUid, vodId, playerUid, playerName, onBack }) {
   const [vodData, setVodData]         = useState(null);
@@ -96,9 +108,11 @@ export default function VODPlayer({ dealerUid, vodId, playerUid, playerName, onB
   const lockedRef   = useRef(new Set());   // indices where bets are locked (betCloseAt passed)
   const resolvedRef = useRef(new Set());   // indices that have resolved (resolveAt passed)
 
-  const [resultBanner, setResultBanner] = useState(null);
-  const [completed, setCompleted]       = useState(false);
-  const completedRef                    = useRef(false);
+  const [resultBanner, setResultBanner]   = useState(null);
+  const [resultOverlay, setResultOverlay] = useState(null);   // { net, winner, exiting }
+  const [completed, setCompleted]         = useState(false);
+  const completedRef                      = useRef(false);
+  const [restarting, setRestarting]       = useState(false);
 
   const ytPlayerRef    = useRef(null);
   const pollRef        = useRef(null);
@@ -185,7 +199,15 @@ export default function VODPlayer({ dealerUid, vodId, playerUid, playerName, onB
         setBankroll(newBankroll);
 
         const totalBet = Object.values(locked).reduce((s, v) => s + (v || 0), 0);
-        setResultBanner({ net: newBankroll - before, winner: round.winner, totalBet });
+        const net = newBankroll - before;
+        setResultBanner({ net, winner: round.winner, totalBet });
+
+        // Animated full-screen overlay
+        if (totalBet > 0) {
+          setResultOverlay({ net, winner: round.winner, exiting: false });
+          setTimeout(() => setResultOverlay(o => o ? { ...o, exiting: true } : null), 2200);
+          setTimeout(() => setResultOverlay(null), 2700);
+        }
 
         setBettingPhase(null);
         setCurrentRound(null);
@@ -215,6 +237,33 @@ export default function VODPlayer({ dealerUid, vodId, playerUid, playerName, onB
       console.error('Failed to record VOD completion:', e);
     }
   }, [dealerUid, vodId, playerUid, playerName]);
+
+  // ── Restart session ────────────────────────────────────────────────────────
+  const restartSession = useCallback(async () => {
+    setRestarting(true);
+    try { await deleteVODPlayerSession(dealerUid, vodId, playerUid); } catch (_) {}
+    // Reset all in-memory state
+    const startingChips = vodData?.startingChips || 1000;
+    bankrollRef.current     = startingChips;
+    firedRef.current        = new Set();
+    lockedRef.current       = new Set();
+    resolvedRef.current     = new Set();
+    lastTimeRef.current     = 0;
+    completedRef.current    = false;
+    activeBetsRef.current   = null;
+    setBankroll(startingChips);
+    setCompleted(false);
+    setBettingPhase(null);
+    setCurrentRound(null);
+    setCurrentBets({});
+    setResultBanner(null);
+    setResultOverlay(null);
+    // Seek YouTube back to start and restart poll
+    if (ytPlayerRef.current) {
+      try { ytPlayerRef.current.seekTo(0, true); ytPlayerRef.current.playVideo(); } catch (_) {}
+    }
+    setRestarting(false);
+  }, [dealerUid, vodId, playerUid, vodData]);
 
   // ── Init YouTube player once VOD data arrives ──────────────────────────────
   useEffect(() => {
@@ -380,9 +429,14 @@ export default function VODPlayer({ dealerUid, vodId, playerUid, playerName, onB
             </div>
           )}
 
-          <button onClick={onBack} style={{ padding: '12px 32px', background: 'rgba(212,175,55,0.1)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '10px', color: '#d4af37', fontSize: '13px', fontWeight: '700', cursor: 'pointer' }}>
-            ← Back to Lobby
-          </button>
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button onClick={restartSession} disabled={restarting} style={{ padding: '12px 28px', background: restarting ? 'rgba(255,255,255,0.04)' : 'linear-gradient(135deg,#d4af37,#f4e5a1)', border: 'none', borderRadius: '10px', color: restarting ? '#555' : '#000', fontSize: '13px', fontWeight: '800', cursor: restarting ? 'not-allowed' : 'pointer' }}>
+              {restarting ? 'Restarting...' : '↺ Play Again'}
+            </button>
+            <button onClick={onBack} style={{ padding: '12px 28px', background: 'rgba(212,175,55,0.1)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '10px', color: '#d4af37', fontSize: '13px', fontWeight: '700', cursor: 'pointer' }}>
+              ← Back to Lobby
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -407,6 +461,9 @@ export default function VODPlayer({ dealerUid, vodId, playerUid, playerName, onB
           <div style={{ padding: '4px 12px', background: 'rgba(212,175,55,0.1)', border: '1px solid rgba(212,175,55,0.25)', borderRadius: '20px', color: '#d4af37', fontSize: '13px', fontWeight: '800' }}>
             {bankroll != null ? fmtMoney(bankroll) : '...'}
           </div>
+          <button onClick={restartSession} disabled={restarting} title="Restart session" style={{ padding: '4px 10px', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: 'rgba(136,146,164,0.5)', fontSize: '12px', cursor: restarting ? 'not-allowed' : 'pointer' }}>
+            ↺
+          </button>
         </div>
       </div>
 
@@ -415,6 +472,47 @@ export default function VODPlayer({ dealerUid, vodId, playerUid, playerName, onB
 
         {/* YouTube embed */}
         <div ref={playerDivRef} style={{ width: '100%', aspectRatio: '16/9', background: '#000', borderRadius: '12px', overflow: 'hidden', marginBottom: '16px' }} />
+
+        {/* Animated win/loss overlay */}
+        {resultOverlay && (() => {
+          const win  = resultOverlay.net > 0;
+          const push = resultOverlay.net === 0;
+          const color     = win ? '#4ade80' : push ? '#d4af37' : '#f87171';
+          const glowRgb   = win ? '74,222,128' : push ? '212,175,55' : '248,113,113';
+          const emoji     = win ? '🏆' : push ? '🤝' : '💸';
+          const label     = win ? 'YOU WIN' : push ? 'PUSH' : 'YOU LOSE';
+          return (
+            <div style={{
+              position: 'fixed', inset: 0, zIndex: 200,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: `radial-gradient(ellipse at center, rgba(${glowRgb},0.18) 0%, rgba(8,11,26,0.85) 70%)`,
+              pointerEvents: 'none',
+            }}>
+              <div style={{
+                textAlign: 'center',
+                background: `rgba(8,11,26,0.92)`,
+                border: `2px solid ${color}`,
+                borderRadius: '24px',
+                padding: '40px 60px',
+                backdropFilter: 'blur(20px)',
+                animation: (resultOverlay.exiting
+                  ? 'vodResultOut 0.5s ease-in forwards'
+                  : 'vodResultIn 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards') + `, vodPulseGlow 1.2s ease-in-out infinite`,
+                '--glow': glowRgb,
+                boxShadow: `0 0 60px rgba(${glowRgb},0.4)`,
+              }}>
+                <div style={{ fontSize: '56px', marginBottom: '12px', lineHeight: 1 }}>{emoji}</div>
+                <div style={{ fontSize: '28px', fontWeight: '900', color, letterSpacing: '4px', marginBottom: '10px' }}>{label}</div>
+                <div style={{ fontSize: '36px', fontWeight: '800', color }}>
+                  {resultOverlay.net > 0 ? '+' : ''}{fmtMoney(resultOverlay.net)}
+                </div>
+                <div style={{ fontSize: '12px', color: 'rgba(136,146,164,0.6)', letterSpacing: '2px', marginTop: '8px' }}>
+                  {WINNER_LABEL[resultOverlay.winner]} wins
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Result banner */}
         {resultBanner && (
