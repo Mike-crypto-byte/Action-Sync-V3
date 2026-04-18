@@ -116,7 +116,7 @@ export default function VODScriptEditor({ dealerUid }) {
     setVodUrl(vod.youtubeVideoId ? `https://youtu.be/${vod.youtubeVideoId}` : '');
     setVodStartingChips(vod.startingChips || 1000);
     setFirstBetOpensAt(vod.firstBetOpensAt ?? 0);
-    setVodRevealDelay(vod.revealDelay ?? 5);
+    setVodRevealDelay(vod.revealDelay ?? 10);
     setVodOdds(vod.odds ? { ...defaultOdds(), ...vod.odds } : defaultOdds());
     setPublished(vod.published ?? true); // existing VODs without the field default to published
     const scriptArr = vod.script
@@ -134,7 +134,7 @@ export default function VODScriptEditor({ dealerUid }) {
     setVodUrl('');
     setVodStartingChips(1000);
     setFirstBetOpensAt(0);
-    setVodRevealDelay(5);
+    setVodRevealDelay(10);
     setVodOdds(defaultOdds());
     setPublished(false);
     setRounds([]);
