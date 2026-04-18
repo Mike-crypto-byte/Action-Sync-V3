@@ -90,7 +90,7 @@ export default function VODScriptEditor({ dealerUid }) {
   const [vodUrl, setVodUrl]                     = useState('');
   const [vodStartingChips, setVodStartingChips] = useState(1000);
   const [firstBetOpensAt, setFirstBetOpensAt]   = useState(0);   // VOD-level: when round 1 betting opens
-  const [vodRevealDelay, setVodRevealDelay]     = useState(15);  // VOD-level default: seconds after betCloseAt to reveal result
+  const [vodRevealDelay, setVodRevealDelay]     = useState(20);  // VOD-level default: seconds after betCloseAt to reveal result
 
   const [rounds, setRounds]   = useState([]);
   const [form, setForm]       = useState(defaultForm());
@@ -116,7 +116,7 @@ export default function VODScriptEditor({ dealerUid }) {
     setVodUrl(vod.youtubeVideoId ? `https://youtu.be/${vod.youtubeVideoId}` : '');
     setVodStartingChips(vod.startingChips || 1000);
     setFirstBetOpensAt(vod.firstBetOpensAt ?? 0);
-    setVodRevealDelay(vod.revealDelay ?? 15);
+    setVodRevealDelay(vod.revealDelay ?? 20);
     setVodOdds(vod.odds ? { ...defaultOdds(), ...vod.odds } : defaultOdds());
     setPublished(vod.published ?? true); // existing VODs without the field default to published
     const scriptArr = vod.script
@@ -134,7 +134,7 @@ export default function VODScriptEditor({ dealerUid }) {
     setVodUrl('');
     setVodStartingChips(1000);
     setFirstBetOpensAt(0);
-    setVodRevealDelay(15);
+    setVodRevealDelay(20);
     setVodOdds(defaultOdds());
     setPublished(false);
     setRounds([]);

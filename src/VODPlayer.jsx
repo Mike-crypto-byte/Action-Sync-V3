@@ -140,7 +140,7 @@ export default function VODPlayer({ dealerUid, vodId, playerUid, playerName, onB
         ? Object.values(data.script).sort((a, b) => a.resultAt - b.resultAt)
         : [];
       const firstBetOpensAt = data.firstBetOpensAt ?? 0;
-      const vodRevealDelay  = data.revealDelay ?? 15;
+      const vodRevealDelay  = data.revealDelay ?? 20;
       const parsed = raw.map((r, i) => {
         const prevResolveAt = i === 0 ? firstBetOpensAt : raw[i - 1].resultAt + (raw[i - 1].revealDelay ?? vodRevealDelay);
         return {
