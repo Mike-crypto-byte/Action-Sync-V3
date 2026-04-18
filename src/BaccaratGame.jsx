@@ -169,10 +169,13 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
   const [chatInput, setChatInput] = useState('');
   const chatEndRef = useRef(null);
 
-  // Card values for baccarat
+  // Card values for baccarat — suit-optional (legacy cards may include suit suffix)
+  const SUITS = new Set(['♠','♥','♦','♣']);
+  const stripSuit = (card) => card && SUITS.has(card.slice(-1)) ? card.slice(0, -1) : card;
+
   const getCardValue = (card) => {
     if (!card) return 0;
-    const value = card.substring(0, card.length - 1);
+    const value = stripSuit(card);
     if (value === 'A') return 1;
     if (['J', 'Q', 'K', '10'].includes(value)) return 0;
     return parseInt(value);
@@ -184,7 +187,7 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
 
   const isPair = (card1, card2) => {
     if (!card1 || !card2) return false;
-    return card1.substring(0, card1.length - 1) === card2.substring(0, card2.length - 1);
+    return stripSuit(card1) === stripSuit(card2);
   };
 
   // Read startingChips from Firebase settings
@@ -702,11 +705,12 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
     }
 
     if (!card) return null;
-    
-    const suit = card.slice(-1);
-    const value = card.slice(0, -1);
+
+    const hasSuit = SUITS.has(card.slice(-1));
+    const suit  = hasSuit ? card.slice(-1) : null;
+    const value = hasSuit ? card.slice(0, -1) : card;
     const isRed = suit === '♥' || suit === '♦';
-    
+
     return (
       <div style={{
         width: isMobile ? '50px' : '70px',
@@ -717,31 +721,20 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'space-between',
+        justifyContent: suit ? 'space-between' : 'center',
         padding: '8px',
         boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
         position: 'relative'
       }}>
-        <div style={{ 
-          fontSize: '18px', 
-          fontWeight: 'bold', 
-          color: isRed ? '#dc143c' : '#000',
-          lineHeight: '1'
-        }}>
+        <div style={{ fontSize: '18px', fontWeight: 'bold', color: isRed ? '#dc143c' : '#1a1a2e', lineHeight: '1' }}>
           {value}
         </div>
-        <div style={{ fontSize: '32px', color: isRed ? '#dc143c' : '#000' }}>
-          {suit}
-        </div>
-        <div style={{ 
-          fontSize: '18px', 
-          fontWeight: 'bold', 
-          color: isRed ? '#dc143c' : '#000',
-          lineHeight: '1',
-          transform: 'rotate(180deg)'
-        }}>
-          {value}
-        </div>
+        {suit && <div style={{ fontSize: '32px', color: isRed ? '#dc143c' : '#1a1a2e' }}>{suit}</div>}
+        {suit && (
+          <div style={{ fontSize: '18px', fontWeight: 'bold', color: isRed ? '#dc143c' : '#1a1a2e', lineHeight: '1', transform: 'rotate(180deg)' }}>
+            {value}
+          </div>
+        )}
       </div>
     );
   };
@@ -1969,23 +1962,21 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
               marginBottom: '15px'
             }}>
               <div style={{ fontSize: '11px', color: '#888', marginBottom: '8px' }}>
-                Quick Pick Cards — tap value then suit
+                Quick Pick — select slot then tap card value
               </div>
               {(() => {
                 const values = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
-                const suits = ['♠','♥','♦','♣'];
-                const applyCard = (val, suit) => {
-                  const card = val + suit;
-                  if (qpTarget === 'p1') setAdminPlayerCards([card, adminPlayerCards[1]]);
-                  else if (qpTarget === 'p2') setAdminPlayerCards([adminPlayerCards[0], card]);
-                  else if (qpTarget === 'p3') setAdminPlayerThird(card);
-                  else if (qpTarget === 'b1') setAdminBankerCards([card, adminBankerCards[1]]);
-                  else if (qpTarget === 'b2') setAdminBankerCards([adminBankerCards[0], card]);
-                  else if (qpTarget === 'b3') setAdminBankerThird(card);
+                const applyCard = (val) => {
+                  if (qpTarget === 'p1') setAdminPlayerCards([val, adminPlayerCards[1]]);
+                  else if (qpTarget === 'p2') setAdminPlayerCards([adminPlayerCards[0], val]);
+                  else if (qpTarget === 'p3') setAdminPlayerThird(val);
+                  else if (qpTarget === 'b1') setAdminBankerCards([val, adminBankerCards[1]]);
+                  else if (qpTarget === 'b2') setAdminBankerCards([adminBankerCards[0], val]);
+                  else if (qpTarget === 'b3') setAdminBankerThird(val);
                 };
                 return (
                   <div style={{ marginBottom: '12px' }}>
-                    <div style={{ display: 'flex', gap: '4px', marginBottom: '6px', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: '4px', marginBottom: '8px', flexWrap: 'wrap' }}>
                       {['p1','p2','p3','b1','b2','b3'].map(t => (
                         <button key={t} onClick={() => setQpTarget(t)} style={{
                           flex: 1, padding: '6px', fontSize: '9px', fontWeight: 'bold',
@@ -1998,27 +1989,15 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                         </button>
                       ))}
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '3px', marginBottom: '4px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px' }}>
                       {values.map(v => (
-                        <button key={v} onClick={() => setQpValue(v)} style={{
-                          padding: '6px 0', fontSize: '11px', fontWeight: 'bold',
-                          background: qpValue === v ? '#e53935' : 'rgba(229,57,53,0.15)',
-                          color: qpValue === v ? '#000' : '#fff',
-                          border: `1px solid ${qpValue === v ? '#e53935' : '#2a3548'}`,
+                        <button key={v} onClick={() => applyCard(v)} style={{
+                          padding: '8px 0', fontSize: '12px', fontWeight: 'bold',
+                          background: 'rgba(229,57,53,0.15)',
+                          color: '#fff',
+                          border: '1px solid #2a3548',
                           borderRadius: '4px', cursor: 'pointer', fontFamily: 'inherit'
                         }}>{v}</button>
-                      ))}
-                    </div>
-                    <div style={{ display: 'flex', gap: '4px' }}>
-                      {suits.map(s => (
-                        <button key={s} onClick={() => { if (qpValue) applyCard(qpValue, s); }} style={{
-                          flex: 1, padding: '8px', fontSize: '16px',
-                          background: 'rgba(33,150,243,0.2)',
-                          color: (s === '♥' || s === '♦') ? '#f44336' : '#fff',
-                          border: '1px solid #e53935',
-                          borderRadius: '4px', cursor: qpValue ? 'pointer' : 'not-allowed',
-                          opacity: qpValue ? 1 : 0.4, fontFamily: 'inherit'
-                        }}>{s}</button>
                       ))}
                     </div>
                   </div>

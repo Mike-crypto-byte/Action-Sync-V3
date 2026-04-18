@@ -579,15 +579,16 @@ export default function LandingPage({ isMobile, joinCodeInput, setJoinCodeInput,
 
   const steps = [
     { title: 'Create your dealer account', body: 'Sign up as a streamer/dealer in seconds. No credit card required.' },
-    { title: 'Start a session & go live',  body: 'Pick Roulette, Craps, or Baccarat. Share your room code in chat.' },
+    { title: 'Start a session & go live',  body: 'Pick Roulette, Craps, Baccarat, or Blackjack. Share your room code in chat.' },
     { title: 'Viewers join and bet',        body: 'Players sign up, grab their virtual chips, and start betting each round in real time.' },
     { title: 'Crown the champion',          body: 'End the session to reveal the final leaderboard and celebrate the winner on stream.' },
   ];
 
   const games = [
-    { icon: '🎡', name: 'Roulette',  tag: 'CLASSIC', desc: 'Inside, outside, and split bets with live spin animations synced to every viewer.',  accent: '#d4af37' },
-    { icon: '🎲', name: 'Craps',     tag: 'SOCIAL',  desc: 'Pass, don\'t pass, come bets and the full odds market — the most social table game.',   accent: '#22c55e' },
-    { icon: '🃏', name: 'Baccarat',  tag: 'FAST',    desc: 'Banker, player, tie — ultra-fast rounds that keep stream energy at its peak.',           accent: '#818cf8' },
+    { icon: '🎡', name: 'Roulette',   tag: 'CLASSIC', desc: 'Inside, outside, and split bets with live spin animations synced to every viewer.',        accent: '#d4af37' },
+    { icon: '🎲', name: 'Craps',      tag: 'SOCIAL',  desc: 'Pass, don\'t pass, come bets and the full odds market — the most social table game.',       accent: '#22c55e' },
+    { icon: '🃏', name: 'Baccarat',   tag: 'FAST',    desc: 'Banker, player, tie — ultra-fast rounds that keep stream energy at its peak.',               accent: '#818cf8' },
+    { icon: '🂡', name: 'Blackjack',  tag: 'LIVE',    desc: 'Bet on the streamer\'s hand — Win or Lose. Blackjack pays 3:2. You ride every decision.',   accent: '#d4af37' },
   ];
 
   return (
@@ -690,7 +691,7 @@ export default function LandingPage({ isMobile, joinCodeInput, setJoinCodeInput,
           maxWidth: '520px',
           margin: '0 0 40px',
         }}>
-          Real-time virtual casino betting for you and your viewers — Roulette, Craps &amp; Baccarat. No real money, infinite hype.
+          Real-time virtual casino betting for you and your viewers — Roulette, Craps, Baccarat &amp; Blackjack. No real money, infinite hype.
         </p>
 
         {/* Hero CTA row */}

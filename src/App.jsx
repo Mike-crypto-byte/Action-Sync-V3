@@ -9,6 +9,7 @@ import { startNewSession, startStream, switchGame, useSessionHistory, resolveRoo
 import CrapsGame from './CrapsGame';
 import BaccaratGame from './BaccaratGame';
 import RouletteGame from './RouletteGame';
+import BlackjackGame from './BlackjackGame';
 import StreamOverlay from './StreamOverlay';
 import SettingsPanel from './SettingsPanel';
 import VODScriptEditor from './VODScriptEditor';
@@ -533,9 +534,10 @@ const AppMain = () => {
     );
   }
 
-  if (selectedGame === 'craps')    return <CrapsGame    onBack={deactivateGame} isDealerMode={isDealerMode} playerUserId={playerUid} playerName={playerName} skipRegistration={true} roomCode={dealerUid} />;
-  if (selectedGame === 'baccarat') return <BaccaratGame onBack={deactivateGame} isDealerMode={isDealerMode} playerUserId={playerUid} playerName={playerName} skipRegistration={true} roomCode={dealerUid} />;
-  if (selectedGame === 'roulette') return <RouletteGame onBack={deactivateGame} isDealerMode={isDealerMode} playerUserId={playerUid} playerName={playerName} skipRegistration={true} roomCode={dealerUid} />;
+  if (selectedGame === 'craps')     return <CrapsGame     onBack={deactivateGame} isDealerMode={isDealerMode} playerUserId={playerUid} playerName={playerName} skipRegistration={true} roomCode={dealerUid} />;
+  if (selectedGame === 'baccarat')  return <BaccaratGame  onBack={deactivateGame} isDealerMode={isDealerMode} playerUserId={playerUid} playerName={playerName} skipRegistration={true} roomCode={dealerUid} />;
+  if (selectedGame === 'roulette')  return <RouletteGame  onBack={deactivateGame} isDealerMode={isDealerMode} playerUserId={playerUid} playerName={playerName} skipRegistration={true} roomCode={dealerUid} />;
+  if (selectedGame === 'blackjack') return <BlackjackGame onBack={deactivateGame} isDealerMode={isDealerMode} playerUserId={playerUid} playerName={playerName} skipRegistration={true} roomCode={dealerUid} />;
 
   // ── Player: VOD session ───────────────────────────────────────────────────
   if (isPlayer && selectedVodId) {
@@ -728,9 +730,10 @@ const AppMain = () => {
   const overlayLink    = `${joinLink}#overlay`;
 
   const GAMES = [
-    { id: 'craps',    emoji: '🎲', label: 'CRAPS',    desc: 'Pass line, odds, place bets, hard ways, hop bets and more.', tags: ['15+ Bet Types','Odds','Fire Bet'],       accentColor: '#22c55e', borderColor: 'rgba(34,197,94,0.4)',  bgGradient: 'linear-gradient(135deg, rgba(20,83,45,0.7) 0%, rgba(15,60,35,0.8) 100%)' },
-    { id: 'baccarat', emoji: '🃏', label: 'BACCARAT', desc: 'Bet on Player, Banker, or Tie. Dragon and Panda bonus bets.', tags: ['Player / Banker','🐉 Dragon','🐼 Panda'], accentColor: '#3b82f6', borderColor: 'rgba(59,130,246,0.4)',  bgGradient: 'linear-gradient(135deg, rgba(30,58,138,0.7) 0%, rgba(15,30,90,0.8) 100%)' },
-    { id: 'roulette', emoji: '🎡', label: 'ROULETTE', desc: 'American double-zero roulette. Full inside and outside bets.', tags: ['0 & 00','Straight Up 35:1','Inside/Out'], accentColor: '#ef4444', borderColor: 'rgba(239,68,68,0.4)', bgGradient: 'linear-gradient(135deg, rgba(127,29,29,0.7) 0%, rgba(80,10,10,0.8) 100%)' },
+    { id: 'craps',     emoji: '🎲', label: 'CRAPS',     desc: 'Pass line, odds, place bets, hard ways, hop bets and more.', tags: ['15+ Bet Types','Odds','Fire Bet'],          accentColor: '#22c55e', borderColor: 'rgba(34,197,94,0.4)',   bgGradient: 'linear-gradient(135deg, rgba(20,83,45,0.7) 0%, rgba(15,60,35,0.8) 100%)' },
+    { id: 'baccarat',  emoji: '🃏', label: 'BACCARAT',  desc: 'Bet on Player, Banker, or Tie. Dragon and Panda bonus bets.', tags: ['Player / Banker','🐉 Dragon','🐼 Panda'],  accentColor: '#3b82f6', borderColor: 'rgba(59,130,246,0.4)',   bgGradient: 'linear-gradient(135deg, rgba(30,58,138,0.7) 0%, rgba(15,30,90,0.8) 100%)' },
+    { id: 'roulette',  emoji: '🎡', label: 'ROULETTE',  desc: 'American double-zero roulette. Full inside and outside bets.', tags: ['0 & 00','Straight Up 35:1','Inside/Out'],  accentColor: '#ef4444', borderColor: 'rgba(239,68,68,0.4)',   bgGradient: 'linear-gradient(135deg, rgba(127,29,29,0.7) 0%, rgba(80,10,10,0.8) 100%)' },
+    { id: 'blackjack', emoji: '🂡', label: 'BLACKJACK', desc: 'Bet on the streamer — Win, Lose, or Push. Blackjack pays 3:2.', tags: ['Win / Lose / Push','Blackjack 3:2','Live Play'], accentColor: '#d4af37', borderColor: 'rgba(212,175,55,0.4)', bgGradient: 'linear-gradient(135deg, rgba(92,70,0,0.7) 0%, rgba(60,45,0,0.8) 100%)' },
   ];
 
   return (

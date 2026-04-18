@@ -52,6 +52,11 @@ export const DEFAULT_ODDS = {
     dragon:     { num: 40, den: 1 },
     panda:      { num: 25, den: 1 },
   },
+  blackjack: {
+    win:       { num:  1, den: 1 },
+    lose:      { num:  1, den: 1 },
+    blackjack: { num:  3, den: 2 },
+  },
 };
 
 // ── Default bet visibility (all on) ───────────────────────────────────────────
@@ -88,6 +93,10 @@ export const DEFAULT_VISIBILITY = {
     bankerPair:  true,
     dragon:      true,
     panda:       true,
+  },
+  blackjack: {
+    win:  true,
+    lose: true,
   },
 };
 
@@ -129,6 +138,11 @@ export const ODDS_LABELS = {
     dragon:     'Dragon Bonus',
     panda:      'Panda 8',
   },
+  blackjack: {
+    win:       'Win',
+    lose:      'Lose',
+    blackjack: 'Blackjack — natural 21 (paid instead of Win rate)',
+  },
 };
 
 export const VISIBILITY_LABELS = {
@@ -164,6 +178,10 @@ export const VISIBILITY_LABELS = {
     bankerPair: 'Banker Pair',
     dragon:     'Dragon Bonus',
     panda:      'Panda 8',
+  },
+  blackjack: {
+    win:  'Win',
+    lose: 'Lose',
   },
 };
 
@@ -207,16 +225,18 @@ export function useSettings(dealerUid) {
             return result;
           };
           setOdds({
-            roulette: mergeOdds(DEFAULT_ODDS.roulette, data.odds.roulette),
-            craps:    mergeOdds(DEFAULT_ODDS.craps,    data.odds.craps),
-            baccarat: mergeOdds(DEFAULT_ODDS.baccarat, data.odds.baccarat),
+            roulette:  mergeOdds(DEFAULT_ODDS.roulette,  data.odds.roulette),
+            craps:     mergeOdds(DEFAULT_ODDS.craps,     data.odds.craps),
+            baccarat:  mergeOdds(DEFAULT_ODDS.baccarat,  data.odds.baccarat),
+            blackjack: mergeOdds(DEFAULT_ODDS.blackjack, data.odds.blackjack),
           });
         }
         if (data.betVisibility) {
           setBetVisibility({
-            roulette: { ...DEFAULT_VISIBILITY.roulette, ...data.betVisibility.roulette },
-            craps:    { ...DEFAULT_VISIBILITY.craps,    ...data.betVisibility.craps    },
-            baccarat: { ...DEFAULT_VISIBILITY.baccarat, ...data.betVisibility.baccarat },
+            roulette:  { ...DEFAULT_VISIBILITY.roulette,  ...data.betVisibility.roulette  },
+            craps:     { ...DEFAULT_VISIBILITY.craps,     ...data.betVisibility.craps     },
+            baccarat:  { ...DEFAULT_VISIBILITY.baccarat,  ...data.betVisibility.baccarat  },
+            blackjack: { ...DEFAULT_VISIBILITY.blackjack, ...data.betVisibility.blackjack },
           });
         }
         if (data.gameConfig) {

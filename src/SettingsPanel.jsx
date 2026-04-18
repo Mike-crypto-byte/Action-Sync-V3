@@ -12,9 +12,9 @@ import {
   VISIBILITY_LABELS,
 } from './useSettings';
 
-const GAMES = ['roulette', 'craps', 'baccarat'];
-const GAME_LABELS = { roulette: '🎰 Roulette', craps: '🎲 Craps', baccarat: '🃏 Baccarat' };
-const GAME_COLORS = { roulette: '#c62828', craps: '#2e7d32', baccarat: '#1565c0' };
+const GAMES = ['roulette', 'craps', 'baccarat', 'blackjack'];
+const GAME_LABELS = { roulette: '🎰 Roulette', craps: '🎲 Craps', baccarat: '🃏 Baccarat', blackjack: '🃏 Blackjack' };
+const GAME_COLORS = { roulette: '#c62828', craps: '#2e7d32', baccarat: '#1565c0', blackjack: '#b8860b' };
 
 // ── Shared styles ──────────────────────────────────────────────────────────────
 const card = {
