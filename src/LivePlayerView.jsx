@@ -760,15 +760,25 @@ export default function LivePlayerView({ dealerUid, playerUserId, playerName, se
                       return Object.entries({...activeBets,...currentBets})
                         .filter(([k,v]) => v>0 && RTYPES.has(k.split('-')[0]))
                         .slice(0,6)
-                        .map(([k,v])=>(
-                          <span key={k} style={{padding:'2px 6px',borderRadius:8,background:'rgba(255,255,255,0.08)',color:'#9ca3af',fontSize:9,fontWeight:700}}>{k.replace(/-/g,' ')} ${v}</span>
-                        ));
+                        .map(([k,v])=>{
+                          const isPending = bettingOpen && (currentBets[k]||0) > 0;
+                          return (
+                            <span key={k} style={{display:'inline-flex',alignItems:'center',gap:3,padding:'2px 4px 2px 6px',borderRadius:8,background:isPending?'rgba(255,255,255,0.12)':'rgba(255,255,255,0.08)',color:'#9ca3af',fontSize:9,fontWeight:700}}>
+                              {k.replace(/-/g,' ')} ${v}
+                              {isPending && <span onClick={()=>{const{[k]:_,...r}=currentBets;setCurrentBets(r);}} style={{cursor:'pointer',opacity:0.7,lineHeight:1,padding:'0 1px'}} title="Remove">×</span>}
+                            </span>
+                          );
+                        });
                     })()
-                  : allBetDefs.filter(b=>(activeBets[b.id]||0)+(currentBets[b.id]||0)>0).map(b=>(
-                      <span key={b.id} style={{padding:'2px 6px',borderRadius:8,background:`${b.color}22`,border:`1px solid ${b.color}44`,color:b.color,fontSize:9,fontWeight:700}}>
-                        {b.label} ${(activeBets[b.id]||0)+(currentBets[b.id]||0)}
-                      </span>
-                    ))
+                  : allBetDefs.filter(b=>(activeBets[b.id]||0)+(currentBets[b.id]||0)>0).map(b=>{
+                      const isPending = bettingOpen && (currentBets[b.id]||0) > 0;
+                      return (
+                        <span key={b.id} style={{display:'inline-flex',alignItems:'center',gap:3,padding:'2px 4px 2px 6px',borderRadius:8,background:`${b.color}22`,border:`1px solid ${b.color}44`,color:b.color,fontSize:9,fontWeight:700}}>
+                          {b.label} ${(activeBets[b.id]||0)+(currentBets[b.id]||0)}
+                          {isPending && <span onClick={()=>{const{[b.id]:_,...r}=currentBets;setCurrentBets(r);}} style={{cursor:'pointer',opacity:0.7,lineHeight:1,padding:'0 1px'}} title="Remove">×</span>}
+                        </span>
+                      );
+                    })
                 }
               </div>
             </div>
@@ -776,14 +786,6 @@ export default function LivePlayerView({ dealerUid, playerUserId, playerName, se
 
           {/* Confirm */}
           <div style={{padding:'6px 12px',flexShrink:0,display:'flex',gap:6}}>
-            {bettingOpen && pendingTotal > 0 && (
-              <button onClick={()=>setCurrentBets({})}
-                style={{padding:'10px 14px',borderRadius:7,fontSize:11,fontWeight:800,border:'1px solid rgba(239,68,68,0.4)',cursor:'pointer',fontFamily:'inherit',flexShrink:0,
-                  background:'rgba(239,68,68,0.12)',color:'#f87171',
-                }}>
-                Clear
-              </button>
-            )}
             <button onClick={()=>confirmBets(false)} disabled={!bettingOpen||pendingTotal===0}
               style={{flex:1,padding:'10px',borderRadius:7,fontSize:12,fontWeight:800,border:'none',cursor:bettingOpen&&pendingTotal>0?'pointer':'default',fontFamily:'inherit',
                 background:bettingOpen&&pendingTotal>0?'linear-gradient(135deg,#16a34a,#22c55e)':'rgba(255,255,255,0.05)',
