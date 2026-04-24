@@ -159,6 +159,7 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
   const [adminBankerThird, setAdminBankerThird] = useState('');
   const [qpValue, setQpValue] = useState('');
   const [qpTarget, setQpTarget] = useState('p1');
+  const [adminSideBets, setAdminSideBets] = useState({ playerPair: false, bankerPair: false, dragon: false, panda: false });
   // FIREBASE: activeUsers from presence
   const activeUsers = usePresence(roomCode, isRegistered ? userId : null, userName);
   const [showSettings, setShowSettings] = useState(false);
@@ -976,8 +977,8 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
           </div>
         </div>
 
-        {/* Baccarat Table */}
-        <div style={{
+        {/* Baccarat Table + Betting — hidden for dealer */}
+        {!isAdmin && <div style={{
           background: '#192333',
           border: '1px solid #2a3548',
           borderRadius: '14px',
@@ -1091,8 +1092,8 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
           {/* Side bets */}
           <div style={{ display: 'grid', gridTemplateColumns: `repeat(${[gameVis.playerPair,gameVis.bankerPair,gameVis.dragon,gameVis.panda].filter(Boolean).length},1fr)`, gap: isMobile ? '6px' : '8px' }}>
             {[
-              { key: 'playerPair', label: 'P. PAIR',   odds: '11:1', color: '#ce93d8', vis: gameVis.playerPair },
-              { key: 'bankerPair', label: 'B. PAIR',   odds: '11:1', color: '#ce93d8', vis: gameVis.bankerPair },
+              { key: 'playerPair', label: 'PLAYER PAIR', odds: '11:1', color: '#ce93d8', vis: gameVis.playerPair },
+              { key: 'bankerPair', label: 'BANKER PAIR', odds: '11:1', color: '#ce93d8', vis: gameVis.bankerPair },
               { key: 'dragon',     label: '\u{1F409} DRAGON', odds: '30:1', color: '#ff8a65', vis: gameVis.dragon },
               { key: 'panda',      label: '\u{1F43C} PANDA',  odds: '25:1', color: '#a5d6a7', vis: gameVis.panda },
             ].filter(b => b.vis).map(({ key, label, odds, color }) => {
@@ -1116,19 +1117,19 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
             })}
           </div>
 
-        </div>
+        </div>}
 
         {/* Active Bets Summary */}
-        {Object.keys(activeBets).some(k => activeBets[k] > 0) && (
+        {!isAdmin && Object.keys(activeBets).some(k => activeBets[k] > 0) && (
           <div style={{
             background: '#141e2e',
             border: !bettingOpen ? '2px solid #f44336' : '2px solid #4caf50',
             borderRadius: '12px',
-            padding: '15px 20px',
-            marginBottom: '20px'
+            padding: '10px 14px',
+            marginBottom: '12px'
           }}>
             <div style={{
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px'
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px'
             }}>
               <div style={{
                 fontSize: '11px', letterSpacing: '1px', textTransform: 'uppercase',
@@ -1188,14 +1189,14 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
         )}
 
         {/* Chip Selector and Controls */}
-        <div style={{
+        {!isAdmin && <div style={{
           position: isMobile ? 'sticky' : 'relative',
           bottom: isMobile ? 0 : 'auto',
           zIndex: isMobile ? 100 : 'auto',
           background: '#141e2e',
           border: '1px solid #2a3548',
           borderRadius: '12px',
-          padding: '20px',
+          padding: '12px 16px',
           marginBottom: '20px'
         }}>
           <div style={{ fontSize: '11px', color: '#888', marginBottom: '12px', letterSpacing: '1px' }}>
@@ -1311,15 +1312,15 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
               Clear All
             </button>
           </div>
-        </div>
+        </div>}
 
         {/* Roadmap */}
         <div style={{
           background: '#141e2e',
           border: '1px solid #2a3548',
           borderRadius: '12px',
-          padding: '20px',
-          marginBottom: '20px'
+          padding: '12px 16px',
+          marginBottom: '12px'
         }}>
           <div style={{
             fontSize: '11px',
@@ -1363,15 +1364,15 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
           background: '#141e2e',
           border: '1px solid #2a3548',
           borderRadius: '12px',
-          padding: '20px',
-          marginBottom: '20px'
+          padding: '12px 16px',
+          marginBottom: '12px'
         }}>
           <div style={{
             fontSize: '11px',
             letterSpacing: '1px',
             textTransform: 'uppercase',
             color: '#e53935',
-            marginBottom: '15px',
+            marginBottom: '10px',
             fontWeight: 'bold'
           }}>
             📊 Session Stats
@@ -1409,14 +1410,14 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
           background: '#141e2e',
           border: '1px solid #2a3548',
           borderRadius: '12px',
-          padding: '20px',
-          marginBottom: '20px'
+          padding: '12px 16px',
+          marginBottom: '12px'
         }}>
           <div style={{
             display: 'flex',
             alignItems: 'center',
             gap: '10px',
-            marginBottom: '18px'
+            marginBottom: '10px'
           }}>
             <Trophy size={18} color="#e53935" />
             <div style={{
@@ -1444,16 +1445,16 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
               <div key={player.userId} style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '12px',
-                padding: '12px',
-                background: player.userId === userId 
-                  ? 'rgba(212, 175, 55, 0.2)' 
+                gap: '8px',
+                padding: '7px 10px',
+                background: player.userId === userId
+                  ? 'rgba(212, 175, 55, 0.2)'
                   : 'rgba(0, 0, 0, 0.3)',
-                border: player.userId === userId 
+                border: player.userId === userId
                   ? '2px solid #e53935'
                   : '1px solid rgba(255, 255, 255, 0.05)',
                 borderRadius: '8px',
-                marginBottom: '8px'
+                marginBottom: '4px'
               }}>
                 <div style={{
                   width: '28px',
@@ -1503,8 +1504,8 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
           background: '#141e2e',
           border: '1px solid #2a3548',
           borderRadius: '12px',
-          padding: '20px',
-          marginBottom: '20px'
+          padding: '12px 16px',
+          marginBottom: '12px'
         }}>
           <div
             onClick={() => setShowBetHistory(!showBetHistory)}
@@ -1535,7 +1536,7 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                         borderRadius: '6px', border: '1px solid rgba(255,255,255,0.2)'
                       }}>
                         <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#fff', textTransform: 'uppercase' }}>
-                          {entry.winner === 'player' ? 'P' : entry.winner === 'banker' ? 'B' : 'T'} {entry.playerScore}-{entry.bankerScore}
+                          {entry.winner === 'player' ? 'P' : entry.winner === 'banker' ? 'B' : 'T'}{(entry.playerScore > 0 || entry.bankerScore > 0) ? ` ${entry.playerScore}-${entry.bankerScore}` : ''}
                         </span>
                       </div>
                       <div>
@@ -1561,15 +1562,15 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
           background: '#141e2e',
           border: '1px solid #2a3548',
           borderRadius: '12px',
-          padding: '20px',
-          marginBottom: '20px'
+          padding: '12px 16px',
+          marginBottom: '12px'
         }}>
           <div style={{
             fontSize: '11px',
             letterSpacing: '1px',
             textTransform: 'uppercase',
             color: '#e53935',
-            marginBottom: '15px',
+            marginBottom: '10px',
             fontWeight: 'bold'
           }}>
             💬 Table Chat
@@ -1588,7 +1589,7 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
                 No messages yet. Say hello!
               </div>
             ) : (<>
-              {chatMessages.map((msg, idx) => (
+              {chatMessages.filter(msg => msg.userId !== 'system').map((msg, idx) => (
                 <div key={idx} style={{
                   marginBottom: '10px',
                   padding: msg.userId === 'system' ? '10px 12px' : '8px',
@@ -1954,191 +1955,70 @@ const BaccaratGame = ({ onBack, isDealerMode = false, playerUserId, playerName: 
               </div>
             </div>
             
-            {/* Card Entry */}
-            <div style={{
-              background: 'rgba(0, 0, 0, 0.3)',
-              padding: '18px',
-              borderRadius: '8px',
-              marginBottom: '15px'
-            }}>
-              <div style={{ fontSize: '11px', color: '#888', marginBottom: '8px' }}>
-                Quick Pick — select slot then tap card value
+            {/* Result Entry */}
+            <div style={{ background: 'rgba(0,0,0,0.3)', padding: '18px', borderRadius: '8px', marginBottom: '15px' }}>
+              <div style={{ fontSize: '11px', color: '#888', marginBottom: '14px', letterSpacing: '1px' }}>SET RESULT</div>
+
+              {/* Side bet toggles */}
+              <div style={{ fontSize: '10px', color: '#888', marginBottom: '6px', fontWeight: 'bold' }}>SIDE BETS HIT</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: '6px', marginBottom: '14px' }}>
+                {[
+                  { key: 'playerPair', label: 'Player Pair', color: '#ce93d8' },
+                  { key: 'bankerPair', label: 'Banker Pair', color: '#ce93d8' },
+                  { key: 'dragon',     label: '🐉 Dragon', color: '#ff8a65' },
+                  { key: 'panda',      label: '🐼 Panda',  color: '#a5d6a7' },
+                ].map(({ key, label, color }) => (
+                  <button key={key}
+                    onClick={() => setAdminSideBets(prev => ({ ...prev, [key]: !prev[key] }))}
+                    style={{
+                      padding: '8px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold',
+                      background: adminSideBets[key] ? `rgba(${color === '#ce93d8' ? '156,39,176' : color === '#ff8a65' ? '255,138,101' : '165,214,167'},0.3)` : 'transparent',
+                      border: `2px solid ${adminSideBets[key] ? color : '#444'}`,
+                      color: adminSideBets[key] ? color : '#666',
+                      cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s'
+                    }}>
+                    {adminSideBets[key] ? '✓ ' : ''}{label}
+                  </button>
+                ))}
               </div>
-              {(() => {
-                const values = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
-                const applyCard = (val) => {
-                  if (qpTarget === 'p1') setAdminPlayerCards([val, adminPlayerCards[1]]);
-                  else if (qpTarget === 'p2') setAdminPlayerCards([adminPlayerCards[0], val]);
-                  else if (qpTarget === 'p3') setAdminPlayerThird(val);
-                  else if (qpTarget === 'b1') setAdminBankerCards([val, adminBankerCards[1]]);
-                  else if (qpTarget === 'b2') setAdminBankerCards([adminBankerCards[0], val]);
-                  else if (qpTarget === 'b3') setAdminBankerThird(val);
-                };
-                return (
-                  <div style={{ marginBottom: '12px' }}>
-                    <div style={{ display: 'flex', gap: '4px', marginBottom: '8px', flexWrap: 'wrap' }}>
-                      {['p1','p2','p3','b1','b2','b3'].map(t => (
-                        <button key={t} onClick={() => setQpTarget(t)} style={{
-                          flex: 1, padding: '6px', fontSize: '9px', fontWeight: 'bold',
-                          background: qpTarget === t ? '#e53935' : 'rgba(0,0,0,0.3)',
-                          color: qpTarget === t ? '#000' : '#888',
-                          border: `1px solid ${qpTarget === t ? '#e53935' : '#2a3548'}`,
-                          borderRadius: '4px', cursor: 'pointer', fontFamily: 'inherit'
-                        }}>
-                          {t.startsWith('p') ? `P${t[1]}` : `B${t[1]}`}
-                        </button>
-                      ))}
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px' }}>
-                      {values.map(v => (
-                        <button key={v} onClick={() => applyCard(v)} style={{
-                          padding: '8px 0', fontSize: '12px', fontWeight: 'bold',
-                          background: 'rgba(229,57,53,0.15)',
-                          color: '#fff',
-                          border: '1px solid #2a3548',
-                          borderRadius: '4px', cursor: 'pointer', fontFamily: 'inherit'
-                        }}>{v}</button>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })()}
-              <div style={{ fontSize: '11px', color: '#888', marginBottom: '12px' }}>
-                Player Cards
+
+              {/* Winner buttons */}
+              <div style={{ display: 'flex', gap: '8px' }}>
+                {[
+                  { winner: 'player', label: 'PLAYER WON', color: '#e53935', bg: 'rgba(229,57,53,0.15)', border: '#e53935' },
+                  { winner: 'banker', label: 'BANKER WON', color: '#42a5f5', bg: 'rgba(66,165,245,0.15)', border: '#42a5f5' },
+                  { winner: 'tie',    label: 'TIE',        color: '#66bb6a', bg: 'rgba(102,187,106,0.15)', border: '#66bb6a' },
+                ].map(({ winner, label, color, bg, border }) => (
+                  <button key={winner}
+                    onClick={async () => {
+                      const newRoadmap = [...(gameState.roadmap || []), winner === 'player' ? 'P' : winner === 'banker' ? 'B' : 'T'].slice(-50);
+                      await updateGameState({
+                        gamePhase: 'dealt',
+                        winner,
+                        roundNumber: (gameState.roundNumber || 0) + 1,
+                        bettingOpen: false,
+                        roadmap: newRoadmap,
+                        playerPairHit: adminSideBets.playerPair,
+                        bankerPairHit: adminSideBets.bankerPair,
+                        dragonHit: adminSideBets.dragon,
+                        pandaHit: adminSideBets.panda,
+                      });
+                      const winLabel = winner === 'player' ? '👤 Player Wins' : winner === 'banker' ? '🏦 Banker Wins' : '🤝 Tie';
+                      const sideBetStr = Object.entries(adminSideBets).filter(([,v])=>v).map(([k])=>k).join(', ');
+                      await sendSystemMessage(`🃏 ${winLabel}${sideBetStr ? ` | Hits: ${sideBetStr}` : ''} — Round #${(gameState.roundNumber || 0) + 1}`);
+                      setAdminSideBets({ playerPair: false, bankerPair: false, dragon: false, panda: false });
+                    }}
+                    style={{
+                      flex: 1, padding: '14px 6px', background: bg,
+                      border: `2px solid ${border}`,
+                      borderRadius: '10px', color,
+                      fontWeight: 'bold', cursor: 'pointer',
+                      fontFamily: 'inherit', fontSize: '11px', letterSpacing: '0.5px'
+                    }}>
+                    {label}
+                  </button>
+                ))}
               </div>
-              <div style={{ display: 'flex', gap: '10px', marginBottom: '12px' }}>
-                <input
-                  type="text"
-                  value={adminPlayerCards[0]}
-                  onChange={(e) => setAdminPlayerCards([e.target.value, adminPlayerCards[1]])}
-                  placeholder="Card 1"
-                  style={{
-                    flex: 1,
-                    padding: '12px',
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    border: '2px solid #e53935',
-                    borderRadius: '8px',
-                    color: '#fff',
-                    fontSize: '16px',
-                    textAlign: 'center',
-                    fontFamily: 'inherit'
-                  }}
-                />
-                <input
-                  type="text"
-                  value={adminPlayerCards[1]}
-                  onChange={(e) => setAdminPlayerCards([adminPlayerCards[0], e.target.value])}
-                  placeholder="Card 2"
-                  style={{
-                    flex: 1,
-                    padding: '12px',
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    border: '2px solid #e53935',
-                    borderRadius: '8px',
-                    color: '#fff',
-                    fontSize: '16px',
-                    textAlign: 'center',
-                    fontFamily: 'inherit'
-                  }}
-                />
-                <input
-                  type="text"
-                  value={adminPlayerThird}
-                  onChange={(e) => setAdminPlayerThird(e.target.value)}
-                  placeholder="3rd (opt)"
-                  style={{
-                    flex: 1,
-                    padding: '12px',
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    border: '2px solid #e53935',
-                    borderRadius: '8px',
-                    color: '#fff',
-                    fontSize: '16px',
-                    textAlign: 'center',
-                    fontFamily: 'inherit'
-                  }}
-                />
-              </div>
-              
-              <div style={{ fontSize: '11px', color: '#888', marginBottom: '12px' }}>
-                Banker Cards
-              </div>
-              <div style={{ display: 'flex', gap: '10px', marginBottom: '12px' }}>
-                <input
-                  type="text"
-                  value={adminBankerCards[0]}
-                  onChange={(e) => setAdminBankerCards([e.target.value, adminBankerCards[1]])}
-                  placeholder="Card 1"
-                  style={{
-                    flex: 1,
-                    padding: '12px',
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    border: '2px solid #f44336',
-                    borderRadius: '8px',
-                    color: '#fff',
-                    fontSize: '16px',
-                    textAlign: 'center',
-                    fontFamily: 'inherit'
-                  }}
-                />
-                <input
-                  type="text"
-                  value={adminBankerCards[1]}
-                  onChange={(e) => setAdminBankerCards([adminBankerCards[0], e.target.value])}
-                  placeholder="Card 2"
-                  style={{
-                    flex: 1,
-                    padding: '12px',
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    border: '2px solid #f44336',
-                    borderRadius: '8px',
-                    color: '#fff',
-                    fontSize: '16px',
-                    textAlign: 'center',
-                    fontFamily: 'inherit'
-                  }}
-                />
-                <input
-                  type="text"
-                  value={adminBankerThird}
-                  onChange={(e) => setAdminBankerThird(e.target.value)}
-                  placeholder="3rd (opt)"
-                  style={{
-                    flex: 1,
-                    padding: '12px',
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    border: '2px solid #f44336',
-                    borderRadius: '8px',
-                    color: '#fff',
-                    fontSize: '16px',
-                    textAlign: 'center',
-                    fontFamily: 'inherit'
-                  }}
-                />
-              </div>
-              
-              <button
-                onClick={adminDealCards}
-                disabled={!adminPlayerCards[0] || !adminPlayerCards[1] || !adminBankerCards[0] || !adminBankerCards[1]}
-                style={{
-                  width: '100%',
-                  padding: '14px',
-                  background: adminPlayerCards[0] && adminPlayerCards[1] && adminBankerCards[0] && adminBankerCards[1]
-                    ? 'linear-gradient(135deg, #9c27b0, #ba68c8)'
-                    : '#333',
-                  border: 'none',
-                  borderRadius: '8px',
-                  color: '#fff',
-                  fontSize: '13px',
-                  fontWeight: 'bold',
-                  cursor: adminPlayerCards[0] && adminPlayerCards[1] && adminBankerCards[0] && adminBankerCards[1] ? 'pointer' : 'not-allowed',
-                  fontFamily: 'inherit',
-                  letterSpacing: '1px',
-                  textTransform: 'uppercase'
-                }}
-              >
-                Deal Cards
-              </button>
             </div>
             
             {/* Controls */}

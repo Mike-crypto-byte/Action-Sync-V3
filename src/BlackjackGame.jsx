@@ -245,6 +245,7 @@ const BlackjackGame = ({ onBack, isDealerMode = false, playerUserId, playerName:
     const newBankroll = Math.round(bankroll + winnings);
     setBankroll(newBankroll);
     setActiveBets(newActiveBets);
+    setBetHistory(prev => [...prev, { result, net: Math.round(roundWinnings) }].slice(-50));
 
     const newStats = {
       ...sessionStats,
@@ -283,8 +284,7 @@ const BlackjackGame = ({ onBack, isDealerMode = false, playerUserId, playerName:
   // ── Betting ────────────────────────────────────────────────────────────────────
   const placeBet = (betType) => {
     if (!bettingOpen || bankroll < selectedChip) return;
-    const totalPending = Object.values(currentBets).reduce((s, v) => s + v, 0)
-      + Object.values(activeBets).filter(v => v > 0).reduce((s, v) => s + v, 0);
+    const totalPending = Object.values(currentBets).reduce((s, v) => s + v, 0);
     if (totalPending + selectedChip > bankroll) return;
     setCurrentBets(prev => ({ ...prev, [betType]: prev[betType] + selectedChip }));
   };
@@ -487,19 +487,20 @@ const BlackjackGame = ({ onBack, isDealerMode = false, playerUserId, playerName:
       <div
         onClick={() => placeBet(betKey)}
         style={{
-          flex: 1, padding: isMobile ? '16px 10px' : '22px 14px',
-          borderRadius: '12px',
-          border: `2px solid ${total > 0 ? borderColor : 'rgba(255,255,255,0.1)'}`,
+          flex: 1, height: '48px',
+          borderRadius: '10px',
+          border: `2px solid ${total > 0 ? borderColor : 'rgba(255,255,255,0.12)'}`,
           background: total > 0 ? bgGradient : 'rgba(255,255,255,0.03)',
           cursor: bettingOpen && bankroll >= selectedChip ? 'pointer' : 'default',
-          textAlign: 'center', transition: 'all 0.15s ease', opacity: bettingOpen ? 1 : 0.6,
+          transition: 'all 0.15s ease', opacity: bettingOpen ? 1 : 0.6,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
         }}
       >
-        <div style={{ color, fontSize: isMobile ? '20px' : '26px', fontWeight: 'bold', letterSpacing: '1px' }}>{label}</div>
-        {sublabel && <div style={{ color: '#888', fontSize: '11px', marginTop: '2px' }}>{sublabel}</div>}
+        <div style={{ color, fontSize: '15px', fontWeight: 'bold', letterSpacing: '1px' }}>{label}</div>
+        {sublabel && <div style={{ color: '#888', fontSize: '11px' }}>{sublabel}</div>}
         {total > 0 && (
-          <div style={{ marginTop: '8px', background: 'rgba(0,0,0,0.4)', borderRadius: '6px', padding: '4px 8px', display: 'inline-block' }}>
-            <span style={{ color: '#fff', fontSize: '14px', fontWeight: 'bold' }}>${total.toLocaleString()}</span>
+          <div style={{ background: 'rgba(0,0,0,0.4)', borderRadius: '6px', padding: '2px 8px' }}>
+            <span style={{ color: '#fff', fontSize: '13px', fontWeight: 'bold' }}>${total.toLocaleString()}</span>
           </div>
         )}
       </div>
@@ -588,7 +589,7 @@ const BlackjackGame = ({ onBack, isDealerMode = false, playerUserId, playerName:
         </div>
       </nav>
 
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: isMobile ? '16px' : '24px', display: 'flex', gap: '24px', flexDirection: isMobile ? 'column' : 'row' }}>
+      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: isMobile ? '10px' : '24px', display: 'flex', gap: isMobile ? '12px' : '24px', flexDirection: isMobile ? 'column' : 'row' }}>
 
         {/* ── Main column ── */}
         <div style={{ flex: 1 }}>
@@ -640,25 +641,27 @@ const BlackjackGame = ({ onBack, isDealerMode = false, playerUserId, playerName:
 
           {/* Result display */}
           {gamePhase === 'complete' && winner && (
-            <div style={{ textAlign: 'center', marginBottom: '20px', padding: '20px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px' }}>
-              <div style={{ fontSize: '40px', marginBottom: '6px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', padding: '7px 12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px' }}>
+              <span style={{ fontSize: '20px' }}>
                 {winner === 'win' ? '✅' : winner === 'blackjack' ? '🃏' : winner === 'lose' ? '❌' : '🤝'}
+              </span>
+              <div>
+                <div style={{
+                  fontSize: '16px', fontWeight: 'bold', letterSpacing: '1px',
+                  color: (winner === 'win' || winner === 'blackjack') ? '#4ade80' : winner === 'lose' ? '#f87171' : '#a5b4fc',
+                }}>
+                  {winner === 'win' ? 'WIN' : winner === 'blackjack' ? 'BLACKJACK' : winner === 'lose' ? 'LOSE' : 'PUSH'}
+                </div>
+                {winner === 'push' && <div style={{ color: '#666', fontSize: '11px' }}>All bets returned</div>}
+                {winner === 'blackjack' && <div style={{ color: '#d4af37', fontSize: '11px' }}>Win bets paid {gameOdds.blackjack.num}:{gameOdds.blackjack.den}</div>}
               </div>
-              <div style={{
-                fontSize: isMobile ? '22px' : '32px', fontWeight: 'bold', letterSpacing: '2px',
-                color: (winner === 'win' || winner === 'blackjack') ? '#4ade80' : winner === 'lose' ? '#f87171' : '#a5b4fc',
-              }}>
-                {winner === 'win' ? 'WIN' : winner === 'blackjack' ? 'BLACKJACK' : winner === 'lose' ? 'LOSE' : 'PUSH'}
-              </div>
-              {winner === 'push' && <div style={{ color: '#888', fontSize: '13px', marginTop: '4px' }}>All bets returned</div>}
-              {winner === 'blackjack' && <div style={{ color: '#d4af37', fontSize: '13px', marginTop: '4px' }}>Win bets paid {gameOdds.blackjack.num}:{gameOdds.blackjack.den}</div>}
             </div>
           )}
 
           {/* Bet spots */}
-          <div style={{ marginBottom: '16px' }}>
-            <div style={{ color: '#555', fontSize: '11px', letterSpacing: '1px', marginBottom: '10px' }}>PLACE YOUR BET — Push washes all bets</div>
-            <div style={{ display: 'flex', gap: '12px' }}>
+          <div style={{ marginBottom: '10px' }}>
+            <div style={{ color: '#555', fontSize: '10px', letterSpacing: '1px', marginBottom: '6px' }}>PLACE YOUR BET — Push washes all bets</div>
+            <div style={{ display: 'flex', gap: '10px' }}>
               <BetSpot betKey="win"  label="WIN"  sublabel="1:1"
                 color="#4ade80" borderColor="rgba(34,197,94,0.6)"
                 bgGradient="linear-gradient(135deg,rgba(20,83,45,0.5),rgba(15,60,35,0.6))" />
@@ -669,14 +672,14 @@ const BlackjackGame = ({ onBack, isDealerMode = false, playerUserId, playerName:
           </div>
 
           {/* Chip selector */}
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '14px' }}>
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
             {CHIP_VALUES.map(v => (
               <button key={v} onClick={() => setSelectedChip(v)} style={{
-                padding: '8px 16px', borderRadius: '20px',
+                padding: '5px 10px', borderRadius: '16px',
                 border: `1px solid ${selectedChip === v ? accentColor : 'rgba(255,255,255,0.1)'}`,
                 background: selectedChip === v ? 'rgba(212,175,55,0.15)' : 'transparent',
                 color: selectedChip === v ? accentColor : '#555',
-                fontSize: '13px', fontWeight: 'bold', cursor: bankroll >= v ? 'pointer' : 'not-allowed',
+                fontSize: '12px', fontWeight: 'bold', cursor: bankroll >= v ? 'pointer' : 'not-allowed',
                 opacity: bankroll >= v ? 1 : 0.4, fontFamily: 'inherit',
               }}>
                 ${v.toLocaleString()}
@@ -685,11 +688,11 @@ const BlackjackGame = ({ onBack, isDealerMode = false, playerUserId, playerName:
           </div>
 
           {/* Bet action buttons */}
-          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '20px' }}>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '10px' }}>
             {totalCurrentBet > 0 && (
               <>
-                <button onClick={clearAllBets} style={{ padding: '10px 20px', background: 'transparent', border: '1px solid #444', borderRadius: '8px', color: '#aaa', cursor: 'pointer', fontFamily: 'inherit', fontSize: '13px' }}>Clear</button>
-                <button onClick={confirmBets} style={{ padding: '10px 24px', background: 'linear-gradient(135deg,#d4af37,#f4e5a1)', border: 'none', borderRadius: '8px', color: '#000', fontWeight: 'bold', cursor: 'pointer', fontFamily: 'inherit', fontSize: '13px' }}>
+                <button onClick={clearAllBets} style={{ padding: '7px 14px', background: 'transparent', border: '1px solid #444', borderRadius: '8px', color: '#aaa', cursor: 'pointer', fontFamily: 'inherit', fontSize: '12px' }}>Clear</button>
+                <button onClick={confirmBets} style={{ padding: '7px 18px', background: 'linear-gradient(135deg,#d4af37,#f4e5a1)', border: 'none', borderRadius: '8px', color: '#000', fontWeight: 'bold', cursor: 'pointer', fontFamily: 'inherit', fontSize: '12px' }}>
                   Confirm ${totalCurrentBet.toLocaleString()}
                 </button>
               </>
@@ -698,12 +701,12 @@ const BlackjackGame = ({ onBack, isDealerMode = false, playerUserId, playerName:
               <button
                 onClick={rebetLast}
                 disabled={Object.values(lastConfirmedBets).reduce((s, v) => s + v, 0) > bankroll}
-                style={{ padding: '10px 20px', background: 'transparent', border: '1px solid #e53935', borderRadius: '8px', color: '#e53935', cursor: 'pointer', fontFamily: 'inherit', fontSize: '13px' }}>
+                style={{ padding: '7px 14px', background: 'transparent', border: '1px solid #e53935', borderRadius: '8px', color: '#e53935', cursor: 'pointer', fontFamily: 'inherit', fontSize: '12px' }}>
                 Rebet ${Object.values(lastConfirmedBets).reduce((s, v) => s + v, 0).toLocaleString()}
               </button>
             )}
             {lastRoundUndoable && (
-              <button onClick={undoLastResult} style={{ padding: '10px 20px', background: 'transparent', border: '1px solid #ff9800', borderRadius: '8px', color: '#ff9800', cursor: 'pointer', fontFamily: 'inherit', fontSize: '13px' }}>
+              <button onClick={undoLastResult} style={{ padding: '7px 14px', background: 'transparent', border: '1px solid #ff9800', borderRadius: '8px', color: '#ff9800', cursor: 'pointer', fontFamily: 'inherit', fontSize: '12px' }}>
                 Undo Last
               </button>
             )}
@@ -711,7 +714,7 @@ const BlackjackGame = ({ onBack, isDealerMode = false, playerUserId, playerName:
 
           {/* Active bets summary */}
           {totalActiveBet > 0 && (
-            <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '14px 18px', marginBottom: '20px' }}>
+            <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '8px 12px', marginBottom: '10px' }}>
               <div style={{ color: '#666', fontSize: '11px', letterSpacing: '1px', marginBottom: '8px' }}>LOCKED BETS — ${totalActiveBet.toLocaleString()}</div>
               <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                 {Object.entries(activeBets).filter(([, v]) => v > 0).map(([k, v]) => (
@@ -753,67 +756,13 @@ const BlackjackGame = ({ onBack, isDealerMode = false, playerUserId, playerName:
                 </button>
               </div>
 
-              {/* ── Card entry ── */}
-              <div style={{ background: 'rgba(0,0,0,0.25)', borderRadius: '12px', padding: '16px', marginBottom: '20px' }}>
-                <div style={{ color: '#666', fontSize: '11px', letterSpacing: '1px', marginBottom: '12px' }}>CARD ENTRY</div>
-
-                {/* Target selector */}
-                <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-                  {['dealer', 'house'].map(t => (
-                    <button key={t} onClick={() => setCardTarget(t)} style={{
-                      flex: 1, padding: '8px', borderRadius: '8px', fontSize: '12px', fontWeight: 'bold',
-                      background: cardTarget === t ? 'rgba(212,175,55,0.2)' : 'transparent',
-                      border: `1px solid ${cardTarget === t ? accentColor : '#333'}`,
-                      color: cardTarget === t ? accentColor : '#555',
-                      cursor: 'pointer', fontFamily: 'inherit', textTransform: 'uppercase', letterSpacing: '1px',
-                    }}>
-                      {t === 'dealer' ? `Dealer${dealerCards.length > 0 ? ` (${dealerScore}${dealerScore > 21 ? ' BUST' : ''})` : ''}` : `House${houseCards.length > 0 ? ` (${houseScore}${houseScore > 21 ? ' BUST' : ''})` : ''}`}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Value grid */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px', marginBottom: '10px' }}>
-                  {CARD_VALUES.map(v => (
-                    <button key={v} onClick={() => addCard(v)} style={{
-                      padding: '8px 4px', borderRadius: '6px', fontSize: '13px', fontWeight: 'bold',
-                      background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)',
-                      color: '#fff', cursor: 'pointer', fontFamily: 'inherit',
-                    }}>{v}</button>
-                  ))}
-                </div>
-
-                {/* Current cards with remove */}
-                {['dealer', 'house'].map(t => {
-                  const cards = t === 'dealer' ? dealerCards : houseCards;
-                  if (cards.length === 0) return null;
-                  return (
-                    <div key={t} style={{ marginBottom: '8px' }}>
-                      <div style={{ color: '#555', fontSize: '10px', letterSpacing: '1px', marginBottom: '6px' }}>{t.toUpperCase()}</div>
-                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                        {cards.map((v, i) => (
-                          <div key={i} onClick={() => removeCard(t, i)} style={{
-                            padding: '4px 10px', borderRadius: '6px', background: 'rgba(255,255,255,0.1)',
-                            border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '13px',
-                            fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px',
-                          }}>
-                            {v} <span style={{ color: '#f87171', fontSize: '10px' }}>✕</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
               {/* Result buttons */}
               <div style={{ color: '#555', fontSize: '11px', letterSpacing: '1px', marginBottom: '10px' }}>SET RESULT</div>
               <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                 {[
-                  { result: 'win',       label: 'WIN',       color: '#4ade80', border: 'rgba(34,197,94,0.5)',   bg: 'rgba(34,197,94,0.15)'   },
-                  { result: 'blackjack', label: 'BLACKJACK', color: '#d4af37', border: 'rgba(212,175,55,0.5)',  bg: 'rgba(212,175,55,0.15)'  },
-                  { result: 'lose',      label: 'LOSE',      color: '#f87171', border: 'rgba(239,68,68,0.5)',   bg: 'rgba(239,68,68,0.15)'   },
-                  { result: 'push',      label: 'PUSH',      color: '#a5b4fc', border: 'rgba(99,102,241,0.5)',  bg: 'rgba(99,102,241,0.15)'  },
+                  { result: 'win',  label: 'WIN',  color: '#4ade80', border: 'rgba(34,197,94,0.5)',  bg: 'rgba(34,197,94,0.15)'  },
+                  { result: 'lose', label: 'LOSE', color: '#f87171', border: 'rgba(239,68,68,0.5)',  bg: 'rgba(239,68,68,0.15)'  },
+                  { result: 'push', label: 'PUSH', color: '#a5b4fc', border: 'rgba(99,102,241,0.5)', bg: 'rgba(99,102,241,0.15)' },
                 ].map(({ result, label, color, border, bg }) => (
                   <button key={result} onClick={() => adminSetResult(result)} style={{
                     padding: '13px 18px', background: bg, border: `2px solid ${border}`,
@@ -827,7 +776,7 @@ const BlackjackGame = ({ onBack, isDealerMode = false, playerUserId, playerName:
         </div>
 
         {/* ── Right column ── */}
-        <div style={{ width: isMobile ? '100%' : '280px', flexShrink: 0 }}>
+        <div style={{ width: isMobile ? '100%' : '380px', flexShrink: 0 }}>
 
           {/* Session stats */}
           <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '16px', marginBottom: '16px' }}>
@@ -852,8 +801,8 @@ const BlackjackGame = ({ onBack, isDealerMode = false, playerUserId, playerName:
             <div style={{ color: '#555', fontSize: '11px', letterSpacing: '1px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
               <Trophy size={12} color="#d4af37" /> LEADERBOARD
             </div>
-            {leaderboard.slice(0, 8).map((player, i) => (
-              <div key={player.userId} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 0', borderBottom: i < Math.min(leaderboard.length, 8) - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+            {leaderboard.slice(0, 20).map((player, i) => (
+              <div key={player.userId} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 0', borderBottom: i < leaderboard.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
                 <span style={{ color: i === 0 ? '#d4af37' : '#555', fontSize: '12px', width: '16px' }}>
                   {i === 0 ? '👑' : `${i + 1}.`}
                 </span>
@@ -869,10 +818,10 @@ const BlackjackGame = ({ onBack, isDealerMode = false, playerUserId, playerName:
           </div>
 
           {/* Chat */}
-          <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '16px' }}>
+          <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '16px', marginBottom: '16px' }}>
             <div style={{ color: '#555', fontSize: '11px', letterSpacing: '1px', marginBottom: '12px' }}>CHAT</div>
-            <div style={{ height: '180px', overflowY: 'auto', marginBottom: '10px' }}>
-              {chatMessages.map((msg, i) => (
+            <div style={{ height: '480px', overflowY: 'auto', marginBottom: '10px' }}>
+              {chatMessages.filter(msg => msg.userId !== 'system').map((msg, i) => (
                 <div key={i} style={{ marginBottom: '6px' }}>
                   <span style={{ color: msg.userId === 'system' ? '#d4af37' : '#888', fontSize: '11px', marginRight: '6px' }}>{msg.name}:</span>
                   <span style={{ color: '#ccc', fontSize: '12px' }}>{msg.text}</span>
@@ -892,6 +841,29 @@ const BlackjackGame = ({ onBack, isDealerMode = false, playerUserId, playerName:
               </button>
             </div>
           </div>
+
+          {/* Bet history */}
+          {!isAdmin && (
+            <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '16px', marginBottom: '16px' }}>
+              <div style={{ color: '#555', fontSize: '11px', letterSpacing: '1px', marginBottom: '12px' }}>HISTORY</div>
+              {betHistory.length === 0 ? (
+                <div style={{ color: '#444', fontSize: '12px' }}>No bets yet</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '220px', overflowY: 'auto' }}>
+                  {[...betHistory].reverse().map((entry, i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 8px', background: 'rgba(255,255,255,0.02)', borderRadius: '6px', fontSize: '12px' }}>
+                      <span style={{ color: entry.result === 'win' || entry.result === 'blackjack' ? '#4ade80' : entry.result === 'lose' ? '#f87171' : '#a5b4fc', fontWeight: 'bold' }}>
+                        {entry.result === 'win' ? 'WIN' : entry.result === 'blackjack' ? 'BJ' : entry.result === 'lose' ? 'LOSE' : 'PUSH'}
+                      </span>
+                      <span style={{ color: entry.net >= 0 ? '#4ade80' : '#f87171' }}>
+                        {entry.net >= 0 ? '+' : ''}${entry.net?.toLocaleString() ?? '—'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Admin panel */}
           {isAdmin && showSettings && (

@@ -14,7 +14,17 @@ import StreamOverlay from './StreamOverlay';
 import SettingsPanel from './SettingsPanel';
 import VODScriptEditor from './VODScriptEditor';
 import VODPlayer from './VODPlayer';
+import LivePlayerView from './LivePlayerView';
 import LandingPage from './LandingPage';
+
+const extractYouTubeId = (url) => {
+  if (!url) return null;
+  const trimmed = url.trim();
+  const m = trimmed.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?.*?v=|live\/|embed\/))([a-zA-Z0-9_-]{11})/);
+  if (m) return m[1];
+  if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) return trimmed;
+  return null;
+};
 
 // ── URL helpers ────────────────────────────────────────────────────────────────
 const getDealerUidFromUrl = () =>
@@ -96,6 +106,10 @@ const AppMain = () => {
   const [joinCodeInput, setJoinCodeInput]   = useState('');
   const [joinCodeLoading, setJoinCodeLoading] = useState(false);
 
+  // ── Live stream URL ────────────────────────────────────────────────────────────
+  const [liveYoutubeInput, setLiveYoutubeInput]     = useState('');
+  const [sessionStreamVideoId, setSessionStreamVideoId] = useState(null);
+
   // ── Auth form (login/signup UI) ────────────────────────────────────────────────
   const [authMode, setAuthMode]         = useState('playerSignIn');
   // Tracks whether the user explicitly clicked an auth CTA.
@@ -152,6 +166,14 @@ const AppMain = () => {
   }, [dealerUid]);
 
   useEffect(() => {
+    if (!dealerUid) return;
+    const unsub = onValue(ref(db, `rooms/${dealerUid}/settings/youtubeStreamUrl`), (snap) => {
+      setSessionStreamVideoId(snap.exists() ? extractYouTubeId(snap.val()) : null);
+    });
+    return () => unsub();
+  }, [dealerUid]);
+
+  useEffect(() => {
     if (!isDealer || !dealerUid) return;
     const unsub = onValue(ref(db, `rooms/${dealerUid}/session/status`), (snap) => {
       if (snap.exists()) setSessionStatus(snap.val());
@@ -164,6 +186,14 @@ const AppMain = () => {
     if (!isDealer || !dealerUid) return;
     const unsub = onValue(ref(db, `rooms/${dealerUid}/session/activeGame`), (snap) => {
       setSelectedGame(snap.exists() && snap.val() ? snap.val() : null);
+    });
+    return () => unsub();
+  }, [isDealer, dealerUid]);
+
+  useEffect(() => {
+    if (!isDealer || !dealerUid) return;
+    const unsub = onValue(ref(db, `rooms/${dealerUid}/settings/youtubeStreamUrl`), (snap) => {
+      if (snap.exists()) setLiveYoutubeInput(snap.val());
     });
     return () => unsub();
   }, [isDealer, dealerUid]);
@@ -534,6 +564,21 @@ const AppMain = () => {
     );
   }
 
+  // ── Player with live stream → stream + betting panel layout ──────────────────
+  if (isPlayer && selectedGame && sessionStreamVideoId) {
+    return (
+      <LivePlayerView
+        dealerUid={dealerUid}
+        playerUserId={playerUid}
+        playerName={playerName}
+        selectedGame={selectedGame}
+        streamVideoId={sessionStreamVideoId}
+        startingChips={startingChips}
+        onBack={() => setSelectedGame(null)}
+      />
+    );
+  }
+
   if (selectedGame === 'craps')     return <CrapsGame     onBack={deactivateGame} isDealerMode={isDealerMode} playerUserId={playerUid} playerName={playerName} skipRegistration={true} roomCode={dealerUid} />;
   if (selectedGame === 'baccarat')  return <BaccaratGame  onBack={deactivateGame} isDealerMode={isDealerMode} playerUserId={playerUid} playerName={playerName} skipRegistration={true} roomCode={dealerUid} />;
   if (selectedGame === 'roulette')  return <RouletteGame  onBack={deactivateGame} isDealerMode={isDealerMode} playerUserId={playerUid} playerName={playerName} skipRegistration={true} roomCode={dealerUid} />;
@@ -630,12 +675,12 @@ const AppMain = () => {
                   <div style={{ fontSize: '3.75rem', marginBottom: '20px' }}>🎰</div>
                   <h2 style={{ fontSize: '1.875rem', fontWeight: 'bold', color: '#d4af37', marginBottom: '12px', letterSpacing: '1.5px' }}>GAME OVER</h2>
                   <p style={{ color: '#8892a4', fontSize: '1rem', marginBottom: '8px' }}>Welcome, <span style={{ color: '#d4af37' }}>{playerName}</span>!</p>
-                  <p style={{ color: '#8892a4', fontSize: '0.875rem', marginBottom: '32px' }}>The stream is live. Next game starting soon — hold tight.</p>
-                  <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginBottom: '32px' }}>
-                    {[0,1,2].map(i => <div key={i} style={{ animationDelay: `${i*0.2}s`, width: '12px', height: '12px', borderRadius: '50%', background: '#4caf50' }} className="animate-pulse" />)}
-                  </div>
-                  <div style={{ padding: '14px 20px', background: 'rgba(76,175,80,0.1)', backdropFilter: 'blur(8px)', border: '1px solid rgba(76,175,80,0.4)', borderRadius: '20px', color: '#4ade80', fontSize: '12px', display: 'inline-block', boxShadow: '0 0 20px rgba(76,175,80,0.2)' }}>
+                  <p style={{ color: '#8892a4', fontSize: '0.875rem', marginBottom: '16px' }}>The stream is live. Next game starting soon — hold tight.</p>
+                  <div style={{ padding: '14px 20px', background: 'rgba(76,175,80,0.1)', backdropFilter: 'blur(8px)', border: '1px solid rgba(76,175,80,0.4)', borderRadius: '20px', color: '#4ade80', fontSize: '12px', display: 'inline-block', boxShadow: '0 0 20px rgba(76,175,80,0.2)', marginBottom: '20px' }}>
                     🟢 Stream is live
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginBottom: '16px' }}>
+                    {[0,1,2].map(i => <div key={i} style={{ animationDelay: `${i*0.2}s`, width: '12px', height: '12px', borderRadius: '50%', background: '#4caf50' }} className="animate-pulse" />)}
                   </div>
                 </>
               ) : (
@@ -1021,6 +1066,23 @@ const AppMain = () => {
             <div style={{ color: '#4ade80', textAlign: 'center', fontSize: '20px', fontWeight: '800', marginBottom: '8px' }}>Going Live</div>
             <p style={{ textAlign: 'center', color: 'rgba(136,146,164,0.7)', fontSize: '13px', marginBottom: '28px' }}>Set the starting stack for all players this session.</p>
 
+            <div style={{ marginBottom: '24px' }}>
+              <div style={{ color: '#d4af37', fontSize: '11px', fontWeight: '700', letterSpacing: '2px', marginBottom: '10px', textTransform: 'uppercase' }}>📺 YouTube Live URL <span style={{ color: 'rgba(136,146,164,0.5)', fontWeight: '400', letterSpacing: '0' }}>(optional)</span></div>
+              <input
+                type="text"
+                value={liveYoutubeInput}
+                onChange={e => setLiveYoutubeInput(e.target.value)}
+                placeholder="https://youtube.com/live/..."
+                style={{ width: '100%', padding: '10px 12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '8px', color: '#fff', fontSize: '13px', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}
+              />
+              {liveYoutubeInput && !extractYouTubeId(liveYoutubeInput) && (
+                <div style={{ color: '#f87171', fontSize: '11px', marginTop: '6px' }}>Couldn't find a YouTube video ID in that URL.</div>
+              )}
+              {liveYoutubeInput && extractYouTubeId(liveYoutubeInput) && (
+                <div style={{ color: '#4ade80', fontSize: '11px', marginTop: '6px' }}>✓ Video ID: {extractYouTubeId(liveYoutubeInput)}</div>
+              )}
+            </div>
+
             <div style={{ color: '#d4af37', fontSize: '11px', fontWeight: '700', letterSpacing: '2px', marginBottom: '12px', textTransform: 'uppercase' }}>💰 Starting Stack</div>
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '24px' }}>
               {[500, 1000, 2500, 5000, 10000].map(amt => (
@@ -1053,6 +1115,7 @@ const AppMain = () => {
                   setGoLiveLoading(true);
                   try {
                     await handleSetStartingChips(startingChips);
+                    await set(ref(db, `rooms/${dealerUid}/settings/youtubeStreamUrl`), liveYoutubeInput.trim() || null);
                     await startStream(dealerUid);
                     setSessionStatus('active');
                     setShowGoLiveModal(false);

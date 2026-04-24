@@ -188,8 +188,8 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
   const { leaderboard, updateLeaderboardEntry, clearLeaderboard } = useLeaderboard(roomCode);
   
   // Admin state
-  const [adminDice1, setAdminDice1] = useState('');
-  const [adminDice2, setAdminDice2] = useState('');
+  const [adminRollTotal, setAdminRollTotal] = useState('');
+  const [adminRollHard, setAdminRollHard] = useState(false);
   // FIREBASE: activeUsers from presence
   const activeUsers = usePresence(roomCode, isRegistered ? userId : null, userName);
   const [showSettings, setShowSettings] = useState(false);
@@ -863,22 +863,28 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
 
   // ========== FIREBASE: Admin roll writes to Firebase — all clients auto-resolve ==========
   const adminSubmitRoll = async () => {
-    const d1 = parseInt(adminDice1);
-    const d2 = parseInt(adminDice2);
-    if (d1 >= 1 && d1 <= 6 && d2 >= 1 && d2 <= 6) {
-      const newRoll = { dice1: d1, dice2: d2, total: d1 + d2, timestamp: Date.now() };
-      const newHistory = [{ dice1: d1, dice2: d2, total: d1 + d2 }, ...(gameState.rollHistory || []).slice(0, 19)];
-      await updateGameState({
-        lastRoll: newRoll,
-        rollNumber: (gameState.rollNumber || 0) + 1,
-        bettingOpen: false,
-        countdown: 0,
-        rollHistory: newHistory
-      });
-      setAdminDice1('');
-      setAdminDice2('');
-      await sendSystemMessage(`🎲 Roll: ${d1 + d2} (${d1}-${d2}) — Roll #${(gameState.rollNumber || 0) + 1}`);
+    const total = parseInt(adminRollTotal);
+    if (!total || total < 2 || total > 12) return;
+    let d1, d2;
+    const isHard = adminRollHard && total % 2 === 0 && total >= 4 && total <= 10;
+    if (isHard) {
+      d1 = d2 = total / 2;
+    } else {
+      d1 = Math.max(1, total - 6);
+      d2 = total - d1;
     }
+    const newRoll = { dice1: d1, dice2: d2, total, timestamp: Date.now() };
+    const newHistory = [{ dice1: d1, dice2: d2, total }, ...(gameState.rollHistory || []).slice(0, 19)];
+    await updateGameState({
+      lastRoll: newRoll,
+      rollNumber: (gameState.rollNumber || 0) + 1,
+      bettingOpen: false,
+      countdown: 0,
+      rollHistory: newHistory
+    });
+    setAdminRollTotal('');
+    setAdminRollHard(false);
+    await sendSystemMessage(`🎲 Roll: ${total} (${d1}-${d2})${isHard ? ' HARD' : ''} — Roll #${(gameState.rollNumber || 0) + 1}`);
   };
 
   // ========== Dealer betting controls ==========
@@ -1234,7 +1240,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
           background: '#192333',
           border: '1px solid #2a3548',
           borderRadius: '20px',
-          padding: '30px',
+          padding: isMobile ? '12px' : '15px',
           boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
           marginBottom: '20px'
         }}>
@@ -1405,12 +1411,12 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
             <div style={{ display: 'grid', gap: '10px' }}>
               <div>
                 <CrapsBetArea 
-                  label="PASS LINE" 
+                  label="PASS LINE"
                   value={currentBets.passLine + (activeBets.passLine || 0)}
                   onClick={() => placeBet('passLine')}
                   disabled={!bettingOpen || (gamePhase === 'point' && activeBets.passLine > 0)}
-                  style={{ 
-                    height: '60px', 
+                  style={{
+                    height: '45px',
                     background: 'transparent',
                     border: '1px solid #3a4a5a',
                     fontSize: '10px',
@@ -1419,13 +1425,13 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
                 />
                 {gamePhase === 'point' && activeBets.passLine > 0 && (
                   <CrapsBetArea 
-                    label="ODDS" 
+                    label="PASS ODDS (True Odds, no house edge)"
                     value={currentBets.passOdds + (activeBets.passOdds || 0)}
                     onClick={() => placeBet('passOdds')}
                     disabled={!bettingOpen}
-                    style={{ 
-                      height: '40px',
-                      fontSize: '9px',
+                    style={{
+                      height: '36px',
+                      fontSize: '8px',
                       background: 'transparent',
                       border: '1px solid #43a047'
                     }}
@@ -1438,17 +1444,17 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
                   value={currentBets.dontPass + (activeBets.dontPass || 0)}
                   onClick={() => placeBet('dontPass')}
                   disabled={!bettingOpen || gamePhase === 'point'}
-                  style={{ height: '50px', fontSize: '9px', marginBottom: '5px' }}
+                  style={{ height: '38px', fontSize: '9px', marginBottom: '5px' }}
                 />
                 {gamePhase === 'point' && activeBets.dontPass > 0 && (
-                  <CrapsBetArea 
-                    label="ODDS" 
+                  <CrapsBetArea
+                    label="DON'T PASS ODDS (True Odds, no house edge)"
                     value={currentBets.dontPassOdds + (activeBets.dontPassOdds || 0)}
                     onClick={() => placeBet('dontPassOdds')}
                     disabled={!bettingOpen}
-                    style={{ 
+                    style={{
                       height: '30px',
-                      fontSize: '9px',
+                      fontSize: '7px',
                       background: 'transparent',
                       border: '1px solid #ef5350'
                     }}
@@ -1523,14 +1529,14 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
                       value={currentBets.craplessPlace2 + (activeBets.craplessPlace2 || 0)}
                       onClick={() => placeBet('craplessPlace2')}
                       disabled={!bettingOpen}
-                      style={{ fontSize: '16px', fontWeight: 'bold', height: '55px' }}
+                      style={{ fontSize: '16px', fontWeight: 'bold', height: '40px' }}
                     />
                     <CrapsBetArea 
                       label="3" 
                       value={currentBets.craplessPlace3 + (activeBets.craplessPlace3 || 0)}
                       onClick={() => placeBet('craplessPlace3')}
                       disabled={!bettingOpen}
-                      style={{ fontSize: '16px', fontWeight: 'bold', height: '55px' }}
+                      style={{ fontSize: '16px', fontWeight: 'bold', height: '40px' }}
                     />
                   </>
                 )}
@@ -1542,7 +1548,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
                   style={{ 
                     fontSize: '18px', 
                     fontWeight: 'bold', 
-                    height: '55px',
+                    height: '40px',
                     background: point === 4 ? 'rgba(255,152,0,0.2)' : 'transparent'
                   }}
                 />
@@ -1554,7 +1560,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
                   style={{ 
                     fontSize: '18px', 
                     fontWeight: 'bold', 
-                    height: '55px',
+                    height: '40px',
                     background: point === 5 ? 'rgba(255,152,0,0.2)' : 'transparent'
                   }}
                 />
@@ -1566,7 +1572,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
                   style={{ 
                     fontSize: '18px', 
                     fontWeight: 'bold', 
-                    height: '55px',
+                    height: '40px',
                     background: point === 6 ? 'rgba(255,152,0,0.2)' : 'transparent'
                   }}
                 />
@@ -1578,7 +1584,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
                   style={{ 
                     fontSize: '18px', 
                     fontWeight: 'bold', 
-                    height: '55px',
+                    height: '40px',
                     background: point === 8 ? 'rgba(255,152,0,0.2)' : 'transparent'
                   }}
                 />
@@ -1590,7 +1596,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
                   style={{ 
                     fontSize: '18px', 
                     fontWeight: 'bold', 
-                    height: '55px',
+                    height: '40px',
                     background: point === 9 ? 'rgba(255,152,0,0.2)' : 'transparent'
                   }}
                 />
@@ -1602,7 +1608,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
                   style={{ 
                     fontSize: '18px', 
                     fontWeight: 'bold', 
-                    height: '55px',
+                    height: '40px',
                     background: point === 10 ? 'rgba(255,152,0,0.2)' : 'transparent'
                   }}
                 />
@@ -1613,14 +1619,14 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
                       value={currentBets.craplessPlace11 + (activeBets.craplessPlace11 || 0)}
                       onClick={() => placeBet('craplessPlace11')}
                       disabled={!bettingOpen}
-                      style={{ fontSize: '16px', fontWeight: 'bold', height: '55px' }}
+                      style={{ fontSize: '16px', fontWeight: 'bold', height: '40px' }}
                     />
                     <CrapsBetArea 
                       label="12" 
                       value={currentBets.craplessPlace12 + (activeBets.craplessPlace12 || 0)}
                       onClick={() => placeBet('craplessPlace12')}
                       disabled={!bettingOpen}
-                      style={{ fontSize: '16px', fontWeight: 'bold', height: '55px' }}
+                      style={{ fontSize: '16px', fontWeight: 'bold', height: '40px' }}
                     />
                   </>
                 )}
@@ -1632,8 +1638,8 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
                 value={currentBets.come + (activeBets.come || 0)}
                 onClick={() => placeBet('come')}
                 disabled={!bettingOpen || gamePhase === 'come-out'}
-                style={{ 
-                  height: '60px', 
+                style={{
+                  height: '45px',
                   marginBottom: '12px',
                   background: 'transparent',
                   border: '1px solid #3a4a5a',
@@ -1642,13 +1648,13 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
               />
 
               {/* Field */}
-              {gameVis.field && <CrapsBetArea 
-                label="FIELD • 2 3 4 9 10 11 12 • (2:1 on 2,12)" 
+              {gameVis.field && <CrapsBetArea
+                label="FIELD • 2 3 4 9 10 11 12 • (2:1 on 2,12)"
                 value={currentBets.field + (activeBets.field || 0)}
                 onClick={() => placeBet('field')}
                 disabled={!bettingOpen}
-                style={{ 
-                  height: '50px',
+                style={{
+                  height: '38px',
                   background: 'transparent',
                   border: '1px solid #3a4a5a',
                   fontSize: '10px'
@@ -1658,12 +1664,12 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
 
             {/* Right - Don't Come and Fire Bet */}
             <div style={{ display: 'grid', gap: '10px' }}>
-              <CrapsBetArea 
-                label="DON'T COME" 
+              <CrapsBetArea
+                label="DON'T COME"
                 value={currentBets.dontCome + (activeBets.dontCome || 0)}
                 onClick={() => placeBet('dontCome')}
                 disabled={!bettingOpen || gamePhase === 'come-out'}
-                style={{ height: '60px', fontSize: '9px' }}
+                style={{ height: '45px', fontSize: '9px' }}
               />
               
               {/* Big 6/8 */}
@@ -1765,18 +1771,24 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
               </div>
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-              {Object.entries(activeBets).filter(([_, v]) => v > 0).map(([key, amount]) => (
-                <div key={'locked-' + key} style={{
-                  background: 'rgba(212, 175, 55, 0.15)',
-                  border: '1px solid rgba(212, 175, 55, 0.3)',
-                  borderRadius: '20px',
-                  padding: '5px 12px',
-                  fontSize: '11px',
-                  color: '#e53935'
-                }}>
-                  🔒 {key.replace(/([A-Z])/g, ' $1').replace(/-/g, ' ').trim()} <span style={{ fontWeight: 'bold' }}>${amount}</span>
-                </div>
-              ))}
+              {Object.entries(activeBets).filter(([_, v]) => v > 0).map(([key, amount]) => {
+                const canRemove = bettingOpen && !(key === 'passLine' && gamePhase === 'point');
+                return (
+                  <div key={'locked-' + key}
+                    onClick={canRemove ? () => removeBet(key) : undefined}
+                    style={{
+                      background: canRemove ? 'rgba(229,57,53,0.1)' : 'rgba(212,175,55,0.15)',
+                      border: `1px solid ${canRemove ? 'rgba(229,57,53,0.4)' : 'rgba(212,175,55,0.3)'}`,
+                      borderRadius: '20px',
+                      padding: '5px 12px',
+                      fontSize: '11px',
+                      color: canRemove ? '#ef5350' : '#e0a800',
+                      cursor: canRemove ? 'pointer' : 'default',
+                    }}>
+                    {canRemove ? '✕' : '🔒'} {key.replace(/([A-Z])/g, ' $1').replace(/-/g, ' ').trim()} <span style={{ fontWeight: 'bold' }}>${amount}</span>
+                  </div>
+                );
+              })}
               {Object.entries(currentBets).filter(([_, v]) => v > 0).map(([key, amount]) => (
                 <div key={'pending-' + key} onClick={() => removeSingleBet(key)} style={{
                   background: 'rgba(76, 175, 80, 0.15)',
@@ -2129,7 +2141,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
                 No messages yet. Say hello!
               </div>
             ) : (<>
-              {chatMessages.map((msg, idx) => (
+              {chatMessages.filter(msg => msg.userId !== 'system').map((msg, idx) => (
                 <div key={idx} style={{
                   marginBottom: '10px',
                   padding: msg.userId === 'system' ? '10px 12px' : '8px',
@@ -2633,153 +2645,63 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
               </div>
             </div>
             
-            {/* Dice Entry */}
-            <div style={{
-              background: 'rgba(0, 0, 0, 0.3)',
-              padding: '18px',
-              borderRadius: '8px',
-              marginBottom: '15px'
-            }}>
-              <div style={{ fontSize: '11px', color: '#888', marginBottom: '8px' }}>
-                Quick Pick Dice — tap each die, then ROLL
+            {/* Roll Entry — select total + hard/easy */}
+            <div style={{ background: 'rgba(0,0,0,0.3)', padding: '18px', borderRadius: '8px', marginBottom: '15px' }}>
+              <div style={{ fontSize: '11px', color: '#888', marginBottom: '10px' }}>
+                Select Roll Total
               </div>
-              <div style={{ display: 'flex', gap: '15px', marginBottom: '12px' }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '12px', color: '#888', marginBottom: '8px', textAlign: 'center', fontWeight: 'bold', letterSpacing: '1px' }}>DIE 1</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
-                    {[1,2,3,4,5,6].map(n => (
-                      <button key={`d1-${n}`} onClick={() => setAdminDice1(String(n))}
-                        style={{
-                          padding: '18px 0', borderRadius: '8px', fontSize: '32px', fontWeight: 'bold',
-                          background: adminDice1 === String(n) ? '#fff' : 'rgba(229,57,53,0.15)',
-                          color: adminDice1 === String(n) ? '#000' : '#fff',
-                          border: adminDice1 === String(n) ? '2px solid #e53935' : '1px solid #9c27b0',
-                          cursor: 'pointer', fontFamily: 'inherit'
-                        }}>
-                        {['⚀','⚁','⚂','⚃','⚄','⚅'][n-1]}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '12px', color: '#888', marginBottom: '8px', textAlign: 'center', fontWeight: 'bold', letterSpacing: '1px' }}>DIE 2</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
-                    {[1,2,3,4,5,6].map(n => (
-                      <button key={`d2-${n}`} onClick={() => setAdminDice2(String(n))}
-                        style={{
-                          padding: '18px 0', borderRadius: '8px', fontSize: '32px', fontWeight: 'bold',
-                          background: adminDice2 === String(n) ? '#fff' : 'rgba(229,57,53,0.15)',
-                          color: adminDice2 === String(n) ? '#000' : '#fff',
-                          border: adminDice2 === String(n) ? '2px solid #e53935' : '1px solid #9c27b0',
-                          cursor: 'pointer', fontFamily: 'inherit'
-                        }}>
-                        {['⚀','⚁','⚂','⚃','⚄','⚅'][n-1]}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', marginBottom: '12px' }}>
+                {[2,3,4,5,6,7,8,9,10,11,12].map(n => (
+                  <button key={n}
+                    onClick={() => { setAdminRollTotal(String(n)); if (![4,6,8,10].includes(n)) setAdminRollHard(false); }}
+                    style={{
+                      padding: '14px 0', borderRadius: '8px', fontSize: '20px', fontWeight: 'bold',
+                      background: adminRollTotal === String(n) ? '#fff' : 'rgba(229,57,53,0.15)',
+                      color: adminRollTotal === String(n) ? '#000' : '#fff',
+                      border: adminRollTotal === String(n) ? '2px solid #e53935' : '1px solid #9c27b0',
+                      cursor: 'pointer', fontFamily: 'inherit'
+                    }}>
+                    {n}
+                  </button>
+                ))}
               </div>
-              {adminDice1 && adminDice2 && (
-                <div style={{ textAlign: 'center', marginBottom: '10px', fontSize: '14px', color: '#e53935', fontWeight: 'bold' }}>
-                  Total: {parseInt(adminDice1) + parseInt(adminDice2)}
+
+              {/* Hard / Easy toggle — only for even totals 4,6,8,10 */}
+              {adminRollTotal && [4,6,8,10].includes(parseInt(adminRollTotal)) && (
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+                  <button onClick={() => setAdminRollHard(false)}
+                    style={{ flex: 1, padding: '10px', borderRadius: '6px', fontSize: '13px', fontWeight: 'bold',
+                      background: !adminRollHard ? 'rgba(229,57,53,0.4)' : 'transparent',
+                      border: `1px solid ${!adminRollHard ? '#e53935' : '#555'}`, color: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}>
+                    Easy
+                  </button>
+                  <button onClick={() => setAdminRollHard(true)}
+                    style={{ flex: 1, padding: '10px', borderRadius: '6px', fontSize: '13px', fontWeight: 'bold',
+                      background: adminRollHard ? 'rgba(229,57,53,0.4)' : 'transparent',
+                      border: `1px solid ${adminRollHard ? '#e53935' : '#555'}`, color: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}>
+                    Hard
+                  </button>
                 </div>
               )}
-              <div style={{ fontSize: '11px', color: '#888', marginBottom: '12px', display: 'none' }}>
-                Enter Roll Result (hidden, using quick pick above)
-              </div>
-              <div style={{ display: 'flex', gap: '10px', marginBottom: '12px' }}>
-                <input
-                  type="number"
-                  min="1"
-                  max="6"
-                  value={adminDice1}
-                  onChange={(e) => setAdminDice1(e.target.value)}
-                  placeholder="Die 1"
-                  style={{
-                    flex: 1,
-                    padding: '14px',
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    border: '2px solid #9c27b0',
-                    borderRadius: '8px',
-                    color: '#fff',
-                    fontSize: '18px',
-                    textAlign: 'center',
-                    fontFamily: 'inherit',
-                    fontWeight: 'bold'
-                  }}
-                />
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  color: '#ce93d8',
-                  fontSize: '20px'
-                }}>
-                  +
+
+              {adminRollTotal && (
+                <div style={{ textAlign: 'center', marginBottom: '10px', fontSize: '14px', color: '#e53935', fontWeight: 'bold' }}>
+                  Total: {adminRollTotal}{adminRollHard && [4,6,8,10].includes(parseInt(adminRollTotal)) ? ' (HARD)' : ''}
                 </div>
-                <input
-                  type="number"
-                  min="1"
-                  max="6"
-                  value={adminDice2}
-                  onChange={(e) => setAdminDice2(e.target.value)}
-                  placeholder="Die 2"
-                  style={{
-                    flex: 1,
-                    padding: '14px',
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    border: '2px solid #9c27b0',
-                    borderRadius: '8px',
-                    color: '#fff',
-                    fontSize: '18px',
-                    textAlign: 'center',
-                    fontFamily: 'inherit',
-                    fontWeight: 'bold'
-                  }}
-                />
-                {adminDice1 && adminDice2 && (
-                  <>
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      color: '#ce93d8',
-                      fontSize: '20px'
-                    }}>
-                      =
-                    </div>
-                    <div style={{
-                      width: '60px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '24px',
-                      fontWeight: 'bold',
-                      color: '#e53935'
-                    }}>
-                      {parseInt(adminDice1) + parseInt(adminDice2)}
-                    </div>
-                  </>
-                )}
-              </div>
+              )}
+
               <button
                 onClick={adminSubmitRoll}
-                disabled={!adminDice1 || !adminDice2}
+                disabled={!adminRollTotal}
                 style={{
-                  width: '100%',
-                  padding: '14px',
-                  background: adminDice1 && adminDice2
-                    ? 'linear-gradient(135deg, #9c27b0, #ba68c8)'
-                    : '#333',
-                  border: 'none',
-                  borderRadius: '8px',
-                  color: adminDice1 && adminDice2 ? '#fff' : '#666',
-                  fontSize: '13px',
-                  fontWeight: 'bold',
-                  cursor: adminDice1 && adminDice2 ? 'pointer' : 'not-allowed',
-                  fontFamily: 'inherit',
-                  letterSpacing: '1px',
-                  textTransform: 'uppercase'
-                }}
-              >
+                  width: '100%', padding: '14px',
+                  background: adminRollTotal ? 'linear-gradient(135deg,#9c27b0,#ba68c8)' : '#333',
+                  border: 'none', borderRadius: '8px',
+                  color: adminRollTotal ? '#fff' : '#666',
+                  fontSize: '13px', fontWeight: 'bold',
+                  cursor: adminRollTotal ? 'pointer' : 'not-allowed',
+                  fontFamily: 'inherit', letterSpacing: '1px', textTransform: 'uppercase'
+                }}>
                 Submit Roll
               </button>
             </div>
