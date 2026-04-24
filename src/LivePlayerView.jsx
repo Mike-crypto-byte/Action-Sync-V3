@@ -645,7 +645,9 @@ export default function LivePlayerView({ dealerUid, playerUserId, playerName, se
           {/* Bets */}
           <div style={{flex:selectedGame==='craps'?1:'0 0 auto',overflowY:selectedGame==='craps'?'auto':'visible',minHeight:0,display:'flex',flexDirection:'column'}}>
             {selectedGame==='roulette' ? (
+              <div style={{padding:'10px 12px'}}>
               <RouletteBoard activeBets={activeBets} currentBets={currentBets} bettingOpen={bettingOpen} onBet={placeBet}/>
+              </div>
             ) : selectedGame==='blackjack' ? (
               <div style={{display:'flex',flexDirection:'column',gap:6,padding:'6px 12px'}}>
                 {[
@@ -800,7 +802,7 @@ export default function LivePlayerView({ dealerUid, playerUserId, playerName, se
               </div>
             );
 
-            const histRows = (fs, height='90px') => (
+            const histRows = (fs, height='130px') => (
               <div style={{height, overflowY:'auto'}}>
                 {betHistory.length===0
                   ? <div style={{color:'rgba(136,146,164,0.3)',fontSize:fs}}>No bets yet</div>
