@@ -643,7 +643,7 @@ export default function LivePlayerView({ dealerUid, playerUserId, playerName, se
           </div>
 
           {/* Bets */}
-          <div style={{flex:selectedGame==='blackjack'?'0 0 auto':1,overflowY:selectedGame==='roulette'?'hidden':'auto',minHeight:0,display:'flex',flexDirection:'column',justifyContent:selectedGame==='roulette'?'center':'flex-start'}}>
+          <div style={{flex:selectedGame==='craps'?1:'0 0 auto',overflowY:selectedGame==='craps'?'auto':'visible',minHeight:0,display:'flex',flexDirection:'column'}}>
             {selectedGame==='roulette' ? (
               <RouletteBoard activeBets={activeBets} currentBets={currentBets} bettingOpen={bettingOpen} onBet={placeBet}/>
             ) : selectedGame==='blackjack' ? (
@@ -800,23 +800,29 @@ export default function LivePlayerView({ dealerUid, playerUserId, playerName, se
               </div>
             );
 
-            const histRows = (fs) => betHistory.length===0
-              ? <div style={{color:'rgba(136,146,164,0.3)',fontSize:fs}}>No bets yet</div>
-              : <div style={{maxHeight:160,overflowY:'auto'}}>{betHistory.map((h,i)=>{
-                const isWin=h.net>0, isPush=h.net===0;
-                const badge = isWin ? 'WIN' : isPush ? 'PUSH' : 'LOSS';
-                const badgeColor = isWin ? '#4ade80' : isPush ? '#a5b4fc' : '#f87171';
-                return (
-                  <div key={i} style={{display:'flex',alignItems:'center',gap:5,padding:'3px 0',borderBottom:'1px solid rgba(255,255,255,0.04)'}}>
-                    <span style={{fontSize:fs-1,fontWeight:700,color:badgeColor,minWidth:28,textAlign:'center',background:`${badgeColor}22`,borderRadius:3,padding:'1px 3px'}}>{badge}</span>
-                    <span style={{flex:1,color:'#9ca3af',fontSize:fs,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{h.label}</span>
-                    <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',flexShrink:0}}>
-                      <span style={{fontSize:fs,fontWeight:700,color:badgeColor,lineHeight:1.2}}>{isWin?'+':isPush?'':'-'}${Math.abs(h.net)}</span>
-                      <span style={{fontSize:fs-2,color:'rgba(156,163,175,0.5)',lineHeight:1.2}}>bet ${h.wagered||0}</span>
-                    </div>
-                  </div>
-                );
-              })}<div ref={histEndRef}/></div>;
+            const histRows = (fs, height='90px') => (
+              <div style={{height, overflowY:'auto'}}>
+                {betHistory.length===0
+                  ? <div style={{color:'rgba(136,146,164,0.3)',fontSize:fs}}>No bets yet</div>
+                  : betHistory.map((h,i)=>{
+                      const isWin=h.net>0, isPush=h.net===0;
+                      const badge = isWin ? 'WIN' : isPush ? 'PUSH' : 'LOSS';
+                      const badgeColor = isWin ? '#4ade80' : isPush ? '#a5b4fc' : '#f87171';
+                      return (
+                        <div key={i} style={{display:'flex',alignItems:'center',gap:5,padding:'3px 0',borderBottom:'1px solid rgba(255,255,255,0.04)'}}>
+                          <span style={{fontSize:fs-1,fontWeight:700,color:badgeColor,minWidth:28,textAlign:'center',background:`${badgeColor}22`,borderRadius:3,padding:'1px 3px'}}>{badge}</span>
+                          <span style={{flex:1,color:'#9ca3af',fontSize:fs,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{h.label}</span>
+                          <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',flexShrink:0}}>
+                            <span style={{fontSize:fs,fontWeight:700,color:badgeColor,lineHeight:1.2}}>{isWin?'+':isPush?'':'-'}${Math.abs(h.net)}</span>
+                            <span style={{fontSize:fs-2,color:'rgba(156,163,175,0.5)',lineHeight:1.2}}>bet ${h.wagered||0}</span>
+                          </div>
+                        </div>
+                      );
+                    })
+                }
+                <div ref={histEndRef}/>
+              </div>
+            );
 
             const chatInput_ = (fs,pad) => (
               <div style={{display:'flex',gap:3,marginTop:4,flexShrink:0}}>
