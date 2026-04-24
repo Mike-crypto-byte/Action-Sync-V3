@@ -139,6 +139,8 @@ function resolveGame(gameName, gameState, activeBets, odds) {
       if (!amt) return;
       const dash=key.indexOf('-'); const type=key.slice(0,dash<0?key.length:dash), val=dash<0?'':key.slice(dash+1);
       let won=false,payout=0;
+      const ROULETTE_TYPES = new Set(['straight','split','corner','street','dozen','column','red','black','even','odd','low','high']);
+      if (!ROULETTE_TYPES.has(type)) return; // skip stale non-roulette bets
       if(type==='straight')  { won=val===numStr; payout=amt*(1+(o.straightUp||{num:35,den:1}).num/(o.straightUp||{num:35,den:1}).den); }
       else if(type==='split')  { won=val.split(',').includes(numStr); payout=amt*(1+(o.split||{num:17,den:1}).num/(o.split||{num:17,den:1}).den); }
       else if(type==='corner') { won=val.split(',').includes(numStr); payout=amt*(1+(o.corner||{num:8,den:1}).num/(o.corner||{num:8,den:1}).den); }
@@ -498,6 +500,18 @@ export default function LivePlayerView({ dealerUid, playerUserId, playerName, se
   const [betsConfirmed, setBetsConfirmed] = useState(false);
   const [activeTab, setActiveTab]         = useState('leaderboard');
   const [chatInput, setChatInput]         = useState('');
+
+  // Clear bet state when the game changes so stale bets from the previous game don't bleed over
+  const prevGameRef = useRef(selectedGame);
+  useEffect(() => {
+    if (prevGameRef.current !== selectedGame) {
+      setActiveBets({});
+      setCurrentBets({});
+      setBetsConfirmed(false);
+      lastResolved.current = 0;
+    }
+    prevGameRef.current = selectedGame;
+  }, [selectedGame]);
   const [secOpen, setSecOpen]             = useState({leaderboard:true,chat:true,history:true});
   const chatEndRef = useRef(null);
   const histEndRef = useRef(null);
@@ -683,13 +697,26 @@ export default function LivePlayerView({ dealerUid, playerUserId, playerName, se
           </div>
 
           {/* Active bets */}
-          {Object.values({...activeBets,...currentBets}).some(v=>v>0) && (
+          {(() => {
+            const merged = {...activeBets,...currentBets};
+            if (selectedGame === 'roulette') {
+              const RTYPES = new Set(['straight','split','corner','street','dozen','column','red','black','even','odd','low','high']);
+              return Object.entries(merged).some(([k,v]) => v>0 && RTYPES.has(k.split('-')[0]));
+            }
+            return allBetDefs.some(b => (merged[b.id]||0) > 0);
+          })() && (
             <div style={{padding:'4px 12px',borderTop:'1px solid rgba(255,255,255,0.05)',flexShrink:0}}>
               <div style={{display:'flex',gap:3,flexWrap:'wrap'}}>
                 {selectedGame==='roulette'
-                  ? Object.entries({...activeBets,...currentBets}).filter(([,v])=>v>0).slice(0,6).map(([k,v])=>(
-                      <span key={k} style={{padding:'2px 6px',borderRadius:8,background:'rgba(255,255,255,0.08)',color:'#9ca3af',fontSize:9,fontWeight:700}}>{k.replace(/-/g,' ')} ${v}</span>
-                    ))
+                  ? (() => {
+                      const RTYPES = new Set(['straight','split','corner','street','dozen','column','red','black','even','odd','low','high']);
+                      return Object.entries({...activeBets,...currentBets})
+                        .filter(([k,v]) => v>0 && RTYPES.has(k.split('-')[0]))
+                        .slice(0,6)
+                        .map(([k,v])=>(
+                          <span key={k} style={{padding:'2px 6px',borderRadius:8,background:'rgba(255,255,255,0.08)',color:'#9ca3af',fontSize:9,fontWeight:700}}>{k.replace(/-/g,' ')} ${v}</span>
+                        ));
+                    })()
                   : allBetDefs.filter(b=>(activeBets[b.id]||0)+(currentBets[b.id]||0)>0).map(b=>(
                       <span key={b.id} style={{padding:'2px 6px',borderRadius:8,background:`${b.color}22`,border:`1px solid ${b.color}44`,color:b.color,fontSize:9,fontWeight:700}}>
                         {b.label} ${(activeBets[b.id]||0)+(currentBets[b.id]||0)}
