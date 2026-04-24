@@ -645,7 +645,7 @@ export default function LivePlayerView({ dealerUid, playerUserId, playerName, se
           {/* Bets */}
           <div style={{flex:selectedGame==='craps'?1:'0 0 auto',overflowY:selectedGame==='craps'?'auto':'visible',minHeight:0,display:'flex',flexDirection:'column'}}>
             {selectedGame==='roulette' ? (
-              <div style={{padding:'10px 12px'}}>
+              <div style={{padding:'25px'}}>
               <RouletteBoard activeBets={activeBets} currentBets={currentBets} bettingOpen={bettingOpen} onBet={placeBet}/>
               </div>
             ) : selectedGame==='blackjack' ? (
