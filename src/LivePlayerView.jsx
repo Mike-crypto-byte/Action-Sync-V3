@@ -64,8 +64,6 @@ const GAME_CONFIGS = {
       { label:'LINE BETS', cols:2, bets:[
         { id:'passLine', label:'Pass Line',  color:'#22c55e' },
         { id:'dontPass', label:"Don't Pass", color:'#ef4444' },
-        { id:'come',     label:'Come',       color:'#22c55e' },
-        { id:'dontCome', label:"Don't Come", color:'#ef4444' },
       ]},
       { label:'ODDS', cols:2, bets:[
         { id:'passOdds',     label:'Pass Odds',      color:'#4ade80' },
@@ -95,17 +93,8 @@ const GAME_CONFIGS = {
         { id:'ace12',    label:'Boxcars (12)',   color:'#ec4899' },
       ]},
       { label:'HORN & COMBO', cols:2, bets:[
-        { id:'horn',     label:'Horn',       color:'#06b6d4' },
-        { id:'ce',       label:'C & E',      color:'#06b6d4' },
-      ]},
-      { label:'BIG 6 & 8', cols:2, bets:[
-        { id:'big6',     label:'Big 6',      color:'#a78bfa' },
-        { id:'big8',     label:'Big 8',      color:'#a78bfa' },
-      ]},
-      { label:'FIRE BETS', cols:3, bets:[
-        { id:'small',    label:'Small',      color:'#fb923c' },
-        { id:'tall',     label:'Tall',       color:'#fb923c' },
-        { id:'all',      label:'All',        color:'#fb923c' },
+        { id:'horn', label:'Horn',  color:'#06b6d4' },
+        { id:'ce',   label:'C & E', color:'#06b6d4' },
       ]},
     ],
   },
@@ -151,6 +140,9 @@ function resolveGame(gameName, gameState, activeBets, odds) {
       const dash=key.indexOf('-'); const type=key.slice(0,dash<0?key.length:dash), val=dash<0?'':key.slice(dash+1);
       let won=false,payout=0;
       if(type==='straight')  { won=val===numStr; payout=amt*(1+(o.straightUp||{num:35,den:1}).num/(o.straightUp||{num:35,den:1}).den); }
+      else if(type==='split')  { won=val.split(',').includes(numStr); payout=amt*(1+(o.split||{num:17,den:1}).num/(o.split||{num:17,den:1}).den); }
+      else if(type==='corner') { won=val.split(',').includes(numStr); payout=amt*(1+(o.corner||{num:8,den:1}).num/(o.corner||{num:8,den:1}).den); }
+      else if(type==='street') { won=val.split(',').includes(numStr); payout=amt*(1+(o.street||{num:11,den:1}).num/(o.street||{num:11,den:1}).den); }
       else if(type==='red')   { won=color==='red';   payout=amt*(1+em.num/em.den); }
       else if(type==='black') { won=color==='black'; payout=amt*(1+em.num/em.den); }
       else if(type==='even')  { won=numInt>0&&numInt%2===0; payout=amt*(1+em.num/em.den); }
@@ -180,15 +172,6 @@ function resolveGame(gameName, gameState, activeBets, odds) {
       if(gamePhase==='come-out'){if([2,3].includes(total)){const p=ab.dontPass*2;winnings+=p;net+=p-ab.dontPass;ab.dontPass=0;}else if(total===12){winnings+=ab.dontPass;ab.dontPass=0;}else if(total===7||total===11){net-=ab.dontPass;ab.dontPass=0;}}
       else{if(total===7){const p=ab.dontPass*2;winnings+=p;net+=p-ab.dontPass;ab.dontPass=0;}else if(total===point){net-=ab.dontPass;ab.dontPass=0;}}
     }
-    // Come / Don't Come (simplified: resolve same as pass/don't pass)
-    if (ab.come>0) {
-      if(gamePhase==='come-out'){if(total===7||total===11){const p=ab.come*2;winnings+=p;net+=p-ab.come;ab.come=0;}else if([2,3,12].includes(total)){net-=ab.come;ab.come=0;}}
-      else{if(total===7){net-=ab.come;ab.come=0;}else if(total===point){const p=ab.come*2;winnings+=p;net+=p-ab.come;ab.come=0;}}
-    }
-    if (ab.dontCome>0) {
-      if(gamePhase==='come-out'){if([2,3].includes(total)){const p=ab.dontCome*2;winnings+=p;net+=p-ab.dontCome;ab.dontCome=0;}else if(total===12){winnings+=ab.dontCome;ab.dontCome=0;}else if(total===7||total===11){net-=ab.dontCome;ab.dontCome=0;}}
-      else{if(total===7){const p=ab.dontCome*2;winnings+=p;net+=p-ab.dontCome;ab.dontCome=0;}else if(total===point){net-=ab.dontCome;ab.dontCome=0;}}
-    }
     // Odds bets (pay true odds)
     const trueOdds={4:2,5:1.5,6:1.2,8:1.2,9:1.5,10:2};
     if (ab.passOdds>0&&gamePhase!=='come-out') {
@@ -215,8 +198,6 @@ function resolveGame(gameName, gameState, activeBets, odds) {
     or1('three',total===3,1+(o.hop||{num:15,den:1}).num/(o.hop||{num:15,den:1}).den);
     if(ab.horn>0){if(total===2||total===12){const p=ab.horn*7.5;winnings+=p;net+=p-ab.horn;}else if(total===3||total===11){const p=ab.horn*4;winnings+=p;net+=p-ab.horn;}else net-=ab.horn;ab.horn=0;}
     if(ab.ce>0){if([2,3,12].includes(total)){const p=ab.ce*1.5;winnings+=p;net+=p-ab.ce;}else if(total===11){const p=ab.ce*3.5;winnings+=p;net+=p-ab.ce;}else net-=ab.ce;ab.ce=0;}
-    if(ab.big6>0){if(total===6){const p=ab.big6*2;winnings+=p;net+=p-ab.big6;}else if(total===7){net-=ab.big6;ab.big6=0;}}
-    if(ab.big8>0){if(total===8){const p=ab.big8*2;winnings+=p;net+=p-ab.big8;}else if(total===7){net-=ab.big8;ab.big8=0;}}
     label=`🎲 ${total} (${d1}–${d2})${point?`  Point: ${point}`:''}`;
   }
   return { winnings:Math.round(winnings), net:Math.round(net), newActiveBets:ab, label };
@@ -263,65 +244,201 @@ function Chip({ value, selected, onClick }) {
   );
 }
 
-// ── Roulette board — horizontal casino layout ────────────────────────────────
+// ── Roulette board — horizontal casino layout with split/corner hit zones ────
 // Rows: top=3,6,9..36 / mid=2,5,8..35 / bot=1,4,7..34
 // Left: 0/00  |  Right: 2:1 per row  |  Below: dozens then even-money
 function RouletteBoard({ activeBets, currentBets, bettingOpen, onBet }) {
+  const boardRef = useRef(null);
+  const [boardWidth, setBoardWidth] = useState(0);
+  useEffect(() => {
+    if (!boardRef.current) return;
+    const ro = new ResizeObserver(e => setBoardWidth(e[0].contentRect.width));
+    ro.observe(boardRef.current);
+    setBoardWidth(boardRef.current.offsetWidth);
+    return () => ro.disconnect();
+  }, []);
+
   const allBets = {};
   Object.entries(activeBets).forEach(([k,v]) => { if(v) allBets[k]=(allBets[k]||0)+v; });
   Object.entries(currentBets).forEach(([k,v]) => { if(v) allBets[k]=(allBets[k]||0)+v; });
 
-  const G = 2, ZERO_W = 30, COL21_W = 30, NH = 26;
+  // Layout constants
+  const G = 2, ZERO_W = 24, COL21_W = 26, NH = 27, CS = 13;
+  const PAD = 16;
+  const numCols = 12;
+  // W = cell width computed from available space
+  const W = boardWidth > 0
+    ? Math.max(16, Math.floor((boardWidth - PAD - ZERO_W - COL21_W - (numCols + 2) * G) / numCols))
+    : 18;
 
-  const mk = (key, label, bg, color, style={}) => {
-    const amt = allBets[key];
-    return (
-      <div key={key} className="lp-bet-btn" onClick={() => bettingOpen && onBet(key)}
-        style={{
-          background: amt ? `${bg}dd` : bg,
-          border: amt ? '2px solid #fff' : '1px solid rgba(255,255,255,0.18)',
-          borderRadius:2, display:'flex', flexDirection:'column', alignItems:'center',
-          justifyContent:'center', cursor: bettingOpen ? 'pointer' : 'default',
-          color, fontWeight:700, userSelect:'none',
-          opacity: bettingOpen ? 1 : 0.75, ...style,
-        }}>
-        <span style={{lineHeight:1}}>{label}</span>
-        {amt ? <span style={{fontSize:6,color:'#fff',background:'rgba(0,0,0,0.7)',borderRadius:3,padding:'0 2px',marginTop:1}}>${amt}</span> : null}
-      </div>
-    );
-  };
-
-  const numRows = [
+  // rows[0]=[3,6,...,36]  rows[1]=[2,5,...,35]  rows[2]=[1,4,...,34]
+  const rows = [
     [3,6,9,12,15,18,21,24,27,30,33,36],
     [2,5,8,11,14,17,20,23,26,29,32,35],
     [1,4,7,10,13,16,19,22,25,28,31,34],
   ];
 
-  return (
-    <div style={{padding:'10px 8px', userSelect:'none', width:'100%', boxSizing:'border-box'}}>
+  // Chip colour by denomination
+  const chipBg = (amt) => {
+    if (amt >= 500) return '#9f1239';
+    if (amt >= 250) return '#7c3aed';
+    if (amt >= 100) return '#1f2937';
+    if (amt >= 50)  return '#ea580c';
+    if (amt >= 25)  return '#16a34a';
+    if (amt >= 10)  return '#2563eb';
+    return '#dc2626';
+  };
 
-      {/* Number area: zeros | 12-col grid | 2:1 */}
-      <div style={{display:'flex', gap:G}}>
+  // Build chip overlay positions (straight, H-split, V-split, corner)
+  const chips = [];
+  rows.forEach((row, ri) => row.forEach((num, ci) => {
+    const amt = allBets[`straight-${num}`];
+    if (amt) chips.push({ k:`s${num}`, amt, x:ci*(W+G)+W/2, y:ri*(NH+G)+NH/2 });
+  }));
+  rows.forEach((row, ri) => row.slice(0,-1).forEach((num, ci) => {
+    const key = `split-${[num,row[ci+1]].sort((a,b)=>a-b).join(',')}`;
+    const amt = allBets[key];
+    if (amt) chips.push({ k:key, amt, x:(ci+1)*(W+G)-G/2, y:ri*(NH+G)+NH/2 });
+  }));
+  rows.slice(0,-1).forEach((row, ri) => row.forEach((num, ci) => {
+    const key = `split-${[num,rows[ri+1][ci]].sort((a,b)=>a-b).join(',')}`;
+    const amt = allBets[key];
+    if (amt) chips.push({ k:`v${key}`, amt, x:ci*(W+G)+W/2, y:(ri+1)*(NH+G)-G/2 });
+  }));
+  rows.slice(0,-1).forEach((row, ri) => row.slice(0,-1).forEach((num, ci) => {
+    const key = `corner-${[num,row[ci+1],rows[ri+1][ci],rows[ri+1][ci+1]].sort((a,b)=>a-b).join(',')}`;
+    const amt = allBets[key];
+    if (amt) chips.push({ k:key, amt, x:(ci+1)*(W+G)-G/2, y:(ri+1)*(NH+G)-G/2 });
+  }));
+
+  // Outside bet button helper
+  const mk = (key, label, bg, color, style={}) => {
+    const amt = allBets[key];
+    return (
+      <div key={key} onClick={() => bettingOpen && onBet(key)}
+        style={{
+          background: amt ? `${bg}cc` : bg,
+          border: amt ? '2px solid rgba(255,255,255,0.8)' : '1px solid rgba(255,255,255,0.15)',
+          borderRadius:2, display:'flex', flexDirection:'column', alignItems:'center',
+          justifyContent:'center', cursor: bettingOpen ? 'pointer' : 'default',
+          color, fontWeight:700, userSelect:'none', opacity: bettingOpen ? 1 : 0.7, ...style,
+        }}>
+        <span style={{lineHeight:1,fontSize:'inherit'}}>{label}</span>
+        {amt ? <span style={{fontSize:6,color:'#fff',background:'rgba(0,0,0,0.75)',borderRadius:3,padding:'0 2px',marginTop:1}}>${amt}</span> : null}
+      </div>
+    );
+  };
+
+  return (
+    <div ref={boardRef} style={{padding:`6px ${PAD/2}px`, userSelect:'none', width:'100%', boxSizing:'border-box', overflowX:'auto'}}>
+
+      {/* Number area: zeros | grid + hit zones | 2:1 */}
+      <div style={{display:'flex', gap:G, marginBottom:G}}>
 
         {/* 0 / 00 stacked */}
-        <div style={{display:'flex', flexDirection:'column', gap:G, width:ZERO_W}}>
-          {mk('straight-0',  '0',  '#15803d', '#fff', {flex:1, height:NH, fontSize:11})}
-          {mk('straight-00', '00', '#15803d', '#fff', {flex:1, height:NH, fontSize:11})}
+        <div style={{display:'flex', flexDirection:'column', gap:G, width:ZERO_W, flexShrink:0}}>
+          {mk('straight-0',  '0',  '#15803d', '#fff', {flex:1, height:NH, fontSize:10})}
+          {mk('straight-00', '00', '#15803d', '#fff', {flex:1, height:NH, fontSize:9})}
         </div>
 
-        {/* 3 rows × 12 cols */}
-        <div style={{flex:1, display:'flex', flexDirection:'column', gap:G}}>
-          {numRows.map((row, ri) => (
-            <div key={ri} style={{display:'flex', gap:G, height:NH}}>
-              {row.map(num =>
-                mk(`straight-${num}`, num, NUM_COLOR[rCol(num.toString())], '#fff', {flex:1, fontSize:10, fontWeight:800})
-              )}
-            </div>
+        {/* Number grid + transparent hit zones + chip overlays */}
+        <div style={{position:'relative', flexShrink:0, lineHeight:0,
+          width: numCols*W + (numCols-1)*G,
+          height: 3*NH + 2*G,
+        }}>
+          {/* Number cells */}
+          {rows.map((row, ri) => row.map((num, ci) => {
+            const isRed = ROULETTE_REDS.has(num);
+            const hasBet = allBets[`straight-${num}`];
+            return (
+              <div key={num}
+                onClick={() => bettingOpen && onBet(`straight-${num}`)}
+                style={{
+                  position:'absolute',
+                  left: ci*(W+G), top: ri*(NH+G),
+                  width: W, height: NH,
+                  background: isRed ? '#b91c1c' : '#1f2937',
+                  border: hasBet ? '2px solid #fff' : '1px solid rgba(255,255,255,0.15)',
+                  borderRadius:2,
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                  cursor: bettingOpen ? 'pointer' : 'default',
+                  color:'#fff', fontWeight:800, fontSize:9,
+                  opacity: bettingOpen ? 1 : 0.7,
+                }}>
+                {num}
+              </div>
+            );
+          }))}
+
+          {/* H-split hit zones (between horizontally adjacent cells, same row) */}
+          {rows.map((row, ri) => row.slice(0,-1).map((num, ci) => {
+            const sorted = [num, row[ci+1]].sort((a,b)=>a-b).join(',');
+            return (
+              <div key={`hs-${sorted}`}
+                onClick={() => bettingOpen && onBet(`split-${sorted}`)}
+                style={{
+                  position:'absolute',
+                  left: (ci+1)*(W+G) - (G+4)/2, top: ri*(NH+G),
+                  width: G+4, height: NH,
+                  cursor: bettingOpen ? 'pointer' : 'default',
+                  zIndex:3,
+                }}
+              />
+            );
+          }))}
+
+          {/* V-split hit zones (between vertically adjacent cells, same column) */}
+          {rows.slice(0,-1).map((row, ri) => row.map((num, ci) => {
+            const sorted = [num, rows[ri+1][ci]].sort((a,b)=>a-b).join(',');
+            return (
+              <div key={`vs-${sorted}`}
+                onClick={() => bettingOpen && onBet(`split-${sorted}`)}
+                style={{
+                  position:'absolute',
+                  left: ci*(W+G), top: (ri+1)*(NH+G) - (G+4)/2,
+                  width: W, height: G+4,
+                  cursor: bettingOpen ? 'pointer' : 'default',
+                  zIndex:3,
+                }}
+              />
+            );
+          }))}
+
+          {/* Corner hit zones (at the intersection of 4 cells) */}
+          {rows.slice(0,-1).map((row, ri) => row.slice(0,-1).map((num, ci) => {
+            const sorted = [num, row[ci+1], rows[ri+1][ci], rows[ri+1][ci+1]].sort((a,b)=>a-b).join(',');
+            return (
+              <div key={`c-${sorted}`}
+                onClick={() => bettingOpen && onBet(`corner-${sorted}`)}
+                style={{
+                  position:'absolute',
+                  left: (ci+1)*(W+G) - (G+6)/2, top: (ri+1)*(NH+G) - (G+6)/2,
+                  width: G+6, height: G+6,
+                  cursor: bettingOpen ? 'pointer' : 'default',
+                  zIndex:4, borderRadius:'50%',
+                }}
+              />
+            );
+          }))}
+
+          {/* Chip overlays */}
+          {chips.map(({k, amt, x, y}) => (
+            <div key={k} style={{
+              position:'absolute',
+              left: Math.round(x - CS/2), top: Math.round(y - CS/2),
+              width: CS, height: CS,
+              background: chipBg(amt), color:'#fff', borderRadius:'50%',
+              display:'flex', alignItems:'center', justifyContent:'center',
+              fontSize:6, fontWeight:800,
+              border:'1.5px solid rgba(255,255,255,0.7)',
+              boxShadow:'0 1px 4px rgba(0,0,0,0.8)',
+              zIndex:6, pointerEvents:'none',
+            }}>${amt}</div>
           ))}
         </div>
 
-        {/* 2:1 per row (column bets) */}
-        <div style={{display:'flex', flexDirection:'column', gap:G, width:COL21_W}}>
+        {/* 2:1 column bets (row 0 → col 3, row 1 → col 2, row 2 → col 1) */}
+        <div style={{display:'flex', flexDirection:'column', gap:G, width:COL21_W, flexShrink:0}}>
           {mk('column-3', '2:1', 'rgba(25,35,55,0.95)', '#d4af37', {flex:1, height:NH, fontSize:7})}
           {mk('column-2', '2:1', 'rgba(25,35,55,0.95)', '#d4af37', {flex:1, height:NH, fontSize:7})}
           {mk('column-1', '2:1', 'rgba(25,35,55,0.95)', '#d4af37', {flex:1, height:NH, fontSize:7})}
@@ -329,20 +446,20 @@ function RouletteBoard({ activeBets, currentBets, bettingOpen, onBet }) {
       </div>
 
       {/* Dozens — aligned under number grid */}
-      <div style={{display:'flex', gap:G, marginTop:G, marginLeft:ZERO_W+G, marginRight:COL21_W+G}}>
-        {mk('dozen-1st', '1st 12', 'rgba(25,35,55,0.95)', '#9ca3af', {flex:1, height:20, fontSize:8})}
-        {mk('dozen-2nd', '2nd 12', 'rgba(25,35,55,0.95)', '#9ca3af', {flex:1, height:20, fontSize:8})}
-        {mk('dozen-3rd', '3rd 12', 'rgba(25,35,55,0.95)', '#9ca3af', {flex:1, height:20, fontSize:8})}
+      <div style={{display:'flex', gap:G, marginBottom:G, marginLeft:ZERO_W+G, marginRight:COL21_W+G}}>
+        {mk('dozen-1st', '1st 12', 'rgba(25,35,55,0.95)', '#9ca3af', {flex:1, height:19, fontSize:8})}
+        {mk('dozen-2nd', '2nd 12', 'rgba(25,35,55,0.95)', '#9ca3af', {flex:1, height:19, fontSize:8})}
+        {mk('dozen-3rd', '3rd 12', 'rgba(25,35,55,0.95)', '#9ca3af', {flex:1, height:19, fontSize:8})}
       </div>
 
       {/* Even-money — aligned under number grid */}
-      <div style={{display:'flex', gap:G, marginTop:G, marginLeft:ZERO_W+G, marginRight:COL21_W+G}}>
-        {mk('low-low',    '1-18',  'rgba(25,35,55,0.95)', '#9ca3af', {flex:1, height:20, fontSize:8})}
-        {mk('even-even',  'Even',  'rgba(25,35,55,0.95)', '#9ca3af', {flex:1, height:20, fontSize:8})}
-        {mk('red-red',    'Red',   '#b91c1c',             '#fff',     {flex:1, height:20, fontSize:8})}
-        {mk('black-black','Black', '#111827',             '#fff',     {flex:1, height:20, fontSize:8})}
-        {mk('odd-odd',    'Odd',   'rgba(25,35,55,0.95)', '#9ca3af', {flex:1, height:20, fontSize:8})}
-        {mk('high-high',  '19-36', 'rgba(25,35,55,0.95)', '#9ca3af', {flex:1, height:20, fontSize:8})}
+      <div style={{display:'flex', gap:G, marginLeft:ZERO_W+G, marginRight:COL21_W+G}}>
+        {mk('low-low',    '1-18',  'rgba(25,35,55,0.95)', '#9ca3af', {flex:1, height:19, fontSize:8})}
+        {mk('even-even',  'Even',  'rgba(25,35,55,0.95)', '#9ca3af', {flex:1, height:19, fontSize:8})}
+        {mk('red-red',    'Red',   '#b91c1c',             '#fff',     {flex:1, height:19, fontSize:8})}
+        {mk('black-black','Black', '#111827',             '#fff',     {flex:1, height:19, fontSize:8})}
+        {mk('odd-odd',    'Odd',   'rgba(25,35,55,0.95)', '#9ca3af', {flex:1, height:19, fontSize:8})}
+        {mk('high-high',  '19-36', 'rgba(25,35,55,0.95)', '#9ca3af', {flex:1, height:19, fontSize:8})}
       </div>
     </div>
   );
