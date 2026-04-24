@@ -69,13 +69,17 @@ const GAME_CONFIGS = {
         { id:'passOdds',     label:'Pass Odds',      color:'#4ade80' },
         { id:'dontPassOdds', label:"Don't Pass Odds", color:'#f87171' },
       ]},
-      { label:'PLACE BETS', cols:6, bets:[
+      { label:'PLACE BETS', cols:6, craplessCols:5, bets:[
+        { id:'craplessPlace2',  label:'2',  color:'#3b82f6', craplessOnly:true },
+        { id:'craplessPlace3',  label:'3',  color:'#3b82f6', craplessOnly:true },
         { id:'place4',  label:'4',  color:'#3b82f6' },
         { id:'place5',  label:'5',  color:'#3b82f6' },
         { id:'place6',  label:'6',  color:'#3b82f6' },
         { id:'place8',  label:'8',  color:'#3b82f6' },
         { id:'place9',  label:'9',  color:'#3b82f6' },
         { id:'place10', label:'10', color:'#3b82f6' },
+        { id:'craplessPlace11', label:'11', color:'#3b82f6', craplessOnly:true },
+        { id:'craplessPlace12', label:'12', color:'#3b82f6', craplessOnly:true },
       ]},
       { label:'HARD WAYS', cols:4, bets:[
         { id:'hard4',  label:'Hard 4',  color:'#f59e0b' },
@@ -164,10 +168,18 @@ function resolveGame(gameName, gameState, activeBets, odds) {
     const o=odds;
     const or1=(k,wins,mult)=>{ if(!ab[k])return; if(wins){winnings+=ab[k]*mult;net+=ab[k]*mult-ab[k];}else net-=ab[k]; ab[k]=0; };
 
+    const isCrapless = gameState.gameMode === 'crapless';
     // Pass Line
     if (ab.passLine>0) {
-      if(gamePhase==='come-out'){if(total===7||total===11){const p=ab.passLine*2;winnings+=p;net+=p-ab.passLine;ab.passLine=0;}else if([2,3,12].includes(total)){net-=ab.passLine;ab.passLine=0;}}
-      else{if(total===point){const p=ab.passLine*2;winnings+=p;net+=p-ab.passLine;ab.passLine=0;}else if(total===7){net-=ab.passLine;ab.passLine=0;}}
+      if(gamePhase==='come-out'){
+        if(total===7||total===11){const p=ab.passLine*2;winnings+=p;net+=p-ab.passLine;ab.passLine=0;}
+        else if([2,3,12].includes(total)&&!isCrapless){net-=ab.passLine;ab.passLine=0;}
+      } else {
+        if(total===point){
+          const mult=isCrapless&&(point===2||point===12)?7:isCrapless&&(point===3||point===11)?4:2;
+          const p=ab.passLine*mult;winnings+=p;net+=p-ab.passLine;ab.passLine=0;
+        }else if(total===7){net-=ab.passLine;ab.passLine=0;}
+      }
     }
     // Don't Pass
     if (ab.dontPass>0) {
@@ -187,6 +199,11 @@ function resolveGame(gameName, gameState, activeBets, odds) {
     // Place bets
     const placeP={4:o.place4_10||{num:9,den:5},5:o.place5_9||{num:7,den:5},6:o.place6_8||{num:7,den:6},8:o.place6_8||{num:7,den:6},9:o.place5_9||{num:7,den:5},10:o.place4_10||{num:9,den:5}};
     [4,5,6,8,9,10].forEach(n=>{ if(!ab[`place${n}`])return; if(total===n){const pp=placeP[n];const p=ab[`place${n}`]*(1+pp.num/pp.den);winnings+=p;net+=p-ab[`place${n}`];}else if(total===7){net-=ab[`place${n}`];ab[`place${n}`]=0;} });
+    // Crapless place bets (2,3,11,12) — only active in crapless mode
+    if (isCrapless) {
+      const craplessP={2:7,3:3,11:3,12:7};
+      [2,3,11,12].forEach(n=>{ const k=`craplessPlace${n}`; if(!ab[k])return; if(total===n){const p=ab[k]*(1+craplessP[n]);winnings+=p;net+=p-ab[k];ab[k]=0;}else if(total===7){net-=ab[k];ab[k]=0;} });
+    }
     // Hard ways
     const hwP={4:o.hardWay4_10||{num:7,den:1},6:o.hardWay6_8||{num:9,den:1},8:o.hardWay6_8||{num:9,den:1},10:o.hardWay4_10||{num:7,den:1}};
     [4,6,8,10].forEach(n=>{ if(!ab[`hard${n}`])return; if(total===n&&isHard){const hp=hwP[n];const p=ab[`hard${n}`]*(1+hp.num/hp.den);winnings+=p;net+=p-ab[`hard${n}`];ab[`hard${n}`]=0;}else if(total===n||total===7){net-=ab[`hard${n}`];ab[`hard${n}`]=0;} });
@@ -249,7 +266,7 @@ function Chip({ value, selected, onClick }) {
 // ── Roulette board — horizontal casino layout with split/corner hit zones ────
 // Rows: top=3,6,9..36 / mid=2,5,8..35 / bot=1,4,7..34
 // Left: 0/00  |  Right: 2:1 per row  |  Below: dozens then even-money
-function RouletteBoard({ activeBets, currentBets, bettingOpen, onBet }) {
+function RouletteBoard({ activeBets, currentBets, bettingOpen, onBet, onRemoveBet }) {
   const boardRef = useRef(null);
   const [boardWidth, setBoardWidth] = useState(0);
   useEffect(() => {
@@ -318,6 +335,7 @@ function RouletteBoard({ activeBets, currentBets, bettingOpen, onBet }) {
     const amt = allBets[key];
     return (
       <div key={key} onClick={() => bettingOpen && onBet(key)}
+        onContextMenu={(e)=>{ e.preventDefault(); onRemoveBet && onRemoveBet(key, e); }}
         style={{
           background: amt ? `${bg}cc` : bg,
           border: amt ? '2px solid rgba(255,255,255,0.8)' : '1px solid rgba(255,255,255,0.15)',
@@ -355,6 +373,7 @@ function RouletteBoard({ activeBets, currentBets, bettingOpen, onBet }) {
             return (
               <div key={num}
                 onClick={() => bettingOpen && onBet(`straight-${num}`)}
+                onContextMenu={(e)=>{ e.preventDefault(); onRemoveBet && onRemoveBet(`straight-${num}`, e); }}
                 style={{
                   position:'absolute',
                   left: ci*(W+G), top: ri*(NH+G),
@@ -378,6 +397,7 @@ function RouletteBoard({ activeBets, currentBets, bettingOpen, onBet }) {
             return (
               <div key={`hs-${sorted}`}
                 onClick={() => bettingOpen && onBet(`split-${sorted}`)}
+                onContextMenu={(e)=>{ e.preventDefault(); onRemoveBet && onRemoveBet(`split-${sorted}`, e); }}
                 style={{
                   position:'absolute',
                   left: (ci+1)*(W+G) - (G+4)/2, top: ri*(NH+G),
@@ -395,6 +415,7 @@ function RouletteBoard({ activeBets, currentBets, bettingOpen, onBet }) {
             return (
               <div key={`vs-${sorted}`}
                 onClick={() => bettingOpen && onBet(`split-${sorted}`)}
+                onContextMenu={(e)=>{ e.preventDefault(); onRemoveBet && onRemoveBet(`split-${sorted}`, e); }}
                 style={{
                   position:'absolute',
                   left: ci*(W+G), top: (ri+1)*(NH+G) - (G+4)/2,
@@ -412,6 +433,7 @@ function RouletteBoard({ activeBets, currentBets, bettingOpen, onBet }) {
             return (
               <div key={`c-${sorted}`}
                 onClick={() => bettingOpen && onBet(`corner-${sorted}`)}
+                onContextMenu={(e)=>{ e.preventDefault(); onRemoveBet && onRemoveBet(`corner-${sorted}`, e); }}
                 style={{
                   position:'absolute',
                   left: (ci+1)*(W+G) - (G+6)/2, top: (ri+1)*(NH+G) - (G+6)/2,
@@ -475,7 +497,7 @@ export default function LivePlayerView({ dealerUid, playerUserId, playerName, se
   const { odds: settingsOdds } = useSettings(dealerUid);
   const gameOdds = settingsOdds?.[selectedGame] || DEFAULT_ODDS[selectedGame] || {};
   const { gameState } = useGameState(dealerUid, selectedGame, config.defaultState);
-  const { userData, isLoaded, saveUserData } = useUserData(dealerUid, playerUserId);
+  const { userData, isLoaded, saveUserData, updateUserField } = useUserData(dealerUid, playerUserId);
   const { leaderboard } = useLeaderboard(dealerUid);
   const { chatMessages, sendMessage } = useChat(dealerUid);
   usePresence(dealerUid, playerUserId, playerName);
@@ -501,14 +523,19 @@ export default function LivePlayerView({ dealerUid, playerUserId, playerName, se
   const [activeTab, setActiveTab]         = useState('leaderboard');
   const [chatInput, setChatInput]         = useState('');
 
-  // Clear bet state when the game changes so stale bets from the previous game don't bleed over
+  // Clear bet state when the game changes — refund active bets and wipe Firebase
   const prevGameRef = useRef(selectedGame);
   useEffect(() => {
     if (prevGameRef.current !== selectedGame) {
+      const refund = Object.values(activeBets).reduce((s,v)=>s+(v||0),0);
       setActiveBets({});
       setCurrentBets({});
       setBetsConfirmed(false);
       lastResolved.current = 0;
+      const newBankroll = bankroll + refund;
+      if (refund > 0) setBankroll(newBankroll);
+      // Clear activeBets in Firebase so the userData listener doesn't restore stale bets
+      updateUserField({ activeBets: null, ...(refund > 0 ? { bankroll: newBankroll } : {}) });
     }
     prevGameRef.current = selectedGame;
   }, [selectedGame]);
@@ -571,6 +598,18 @@ export default function LivePlayerView({ dealerUid, playerUserId, playerName, se
     if(pTot+aTot<=bankroll)setCurrentBets(pending);
   };
 
+  const removePendingBet = (betId, e) => {
+    if (e) e.preventDefault();
+    if (!bettingOpen || !(currentBets[betId] > 0)) return;
+    const newAmt = (currentBets[betId] || 0) - selectedChip;
+    if (newAmt <= 0) {
+      const { [betId]: _, ...rest } = currentBets;
+      setCurrentBets(rest);
+    } else {
+      setCurrentBets({ ...currentBets, [betId]: newAmt });
+    }
+  };
+
   const confirmBets = useCallback(async(auto=false)=>{
     const tot=Object.values(currentBets).reduce((s,v)=>s+(v||0),0); if(tot===0)return;
     const aTot=Object.values(activeBets).reduce((s,v)=>s+(v||0),0); if(tot+aTot>bankroll)return;
@@ -590,8 +629,9 @@ export default function LivePlayerView({ dealerUid, playerUserId, playerName, se
   const pendingTotal = Object.values(currentBets).reduce((s,v)=>s+(v||0),0);
   const embedSrc = `https://www.youtube.com/embed/${streamVideoId}?rel=0&modestbranding=1`;
 
-  // All bet definitions (flat list for active bet display)
-  const allBetDefs = config.sections.flatMap(s=>s.bets);
+  const isCrapless = selectedGame === 'craps' && gameState.gameMode === 'crapless';
+  const activeSections = config.sections;
+  const allBetDefs = activeSections.flatMap(s=>s.bets.filter(b=>!b.craplessOnly||isCrapless));
 
   return (
     <div style={{height:'100vh',overflow:'hidden',background:'#080b1a',display:'flex',flexDirection:'column'}}>
@@ -643,10 +683,10 @@ export default function LivePlayerView({ dealerUid, playerUserId, playerName, se
           </div>
 
           {/* Bets */}
-          <div style={{flex:selectedGame==='craps'?1:'0 0 auto',overflowY:selectedGame==='craps'?'auto':'visible',minHeight:0,display:'flex',flexDirection:'column'}}>
+          <div style={{flex:'0 0 auto',display:'flex',flexDirection:'column'}}>
             {selectedGame==='roulette' ? (
               <div style={{padding:'25px'}}>
-              <RouletteBoard activeBets={activeBets} currentBets={currentBets} bettingOpen={bettingOpen} onBet={placeBet}/>
+              <RouletteBoard activeBets={activeBets} currentBets={currentBets} bettingOpen={bettingOpen} onBet={placeBet} onRemoveBet={removePendingBet}/>
               </div>
             ) : selectedGame==='blackjack' ? (
               <div style={{display:'flex',flexDirection:'column',gap:6,padding:'6px 12px'}}>
@@ -659,6 +699,7 @@ export default function LivePlayerView({ dealerUid, playerUserId, playerName, se
                   const isNone = bet.id==='none';
                   return(
                     <button key={bet.id} onClick={()=>{ if(!bettingOpen) return; if(isNone){Object.keys(currentBets).forEach(k=>placeBet(k,true));} else placeBet(bet.id); }}
+                      onContextMenu={(e)=>{ if(!isNone) removePendingBet(bet.id, e); else e.preventDefault(); }}
                       disabled={!bettingOpen}
                       style={{height:isNone?36:52,borderRadius:8,fontSize:isNone?11:15,fontWeight:700,cursor:bettingOpen?'pointer':'default',border:'2px solid',fontFamily:'inherit',lineHeight:1.2,textAlign:'center',transition:'all 0.15s',display:'flex',alignItems:'center',justifyContent:'center',gap:8,
                         background:total>0?`${bet.color}22`:isNone?'rgba(255,255,255,0.02)':'rgba(255,255,255,0.03)',
@@ -673,14 +714,17 @@ export default function LivePlayerView({ dealerUid, playerUserId, playerName, se
               </div>
             ) : (
               <div style={{padding:'6px 12px'}}>
-                {config.sections.map((section,si)=>(
-                  <div key={si} style={{marginBottom:si<config.sections.length-1?7:0}}>
+                {activeSections.map((section,si)=>{
+                  const visibleBets = section.bets.filter(b=>!b.craplessOnly||isCrapless);
+                  const cols = isCrapless&&section.craplessCols ? section.craplessCols : section.cols;
+                  return(
+                  <div key={si} style={{marginBottom:si<activeSections.length-1?7:0}}>
                     <div style={{fontSize:9,color:'rgba(136,146,164,0.4)',letterSpacing:'1.5px',fontWeight:700,marginBottom:3}}>{section.label}</div>
-                    <div style={{display:'grid',gridTemplateColumns:`repeat(${section.cols},1fr)`,gap:3}}>
-                      {section.bets.map(bet=>{
+                    <div style={{display:'grid',gridTemplateColumns:`repeat(${cols},1fr)`,gap:3}}>
+                      {visibleBets.map(bet=>{
                         const pending=currentBets[bet.id]||0, active=activeBets[bet.id]||0, total=pending+active;
                         return(
-                          <button key={bet.id} className="lp-bet-btn" onClick={()=>placeBet(bet.id)} disabled={!bettingOpen}
+                          <button key={bet.id} className="lp-bet-btn" onClick={()=>placeBet(bet.id)} onContextMenu={(e)=>removePendingBet(bet.id,e)} disabled={!bettingOpen}
                             style={{padding:'7px 4px',borderRadius:5,fontSize:10,fontWeight:700,cursor:bettingOpen?'pointer':'default',border:'1px solid',fontFamily:'inherit',lineHeight:1.2,textAlign:'center',
                               background:total>0?`${bet.color}22`:'rgba(255,255,255,0.03)',
                               borderColor:total>0?`${bet.color}66`:'rgba(255,255,255,0.07)',
@@ -693,7 +737,8 @@ export default function LivePlayerView({ dealerUid, playerUserId, playerName, se
                       })}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -730,9 +775,17 @@ export default function LivePlayerView({ dealerUid, playerUserId, playerName, se
           )}
 
           {/* Confirm */}
-          <div style={{padding:'6px 12px',flexShrink:0}}>
+          <div style={{padding:'6px 12px',flexShrink:0,display:'flex',gap:6}}>
+            {bettingOpen && pendingTotal > 0 && (
+              <button onClick={()=>setCurrentBets({})}
+                style={{padding:'10px 14px',borderRadius:7,fontSize:11,fontWeight:800,border:'1px solid rgba(239,68,68,0.4)',cursor:'pointer',fontFamily:'inherit',flexShrink:0,
+                  background:'rgba(239,68,68,0.12)',color:'#f87171',
+                }}>
+                Clear
+              </button>
+            )}
             <button onClick={()=>confirmBets(false)} disabled={!bettingOpen||pendingTotal===0}
-              style={{width:'100%',padding:'10px',borderRadius:7,fontSize:12,fontWeight:800,border:'none',cursor:bettingOpen&&pendingTotal>0?'pointer':'default',fontFamily:'inherit',
+              style={{flex:1,padding:'10px',borderRadius:7,fontSize:12,fontWeight:800,border:'none',cursor:bettingOpen&&pendingTotal>0?'pointer':'default',fontFamily:'inherit',
                 background:bettingOpen&&pendingTotal>0?'linear-gradient(135deg,#16a34a,#22c55e)':'rgba(255,255,255,0.05)',
                 color:bettingOpen&&pendingTotal>0?'#fff':'rgba(136,146,164,0.3)',
                 boxShadow:bettingOpen&&pendingTotal>0?'0 3px 12px rgba(34,197,94,0.3)':'none',
