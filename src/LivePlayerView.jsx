@@ -492,11 +492,13 @@ function RouletteBoard({ activeBets, currentBets, bettingOpen, onBet, onRemoveBe
 // ── Main component ────────────────────────────────────────────────────────────
 export default function LivePlayerView({ dealerUid, playerUserId, playerName, selectedGame, streamVideoId, startingChips, onBack }) {
   injectCSS();
-  const config = GAME_CONFIGS[selectedGame]; if (!config) return null;
+  const gameActive = !!selectedGame && !!GAME_CONFIGS[selectedGame];
+  const effectiveGame = (selectedGame && GAME_CONFIGS[selectedGame]) ? selectedGame : 'craps';
+  const config = GAME_CONFIGS[effectiveGame];
 
   const { odds: settingsOdds } = useSettings(dealerUid);
   const gameOdds = settingsOdds?.[selectedGame] || DEFAULT_ODDS[selectedGame] || {};
-  const { gameState } = useGameState(dealerUid, selectedGame, config.defaultState);
+  const { gameState } = useGameState(dealerUid, effectiveGame, config.defaultState);
   const { userData, isLoaded, saveUserData, updateUserField } = useUserData(dealerUid, playerUserId);
   const { leaderboard } = useLeaderboard(dealerUid);
   const { chatMessages, sendMessage } = useChat(dealerUid);
@@ -663,6 +665,8 @@ export default function LivePlayerView({ dealerUid, playerUserId, playerName, se
         {/* ── Right panel ── */}
         <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',borderLeft:isMobile?'none':'1px solid rgba(212,175,55,0.1)',minHeight:0}}>
 
+          {gameActive ? (<>
+
           {/* Status + countdown */}
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'7px 12px',borderBottom:'1px solid rgba(255,255,255,0.06)',flexShrink:0}}>
             <div style={{display:'flex',alignItems:'center',gap:6}}>
@@ -795,6 +799,15 @@ export default function LivePlayerView({ dealerUid, playerUserId, playerName, se
               {bettingOpen?(pendingTotal>0?`Place $${pendingTotal}`:'Place a bet'):(betsConfirmed?'✓ Bets Placed':'Bets Locked')}
             </button>
           </div>
+
+          </>) : (
+            <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'24px 12px',gap:10}}>
+              <div style={{display:'flex',gap:5}}>
+                {[0,1,2].map(i=><div key={i} style={{width:6,height:6,borderRadius:'50%',background:'#d4af37',opacity:0.6,animationDelay:`${i*0.2}s`}} className="animate-pulse"/>)}
+              </div>
+              <span style={{color:'rgba(136,146,164,0.5)',fontSize:11,letterSpacing:'1px',fontWeight:700,textTransform:'uppercase'}}>Next game starting soon</span>
+            </div>
+          )}
 
           {/* Bottom panel */}
           {(() => {

@@ -16,6 +16,7 @@ import VODScriptEditor from './VODScriptEditor';
 import VODPlayer from './VODPlayer';
 import LivePlayerView from './LivePlayerView';
 import LandingPage from './LandingPage';
+import BotPlayer from './BotPlayer';
 
 const extractYouTubeId = (url) => {
   if (!url) return null;
@@ -565,7 +566,7 @@ const AppMain = () => {
   }
 
   // ── Player with live stream → stream + betting panel layout ──────────────────
-  if (isPlayer && selectedGame && sessionStreamVideoId) {
+  if (isPlayer && sessionStatus === 'active' && sessionStreamVideoId) {
     return (
       <LivePlayerView
         dealerUid={dealerUid}
@@ -870,7 +871,10 @@ const AppMain = () => {
         </div>
 
         {hubTab === 'settings' ? (
-          <SettingsPanel dealerUid={dealerUid} />
+          <div className="space-y-4">
+            <SettingsPanel dealerUid={dealerUid} />
+            <BotPlayer roomCode={dealerUid} startingChips={1000} />
+          </div>
         ) : hubTab === 'videos' ? (
           <VODScriptEditor dealerUid={dealerUid} />
         ) : (
