@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.91.0",
     "@fontsource-variable/inter": "^5.2.8",
     "firebase": "^10.7.1",
     "lucide-react": "^0.263.1",

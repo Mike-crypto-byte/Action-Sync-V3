@@ -93,6 +93,8 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
     dontPass: 0,
     come: 0,
     dontCome: 0,
+    comePoint: null,
+    dontComePoint: null,
     field: 0,
     place4: 0, place5: 0, place6: 0, place8: 0, place9: 0, place10: 0,
     hard4: 0, hard6: 0, hard8: 0, hard10: 0,
@@ -300,7 +302,7 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
 
   const clearAllBets = () => {
     setCurrentBets({
-      passLine: 0, dontPass: 0, come: 0, dontCome: 0, field: 0,
+      passLine: 0, dontPass: 0, come: 0, dontCome: 0, comePoint: null, dontComePoint: null, field: 0,
       place4: 0, place5: 0, place6: 0, place8: 0, place9: 0, place10: 0,
       hard4: 0, hard6: 0, hard8: 0, hard10: 0,
       any7: 0, anyCraps: 0, ace2: 0, ace12: 0, yo11: 0, three: 0,
@@ -792,7 +794,120 @@ const CrapsGame = ({ onBack, isDealerMode = false, playerUserId, playerName: pro
         newActiveBets.dontPassOdds = 0;
       }
     }
-    
+
+    // === COME BET ===
+    // Before comePoint: 7/11 win, 2/3/12 lose, any point number establishes comePoint
+    // After comePoint: comePoint wins, 7 loses
+    if (newActiveBets.come > 0) {
+      if (!newActiveBets.comePoint) {
+        if (total === 7 || total === 11) {
+          const payout = newActiveBets.come * 2;
+          winnings += payout; rollWinnings += payout - newActiveBets.come;
+          newActiveBets.come = 0;
+        } else if (total === 2 || total === 3 || total === 12) {
+          rollWinnings -= newActiveBets.come;
+          newActiveBets.come = 0;
+        } else {
+          newActiveBets.comePoint = total;
+        }
+      } else {
+        if (total === newActiveBets.comePoint) {
+          const payout = newActiveBets.come * 2;
+          winnings += payout; rollWinnings += payout - newActiveBets.come;
+          if (newActiveBets.comeOdds > 0) {
+            const oddsPayouts = { 4: 2, 5: 1.5, 6: 1.2, 8: 1.2, 9: 1.5, 10: 2 };
+            const oddsPayout = newActiveBets.comeOdds * (1 + (oddsPayouts[newActiveBets.comePoint] || 1));
+            winnings += oddsPayout; rollWinnings += oddsPayout - newActiveBets.comeOdds;
+            newActiveBets.comeOdds = 0;
+          }
+          newActiveBets.come = 0;
+          newActiveBets.comePoint = null;
+        } else if (total === 7) {
+          rollWinnings -= newActiveBets.come;
+          if (newActiveBets.comeOdds > 0) rollWinnings -= newActiveBets.comeOdds;
+          newActiveBets.come = 0;
+          newActiveBets.comeOdds = 0;
+          newActiveBets.comePoint = null;
+        }
+      }
+    }
+
+    // === DON'T COME BET (mirror of Come) ===
+    if (newActiveBets.dontCome > 0) {
+      if (!newActiveBets.dontComePoint) {
+        if (total === 2 || total === 3) {
+          const payout = newActiveBets.dontCome * 2;
+          winnings += payout; rollWinnings += payout - newActiveBets.dontCome;
+          newActiveBets.dontCome = 0;
+        } else if (total === 12) {
+          winnings += newActiveBets.dontCome; // push
+          newActiveBets.dontCome = 0;
+        } else if (total === 7 || total === 11) {
+          rollWinnings -= newActiveBets.dontCome;
+          newActiveBets.dontCome = 0;
+        } else {
+          newActiveBets.dontComePoint = total;
+        }
+      } else {
+        if (total === 7) {
+          const payout = newActiveBets.dontCome * 2;
+          winnings += payout; rollWinnings += payout - newActiveBets.dontCome;
+          if (newActiveBets.dontComeOdds > 0) {
+            const oddsPayouts = { 4: 0.5, 5: 0.667, 6: 0.833, 8: 0.833, 9: 0.667, 10: 0.5 };
+            const oddsPayout = newActiveBets.dontComeOdds * (1 + (oddsPayouts[newActiveBets.dontComePoint] || 0.5));
+            winnings += oddsPayout; rollWinnings += oddsPayout - newActiveBets.dontComeOdds;
+            newActiveBets.dontComeOdds = 0;
+          }
+          newActiveBets.dontCome = 0;
+          newActiveBets.dontComePoint = null;
+        } else if (total === newActiveBets.dontComePoint) {
+          rollWinnings -= newActiveBets.dontCome;
+          if (newActiveBets.dontComeOdds > 0) rollWinnings -= newActiveBets.dontComeOdds;
+          newActiveBets.dontCome = 0;
+          newActiveBets.dontComeOdds = 0;
+          newActiveBets.dontComePoint = null;
+        }
+      }
+    }
+
+    // === SMALL / TALL / ALL (crapless mode bonus bets) ===
+    // Small: all of 2,3,4,5,6 before 7 → 34:1. Tall: 8-12 → 34:1. All: both → 174:1.
+    if (gameMode === 'crapless' && (newActiveBets.small > 0 || newActiveBets.tall > 0 || newActiveBets.all > 0)) {
+      const smallNums = [2, 3, 4, 5, 6];
+      const tallNums = [8, 9, 10, 11, 12];
+      if (total === 7) {
+        if (newActiveBets.small > 0) { rollWinnings -= newActiveBets.small; newActiveBets.small = 0; }
+        if (newActiveBets.tall > 0) { rollWinnings -= newActiveBets.tall; newActiveBets.tall = 0; }
+        if (newActiveBets.all > 0) { rollWinnings -= newActiveBets.all; newActiveBets.all = 0; }
+        newActiveBets.smallHit = [];
+        newActiveBets.tallHit = [];
+      } else {
+        const smallHit = new Set(newActiveBets.smallHit || []);
+        const tallHit = new Set(newActiveBets.tallHit || []);
+        if (smallNums.includes(total)) smallHit.add(total);
+        if (tallNums.includes(total)) tallHit.add(total);
+        newActiveBets.smallHit = [...smallHit];
+        newActiveBets.tallHit = [...tallHit];
+        const smallComplete = smallNums.every(n => smallHit.has(n));
+        const tallComplete = tallNums.every(n => tallHit.has(n));
+        if (smallComplete && newActiveBets.small > 0) {
+          const payout = newActiveBets.small * 35;
+          winnings += payout; rollWinnings += payout - newActiveBets.small;
+          newActiveBets.small = 0; newActiveBets.smallHit = [];
+        }
+        if (tallComplete && newActiveBets.tall > 0) {
+          const payout = newActiveBets.tall * 35;
+          winnings += payout; rollWinnings += payout - newActiveBets.tall;
+          newActiveBets.tall = 0; newActiveBets.tallHit = [];
+        }
+        if (smallComplete && tallComplete && newActiveBets.all > 0) {
+          const payout = newActiveBets.all * 175;
+          winnings += payout; rollWinnings += payout - newActiveBets.all;
+          newActiveBets.all = 0;
+        }
+      }
+    }
+
     const newBankroll = Math.round(bankroll + winnings);
     setBankroll(newBankroll);
     setActiveBets(newActiveBets);
