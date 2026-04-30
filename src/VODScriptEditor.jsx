@@ -57,8 +57,30 @@ function fmtTime(secs) {
   return h > 0 ? `${h}:${mm}:${ss}` : `${m}:${ss}`;
 }
 
-const WINNER_LABELS = { player: 'Player', banker: 'Banker', tie: 'Tie' };
-const WINNER_COLORS = { player: '#3b82f6', banker: '#ef4444', tie: '#22c55e' };
+const BACCARAT_WINNER_LABELS = { player: 'Player', banker: 'Banker', tie: 'Tie' };
+const BACCARAT_WINNER_COLORS = { player: '#3b82f6', banker: '#ef4444', tie: '#22c55e' };
+
+const GAME_LABELS = { baccarat: 'Baccarat', roulette: 'Roulette', craps: 'Craps', blackjack: 'Blackjack' };
+const GAME_COLORS = { baccarat: '#d4af37', roulette: '#22c55e', craps: '#ef4444', blackjack: '#3b82f6' };
+const CRAPS_RESULT_LABELS = { pass: 'Pass wins', dontpass: "Don't Pass wins" };
+
+function getRoundResultDisplay(r) {
+  const g = r.game || 'baccarat';
+  if (g === 'baccarat') return BACCARAT_WINNER_LABELS[r.winner] || r.winner || '—';
+  if (g === 'roulette') {
+    if (r.spinResult == null || r.spinResult === '') return '—';
+    return `${r.spinResult}`;
+  }
+  if (g === 'craps') {
+    const d = r.dice ? `${r.dice[0]}+${r.dice[1]}` : '?';
+    return `${d} · ${CRAPS_RESULT_LABELS[r.result] || r.result || '?'}`;
+  }
+  if (g === 'blackjack') {
+    if (r.winner === 'push') return 'Push';
+    return r.winner === 'player' ? 'Player wins' : r.winner === 'dealer' ? 'Dealer wins' : '—';
+  }
+  return '—';
+}
 
 const S = {
   card: { background: 'rgba(12,15,35,0.6)', backdropFilter: 'blur(16px)', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.07)', padding: '20px' },
@@ -73,7 +95,7 @@ const S = {
   }),
 };
 
-const defaultForm = () => ({ resultAt: '', winner: '', revealDelay: '', editIndex: null });
+const defaultForm = () => ({ game: 'baccarat', resultAt: '', winner: '', spinResult: '', dice: ['', ''], crapsResult: '', revealDelay: '', editIndex: null });
 
 const defaultOdds = () => ({
   player: { num: 1,  den: 1  },   // 1:1
@@ -205,7 +227,27 @@ export default function VODScriptEditor({ dealerUid }) {
   const addOrUpdateRound = () => {
     const resultAt = parseFloat(form.resultAt);
     if (isNaN(resultAt) || resultAt <= 0) { setSaveError('Enter the result timestamp (seconds).'); return; }
-    if (!form.winner) { setSaveError('Select a winner.'); return; }
+
+    // Validate game-specific result
+    let gameResult = {};
+    if (form.game === 'baccarat') {
+      if (!form.winner) { setSaveError('Select a winner.'); return; }
+      gameResult = { winner: form.winner };
+    } else if (form.game === 'roulette') {
+      const raw = form.spinResult.trim();
+      if (raw === '') { setSaveError('Enter the spin result (0–36 or 00).'); return; }
+      const sr = raw === '00' ? '00' : parseInt(raw, 10);
+      if (raw !== '00' && (isNaN(sr) || sr < 0 || sr > 36)) { setSaveError('Spin result must be 0–36 or 00.'); return; }
+      gameResult = { spinResult: sr };
+    } else if (form.game === 'craps') {
+      const d1 = parseInt(form.dice[0], 10), d2 = parseInt(form.dice[1], 10);
+      if (isNaN(d1) || d1 < 1 || d1 > 6 || isNaN(d2) || d2 < 1 || d2 > 6) { setSaveError('Enter dice values between 1 and 6.'); return; }
+      if (!form.crapsResult) { setSaveError("Select Pass or Don't Pass."); return; }
+      gameResult = { dice: [d1, d2], result: form.crapsResult };
+    } else if (form.game === 'blackjack') {
+      if (!form.winner) { setSaveError('Select a winner.'); return; }
+      gameResult = { winner: form.winner };
+    }
 
     // Validate: resultAt must be after previous round's resultAt
     const prevResultAt = form.editIndex != null
@@ -217,7 +259,7 @@ export default function VODScriptEditor({ dealerUid }) {
     }
 
     setSaveError(null);
-    const round = { game: 'baccarat', resultAt, winner: form.winner };
+    const round = { game: form.game, resultAt, ...gameResult };
     const perRoundDelay = form.revealDelay !== '' ? parseFloat(form.revealDelay) : NaN;
     if (!isNaN(perRoundDelay) && perRoundDelay >= 0) round.revealDelay = perRoundDelay;
 
@@ -233,7 +275,17 @@ export default function VODScriptEditor({ dealerUid }) {
   };
 
   const editRound = (i) => {
-    setForm({ resultAt: String(rounds[i].resultAt), winner: rounds[i].winner, revealDelay: rounds[i].revealDelay != null ? String(rounds[i].revealDelay) : '', editIndex: i });
+    const r = rounds[i];
+    setForm({
+      game:        r.game || 'baccarat',
+      resultAt:    String(r.resultAt),
+      winner:      r.winner || '',
+      spinResult:  r.spinResult != null ? String(r.spinResult) : '',
+      dice:        r.dice ? [String(r.dice[0]), String(r.dice[1])] : ['', ''],
+      crapsResult: r.result || '',
+      revealDelay: r.revealDelay != null ? String(r.revealDelay) : '',
+      editIndex:   i,
+    });
     setSaveError(null);
   };
 
@@ -417,9 +469,9 @@ export default function VODScriptEditor({ dealerUid }) {
               </div>
             </div>
 
-            {/* Baccarat odds for this VOD */}
+            {/* Baccarat odds (applies to baccarat rounds; roulette/craps/blackjack use standard payouts) */}
             <div>
-              <div style={{ color: 'rgba(136,146,164,0.6)', fontSize: '11px', marginBottom: '10px' }}>Baccarat payout odds</div>
+              <div style={{ color: 'rgba(136,146,164,0.6)', fontSize: '11px', marginBottom: '10px' }}>Baccarat payout odds <span style={{ color: 'rgba(136,146,164,0.3)' }}>— other games use standard payouts</span></div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {/* Player — always 1:1 */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -520,25 +572,114 @@ export default function VODScriptEditor({ dealerUid }) {
               </div>
             </div>
 
-            {/* Winner */}
-            <div style={{ marginBottom: '16px' }}>
-              <div style={{ color: 'rgba(136,146,164,0.6)', fontSize: '11px', marginBottom: '6px' }}>Baccarat result</div>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                {['player', 'banker', 'tie'].map(w => (
+            {/* Game selector */}
+            <div style={{ marginBottom: '14px' }}>
+              <div style={{ color: 'rgba(136,146,164,0.6)', fontSize: '11px', marginBottom: '6px' }}>Game</div>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                {Object.entries(GAME_LABELS).map(([g, label]) => (
                   <button
-                    key={w}
-                    onClick={() => setForm(f => ({ ...f, winner: w }))}
-                    style={{
-                      flex: 1, padding: '10px 4px', borderRadius: '8px', fontSize: '12px', fontWeight: '800', cursor: 'pointer', border: '1px solid',
-                      background: form.winner === w ? WINNER_COLORS[w] : 'rgba(255,255,255,0.04)',
-                      borderColor: form.winner === w ? WINNER_COLORS[w] : 'rgba(255,255,255,0.12)',
-                      color: form.winner === w ? '#fff' : 'rgba(136,146,164,0.6)',
-                    }}
+                    key={g}
+                    onClick={() => setForm(f => ({ ...defaultForm(), game: g, resultAt: f.resultAt, revealDelay: f.revealDelay, editIndex: f.editIndex }))}
+                    style={S.btn(form.game === g, GAME_COLORS[g])}
                   >
-                    {WINNER_LABELS[w]}
+                    {label}
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* Game-specific result input */}
+            <div style={{ marginBottom: '16px' }}>
+              {form.game === 'baccarat' && (
+                <>
+                  <div style={{ color: 'rgba(136,146,164,0.6)', fontSize: '11px', marginBottom: '6px' }}>Result</div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    {['player', 'banker', 'tie'].map(w => (
+                      <button key={w} onClick={() => setForm(f => ({ ...f, winner: w }))} style={{
+                        flex: 1, padding: '10px 4px', borderRadius: '8px', fontSize: '12px', fontWeight: '800', cursor: 'pointer', border: '1px solid',
+                        background: form.winner === w ? BACCARAT_WINNER_COLORS[w] : 'rgba(255,255,255,0.04)',
+                        borderColor: form.winner === w ? BACCARAT_WINNER_COLORS[w] : 'rgba(255,255,255,0.12)',
+                        color: form.winner === w ? '#fff' : 'rgba(136,146,164,0.6)',
+                      }}>
+                        {BACCARAT_WINNER_LABELS[w]}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {form.game === 'roulette' && (
+                <>
+                  <div style={{ color: 'rgba(136,146,164,0.6)', fontSize: '11px', marginBottom: '6px' }}>
+                    Spin result <span style={{ color: 'rgba(136,146,164,0.35)' }}>(0–36 or 00)</span>
+                  </div>
+                  <input
+                    value={form.spinResult}
+                    onChange={e => setForm(f => ({ ...f, spinResult: e.target.value }))}
+                    placeholder="e.g. 14 or 00"
+                    style={{ ...S.input, width: '110px' }}
+                  />
+                </>
+              )}
+
+              {form.game === 'craps' && (
+                <>
+                  <div style={{ color: 'rgba(136,146,164,0.6)', fontSize: '11px', marginBottom: '6px' }}>Dice roll</div>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '10px' }}>
+                    <input
+                      type="number" min="1" max="6"
+                      value={form.dice[0]}
+                      onChange={e => setForm(f => ({ ...f, dice: [e.target.value, f.dice[1]] }))}
+                      placeholder="d1"
+                      style={{ ...S.input, width: '64px' }}
+                    />
+                    <span style={{ color: 'rgba(136,146,164,0.4)', fontSize: '14px' }}>+</span>
+                    <input
+                      type="number" min="1" max="6"
+                      value={form.dice[1]}
+                      onChange={e => setForm(f => ({ ...f, dice: [f.dice[0], e.target.value] }))}
+                      placeholder="d2"
+                      style={{ ...S.input, width: '64px' }}
+                    />
+                    {form.dice[0] && form.dice[1] && !isNaN(parseInt(form.dice[0])) && !isNaN(parseInt(form.dice[1])) && (
+                      <span style={{ color: '#d4af37', fontSize: '13px', fontFamily: 'monospace' }}>
+                        = {parseInt(form.dice[0]) + parseInt(form.dice[1])}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ color: 'rgba(136,146,164,0.6)', fontSize: '11px', marginBottom: '6px' }}>Outcome</div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    {[['pass', 'Pass wins', '#22c55e'], ['dontpass', "Don't Pass", '#ef4444']].map(([v, label, color]) => (
+                      <button key={v} onClick={() => setForm(f => ({ ...f, crapsResult: v }))} style={{
+                        flex: 1, padding: '10px 4px', borderRadius: '8px', fontSize: '12px', fontWeight: '800', cursor: 'pointer', border: '1px solid',
+                        background: form.crapsResult === v ? color : 'rgba(255,255,255,0.04)',
+                        borderColor: form.crapsResult === v ? color : 'rgba(255,255,255,0.12)',
+                        color: form.crapsResult === v ? '#fff' : 'rgba(136,146,164,0.6)',
+                      }}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {form.game === 'blackjack' && (
+                <>
+                  <div style={{ color: 'rgba(136,146,164,0.6)', fontSize: '11px', marginBottom: '6px' }}>Result</div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    {[['player','Player wins','#22c55e'],['dealer','Dealer wins','#ef4444'],['push','Push','#d4af37']].map(([v, label, color]) => (
+                      <button key={v} onClick={() => setForm(f => ({ ...f, winner: v }))} style={{
+                        flex: 1, padding: '10px 4px', borderRadius: '8px', fontSize: '12px', fontWeight: '800', cursor: 'pointer', border: '1px solid',
+                        background: form.winner === v ? color : 'rgba(255,255,255,0.04)',
+                        borderColor: form.winner === v ? color : 'rgba(255,255,255,0.12)',
+                        color: form.winner === v ? '#fff' : 'rgba(136,146,164,0.6)',
+                      }}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
 
             {saveError && <div style={{ color: '#f87171', fontSize: '11px', marginBottom: '10px' }}>{saveError}</div>}
@@ -570,20 +711,26 @@ export default function VODScriptEditor({ dealerUid }) {
                   <span style={{ color: 'rgba(136,146,164,0.3)', fontSize: '10px', minWidth: '72px' }}>BET OPENS</span>
                   <span style={{ color: 'rgba(136,146,164,0.3)', fontSize: '10px', minWidth: '72px' }}>BETS CLOSE</span>
                   <span style={{ color: 'rgba(136,146,164,0.3)', fontSize: '10px', minWidth: '44px' }}>DELAY</span>
-                  <span style={{ color: 'rgba(136,146,164,0.3)', fontSize: '10px', flex: 1 }}>WINNER</span>
+                  <span style={{ color: 'rgba(136,146,164,0.3)', fontSize: '10px', flex: 1 }}>RESULT</span>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '260px', overflowY: 'auto' }}>
                   {roundsWithWindows.map((r, i) => {
                     const delay = r.revealDelay != null ? r.revealDelay : vodRevealDelay;
                     const isOverride = r.revealDelay != null;
+                    const game = r.game || 'baccarat';
                     return (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 10px', background: form.editIndex === i ? 'rgba(212,175,55,0.08)' : 'rgba(255,255,255,0.03)', borderRadius: '8px', border: `1px solid ${form.editIndex === i ? 'rgba(212,175,55,0.25)' : 'rgba(255,255,255,0.05)'}` }}>
                       <span style={{ color: 'rgba(136,146,164,0.4)', fontSize: '11px', minWidth: '22px' }}>#{r.roundNumber || i + 1}</span>
                       <span style={{ color: '#666', fontSize: '11px', fontFamily: 'monospace', minWidth: '72px' }}>{fmtTime(r.betOpenAt)}</span>
                       <span style={{ color: '#888', fontSize: '11px', fontFamily: 'monospace', minWidth: '72px' }}>{fmtTime(r.resultAt)}</span>
                       <span style={{ fontSize: '11px', fontFamily: 'monospace', minWidth: '44px', color: isOverride ? '#d4af37' : 'rgba(136,146,164,0.3)' }}>{delay}s{isOverride ? '*' : ''}</span>
-                      <span style={{ flex: 1, fontSize: '12px', fontWeight: '700', color: WINNER_COLORS[r.winner] || '#fff' }}>
-                        {WINNER_LABELS[r.winner] || r.winner}
+                      <span style={{ flex: 1, fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+                        <span style={{ padding: '1px 5px', borderRadius: '4px', fontSize: '9px', fontWeight: '700', letterSpacing: '0.5px', background: `${GAME_COLORS[game]}22`, color: GAME_COLORS[game], border: `1px solid ${GAME_COLORS[game]}44`, flexShrink: 0 }}>
+                          {GAME_LABELS[game]?.toUpperCase().slice(0, 4) || game.slice(0, 4).toUpperCase()}
+                        </span>
+                        <span style={{ color: '#aaa', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {getRoundResultDisplay(r)}
+                        </span>
                       </span>
                       <button onClick={() => editRound(i)} style={{ padding: '3px 8px', background: 'transparent', border: '1px solid rgba(212,175,55,0.25)', borderRadius: '5px', color: '#d4af37', fontSize: '10px', cursor: 'pointer' }}>Edit</button>
                       <button onClick={() => deleteRound(i)} style={{ padding: '3px 6px', background: 'transparent', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '5px', color: 'rgba(239,68,68,0.6)', fontSize: '10px', cursor: 'pointer' }}>✕</button>

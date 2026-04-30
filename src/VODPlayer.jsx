@@ -65,11 +65,128 @@ function resolveBaccarat(winner, activeBets, bankrollAfterDeduction, odds) {
   return Math.max(0, bankrollAfterDeduction + payout);
 }
 
+// ── Roulette bet resolution ───────────────────────────────────────────────────
+const ROULETTE_REDS = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+function resolveRoulette(spinResult, activeBets, bankrollAfterDeduction) {
+  const n      = spinResult;
+  const isZero = n === 0 || n === '00';
+  const isRed  = !isZero && ROULETTE_REDS.has(Number(n));
+  const isBlack= !isZero && !isRed;
+  const num    = Number(n);
+  let payout = 0;
+  for (const [bt, amount] of Object.entries(activeBets || {})) {
+    if (!amount || amount <= 0) continue;
+    let ret = 0;
+    if      (bt === 'red'   && isRed)                                   ret = amount * 2;
+    else if (bt === 'black' && isBlack)                                 ret = amount * 2;
+    else if (bt === 'odd'   && !isZero && num % 2 === 1)               ret = amount * 2;
+    else if (bt === 'even'  && !isZero && num % 2 === 0)               ret = amount * 2;
+    else if (bt === 'low'   && num >= 1 && num <= 18)                   ret = amount * 2;
+    else if (bt === 'high'  && num >= 19 && num <= 36)                  ret = amount * 2;
+    else if (bt === '1st12' && num >= 1  && num <= 12)                  ret = amount * 3;
+    else if (bt === '2nd12' && num >= 13 && num <= 24)                  ret = amount * 3;
+    else if (bt === '3rd12' && num >= 25 && num <= 36)                  ret = amount * 3;
+    else if (bt === '0'     && n === 0)                                  ret = amount * 36;
+    else if (bt === '00'    && n === '00')                               ret = amount * 36;
+    else if (bt !== '00' && !isNaN(Number(bt)) && Number(bt) === num)   ret = amount * 36;
+    payout += ret;
+  }
+  return Math.max(0, bankrollAfterDeduction + payout);
+}
+
+// ── Craps bet resolution ──────────────────────────────────────────────────────
+function resolveCraps(roundData, activeBets, bankrollAfterDeduction) {
+  const total      = (roundData.dice?.[0] || 0) + (roundData.dice?.[1] || 0);
+  const crapsResult= roundData.result; // 'pass' | 'dontpass'
+  let payout = 0;
+  for (const [bt, amount] of Object.entries(activeBets || {})) {
+    if (!amount || amount <= 0) continue;
+    let ret = 0;
+    if      (bt === 'pass'     && crapsResult === 'pass')      ret = amount * 2;
+    else if (bt === 'dontpass' && crapsResult === 'dontpass')  ret = amount * 2;
+    else if (bt === 'field') {
+      if      ([3,4,9,10,11].includes(total)) ret = amount * 2;
+      else if (total === 2)                   ret = amount * 3;
+      else if (total === 12)                  ret = amount * 4;
+    }
+    else if (bt === 'any7'     && total === 7)                 ret = amount * 5;
+    else if (bt === 'yo'       && total === 11)                ret = amount * 16;
+    else if (bt === 'anyCraps' && [2,3,12].includes(total))   ret = amount * 8;
+    payout += ret;
+  }
+  return Math.max(0, bankrollAfterDeduction + payout);
+}
+
+// ── Blackjack bet resolution ──────────────────────────────────────────────────
+function resolveBlackjack(winner, activeBets, bankrollAfterDeduction) {
+  let payout = 0;
+  for (const [bt, amount] of Object.entries(activeBets || {})) {
+    if (!amount || amount <= 0) continue;
+    let ret = 0;
+    if      (bt === 'player' && winner === 'player') ret = amount * 2;
+    else if (bt === 'dealer' && winner === 'dealer') ret = amount * 2;
+    else if (winner === 'push')                      ret = amount; // return stake
+    payout += ret;
+  }
+  return Math.max(0, bankrollAfterDeduction + payout);
+}
+
+// ── Per-game bet config ───────────────────────────────────────────────────────
+const GAME_BETS = {
+  baccarat: {
+    types:  ['player', 'banker', 'tie'],
+    labels: { player: 'Player', banker: 'Banker', tie: 'Tie' },
+    colors: { player: '#3b82f6', banker: '#ef4444', tie: '#22c55e' },
+    rows:   [['player', 'banker', 'tie']],
+  },
+  roulette: {
+    types:  ['red','black','odd','even','low','high','1st12','2nd12','3rd12'],
+    labels: { red:'Red', black:'Black', odd:'Odd', even:'Even', low:'1–18', high:'19–36', '1st12':'1st 12', '2nd12':'2nd 12', '3rd12':'3rd 12' },
+    colors: { red:'#ef4444', black:'#374151', odd:'#8b5cf6', even:'#6366f1', low:'#0ea5e9', high:'#0284c7', '1st12':'#d97706', '2nd12':'#b45309', '3rd12':'#92400e' },
+    rows:   [['red','black','odd','even','low','high'], ['1st12','2nd12','3rd12']],
+  },
+  craps: {
+    types:  ['pass','dontpass','field','any7','yo','anyCraps'],
+    labels: { pass:'Pass Line', dontpass:"Don't Pass", field:'Field', any7:'Any 7', yo:'Yo (11)', anyCraps:'Any Craps' },
+    colors: { pass:'#22c55e', dontpass:'#ef4444', field:'#3b82f6', any7:'#f59e0b', yo:'#8b5cf6', anyCraps:'#ec4899' },
+    rows:   [['pass','dontpass'], ['field','any7','yo','anyCraps']],
+  },
+  blackjack: {
+    types:  ['player', 'dealer'],
+    labels: { player: 'Player Wins', dealer: 'Dealer Wins' },
+    colors: { player: '#22c55e', dealer: '#ef4444' },
+    rows:   [['player', 'dealer']],
+  },
+};
+
+function getGameBets(game) { return GAME_BETS[game] || GAME_BETS.baccarat; }
+
+function getResultDisplay(round) {
+  const g = round.game || 'baccarat';
+  if (g === 'baccarat') {
+    const labels = { player: 'Player', banker: 'Banker', tie: 'Tie' };
+    return `${labels[round.winner] || round.winner} wins`;
+  }
+  if (g === 'roulette') {
+    const n = round.spinResult;
+    const isZero = n === 0 || n === '00';
+    const color  = isZero ? 'Green' : ROULETTE_REDS.has(Number(n)) ? 'Red' : 'Black';
+    return `${n} — ${color}`;
+  }
+  if (g === 'craps') {
+    const total = (round.dice?.[0] || 0) + (round.dice?.[1] || 0);
+    const label = round.result === 'pass' ? 'Pass wins' : "Don't Pass wins";
+    return `${round.dice?.[0]}+${round.dice?.[1]}=${total} — ${label}`;
+  }
+  if (g === 'blackjack') {
+    if (round.winner === 'push') return 'Push';
+    return `${round.winner === 'player' ? 'Player' : 'Dealer'} wins`;
+  }
+  return '';
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
-const CHIPS       = [5, 10, 25, 50, 100, 250, 500];
-const WINNER_LABEL = { player: 'Player', banker: 'Banker', tie: 'Tie' };
-const WINNER_COLOR = { player: '#3b82f6', banker: '#ef4444', tie: '#22c55e' };
-const BET_TYPES   = ['player', 'banker', 'tie'];
+const CHIPS = [5, 10, 25, 50, 100, 250, 500];
 
 function fmtMoney(n) { return '$' + Math.round(n).toLocaleString(); }
 
@@ -216,15 +333,25 @@ export default function VODPlayer({ dealerUid, vodId, playerUid, playerName, onB
 
         const locked      = activeBetsRef.current || {};
         const before      = bankrollRef.current ?? 0;
-        const newBankroll = resolveBaccarat(round.winner, locked, before, oddsRef.current);
+        const game        = round.game || 'baccarat';
+        let newBankroll;
+        if (game === 'baccarat') {
+          newBankroll = resolveBaccarat(round.winner, locked, before, oddsRef.current);
+        } else if (game === 'roulette') {
+          newBankroll = resolveRoulette(round.spinResult, locked, before);
+        } else if (game === 'craps') {
+          newBankroll = resolveCraps(round, locked, before);
+        } else if (game === 'blackjack') {
+          newBankroll = resolveBlackjack(round.winner, locked, before);
+        } else {
+          newBankroll = before;
+        }
         bankrollRef.current = newBankroll;
         setBankroll(newBankroll);
 
         const totalBet = Object.values(locked).reduce((s, v) => s + (v || 0), 0);
-        // before is already post-deduction; add back totalBet to get pre-bet baseline
-        // so: win = positive profit, push = 0, loss = negative stake
         const net = newBankroll - (before + totalBet);
-        setResultBanner({ net, winner: round.winner, totalBet, exiting: false });
+        setResultBanner({ net, game, resultDisplay: getResultDisplay(round), totalBet, exiting: false });
 
         currentRoundRef.current = null;
         currentBetsRef.current = {};
@@ -517,12 +644,12 @@ export default function VODPlayer({ dealerUid, vodId, playerUid, playerName, onB
                     {resultBanner.net > 0 ? '+' : ''}{fmtMoney(resultBanner.net)}
                   </div>
                   <div style={{ fontSize: '11px', color: 'rgba(136,146,164,0.5)', letterSpacing: '1px', marginTop: '6px' }}>
-                    {WINNER_LABEL[resultBanner.winner]} wins
+                    {resultBanner.resultDisplay}
                   </div>
                 </>
               ) : (
                 <div style={{ fontSize: '12px', color: 'rgba(136,146,164,0.4)', letterSpacing: '2px' }}>
-                  {WINNER_LABEL[resultBanner.winner]} wins · no bets placed
+                  {resultBanner.resultDisplay} · no bets placed
                 </div>
               )}
             </div>
@@ -574,29 +701,39 @@ export default function VODPlayer({ dealerUid, vodId, playerUid, playerName, onB
                   </div>
                 </div>
 
-                {/* Bet buttons */}
-                <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
-                  {BET_TYPES.map(bt => {
-                    const betAmt = currentBets[bt] || 0;
-                    return (
-                      <button
-                        key={bt}
-                        onClick={() => placeBet(bt)}
-                        disabled={(bankroll ?? 0) < selectedChip}
-                        style={{
-                          flex: 1, padding: '14px 8px', borderRadius: '10px', cursor: (bankroll ?? 0) >= selectedChip ? 'pointer' : 'not-allowed',
-                          background: betAmt > 0 ? WINNER_COLOR[bt] : 'rgba(255,255,255,0.04)',
-                          border: `2px solid ${betAmt > 0 ? WINNER_COLOR[bt] : 'rgba(255,255,255,0.1)'}`,
-                          color: betAmt > 0 ? '#fff' : 'rgba(136,146,164,0.7)',
-                          textAlign: 'center',
-                        }}
-                      >
-                        <div style={{ fontSize: '13px', fontWeight: '800', marginBottom: betAmt > 0 ? '4px' : 0 }}>{WINNER_LABEL[bt]}</div>
-                        {betAmt > 0 && <div style={{ fontSize: '12px', fontWeight: '700' }}>{fmtMoney(betAmt)}</div>}
-                      </button>
-                    );
-                  })}
-                </div>
+                {/* Bet buttons — layout adapts to current round's game */}
+                {(() => {
+                  const gb = getGameBets(currentRound?.game);
+                  const canBet = (bankroll ?? 0) >= selectedChip;
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '14px' }}>
+                      {gb.rows.map((row, ri) => (
+                        <div key={ri} style={{ display: 'flex', gap: '8px' }}>
+                          {row.map(bt => {
+                            const betAmt = currentBets[bt] || 0;
+                            return (
+                              <button
+                                key={bt}
+                                onClick={() => placeBet(bt)}
+                                disabled={!canBet}
+                                style={{
+                                  flex: 1, padding: '12px 6px', borderRadius: '10px', cursor: canBet ? 'pointer' : 'not-allowed',
+                                  background: betAmt > 0 ? gb.colors[bt] : 'rgba(255,255,255,0.04)',
+                                  border: `2px solid ${betAmt > 0 ? gb.colors[bt] : 'rgba(255,255,255,0.1)'}`,
+                                  color: betAmt > 0 ? '#fff' : 'rgba(136,146,164,0.7)',
+                                  textAlign: 'center',
+                                }}
+                              >
+                                <div style={{ fontSize: '12px', fontWeight: '800', marginBottom: betAmt > 0 ? '3px' : 0 }}>{gb.labels[bt]}</div>
+                                {betAmt > 0 && <div style={{ fontSize: '11px', fontWeight: '700' }}>{fmtMoney(betAmt)}</div>}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
 
                 {/* Confirm / clear */}
                 <div style={{ display: 'flex', gap: '8px' }}>
@@ -626,13 +763,16 @@ export default function VODPlayer({ dealerUid, vodId, playerUid, playerName, onB
                   Bets locked in · {fmtMoney(Object.values(activeBetsRef.current || {}).reduce((s, v) => s + (v || 0), 0))} wagered
                 </div>
                 <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                  {Object.entries(activeBetsRef.current || {}).map(([bt, amt]) =>
-                    amt > 0 ? (
-                      <span key={bt} style={{ padding: '4px 10px', background: WINNER_COLOR[bt], borderRadius: '20px', fontSize: '12px', fontWeight: '700', color: '#fff' }}>
-                        {WINNER_LABEL[bt]} {fmtMoney(amt)}
-                      </span>
-                    ) : null
-                  )}
+                  {(() => {
+                    const gb = getGameBets(currentRound?.game);
+                    return Object.entries(activeBetsRef.current || {}).map(([bt, amt]) =>
+                      amt > 0 ? (
+                        <span key={bt} style={{ padding: '4px 10px', background: gb.colors[bt] || '#555', borderRadius: '20px', fontSize: '12px', fontWeight: '700', color: '#fff' }}>
+                          {gb.labels[bt] || bt} {fmtMoney(amt)}
+                        </span>
+                      ) : null
+                    );
+                  })()}
                 </div>
               </div>
             )}

@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Anthropic from '@anthropic-ai/sdk';
-import { ref, set, onValue, push } from 'firebase/database';
+import { ref, set, onValue, push, get } from 'firebase/database';
 import { database as db } from './firebase';
 import { Bot, Power, PowerOff, ChevronDown } from 'lucide-react';
 
@@ -47,7 +47,7 @@ const client = new Anthropic({
 function getBetOptions(game, gameState) {
   if (game === 'craps') {
     const opts = ['passLine', 'field', 'place6', 'place8'];
-    if (gameState.gamePhase === 'point') opts.push('come', 'place5', 'place9', 'any7');
+    if (gameState.gamePhase === 'point') opts.push('come', 'dontCome', 'place5', 'place9', 'any7');
     return opts;
   }
   if (game === 'baccarat') return ['player', 'banker'];
@@ -110,6 +110,18 @@ function resolveCraps(dice1, dice2, bets, gamePhase, point) {
     }
   }
 
+  if (newBets.dontCome > 0) {
+    if (!newBets.dontComePoint) {
+      if (total === 2 || total === 3) { winnings += newBets.dontCome * 2; newBets.dontCome = 0; }
+      else if (total === 12) { winnings += newBets.dontCome; newBets.dontCome = 0; } // push
+      else if (total === 7 || total === 11) { newBets.dontCome = 0; }
+      else { newBets.dontComePoint = total; }
+    } else {
+      if (total === 7) { winnings += newBets.dontCome * 2; newBets.dontCome = 0; newBets.dontComePoint = null; }
+      else if (total === newBets.dontComePoint) { newBets.dontCome = 0; newBets.dontComePoint = null; }
+    }
+  }
+
   if (total === 7 && gamePhase === 'point') {
     ['place4', 'place5', 'place6', 'place8', 'place9', 'place10'].forEach(k => { newBets[k] = 0; });
   }
@@ -156,8 +168,11 @@ function resolveBlackjack(winner, bets) {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function BotPlayer({ roomCode, startingChips = 1000 }) {
-  const [personaIndex, setPersonaIndex] = useState(0);
-  const [active, setActive] = useState(false);
+  const [personaIndex, setPersonaIndex] = useState(() => {
+    const s = parseInt(localStorage.getItem('bot-persona-index') || '0');
+    return isNaN(s) || s >= PERSONAS.length ? 0 : s;
+  });
+  const [active, setActive] = useState(() => localStorage.getItem('bot-active') === 'true');
   const [bankroll, setBankroll] = useState(startingChips);
   const [activeBets, setActiveBets] = useState({});
   const [activeGame, setActiveGame] = useState(null);
@@ -183,6 +198,20 @@ export default function BotPlayer({ roomCode, startingChips = 1000 }) {
   useEffect(() => { gameStateRef.current = gameState; }, [gameState]);
 
   const addLog = (msg) => setLog(prev => [`${new Date().toLocaleTimeString()}: ${msg}`, ...prev].slice(0, 20));
+
+  // Restore bankroll from Firebase when remounting with active=true (from localStorage)
+  useEffect(() => {
+    if (!active || !roomCode) return;
+    get(ref(db, `rooms/${roomCode}/players/${BOT_UID}`)).then(snap => {
+      if (snap.exists() && snap.val().bankroll > 0) {
+        const fb = snap.val().bankroll;
+        setBankroll(fb);
+        bankrollRef.current = fb;
+        setStatus('Ready');
+        addLog(`${BOT_NAME} reconnected (${fb} chips)`);
+      }
+    });
+  }, []);
 
   // ── Firebase helpers ────────────────────────────────────────────────────────
 
@@ -219,8 +248,10 @@ export default function BotPlayer({ roomCode, startingChips = 1000 }) {
 
   useEffect(() => {
     if (!roomCode || !active) return;
+    console.log('[Bot] roomCode:', roomCode);
     return onValue(ref(db, `rooms/${roomCode}/session/activeGame`), (snap) => {
       const g = snap.val();
+      console.log('[Bot] activeGame from Firebase:', g);
       setActiveGame(g);
       lastResolvedRoll.current = 0;
       lastResolvedRound.current = 0;
@@ -229,8 +260,14 @@ export default function BotPlayer({ roomCode, startingChips = 1000 }) {
 
   useEffect(() => {
     if (!roomCode || !active || !activeGame) return;
+    console.log('[Bot] subscribing to game state for:', activeGame);
     return onValue(ref(db, `rooms/${roomCode}/session/games/${activeGame}/state`), (snap) => {
-      if (snap.exists()) setGameState(snap.val());
+      if (snap.exists()) {
+        console.log('[Bot] gameState update, bettingOpen:', snap.val().bettingOpen);
+        setGameState(snap.val());
+      } else {
+        console.log('[Bot] game state snap does not exist for', activeGame);
+      }
     });
   }, [roomCode, active, activeGame]);
 
@@ -398,14 +435,16 @@ Reply with ONLY valid JSON: {"bets": {"betKey": chipAmount}, "message": "short i
       lastResolvedRound.current = 0;
       setActive(true);
       setStatus('Ready');
+      localStorage.setItem('bot-active', 'true');
+      localStorage.setItem('bot-persona-index', personaIndex.toString());
       addLog(`${BOT_NAME} joined the table`);
       await saveBotPlayer({ bankroll: startingChips, activeBets: {} });
       await sendChat(`${persona.emoji} Ready to play!`);
     } else {
       setActive(false);
       setStatus('Idle');
+      localStorage.setItem('bot-active', 'false');
       addLog(`${BOT_NAME} left the table`);
-      // Remove from leaderboard presence
       await set(ref(db, `rooms/${roomCode}/session/leaderboard/${BOT_UID}`), null);
     }
   };
@@ -441,7 +480,7 @@ Reply with ONLY valid JSON: {"bets": {"betKey": chipAmount}, "message": "short i
                 <button
                   key={p.id}
                   disabled={active}
-                  onClick={() => setPersonaIndex(i)}
+                  onClick={() => { setPersonaIndex(i); localStorage.setItem('bot-persona-index', i.toString()); }}
                   className={`text-xs py-1.5 px-2 rounded-lg border transition-colors ${
                     personaIndex === i
                       ? 'border-emerald-500 bg-emerald-900/30 text-emerald-300'

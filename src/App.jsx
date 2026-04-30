@@ -580,10 +580,15 @@ const AppMain = () => {
     );
   }
 
-  if (selectedGame === 'craps')     return <CrapsGame     onBack={deactivateGame} isDealerMode={isDealerMode} playerUserId={playerUid} playerName={playerName} skipRegistration={true} roomCode={dealerUid} />;
-  if (selectedGame === 'baccarat')  return <BaccaratGame  onBack={deactivateGame} isDealerMode={isDealerMode} playerUserId={playerUid} playerName={playerName} skipRegistration={true} roomCode={dealerUid} />;
-  if (selectedGame === 'roulette')  return <RouletteGame  onBack={deactivateGame} isDealerMode={isDealerMode} playerUserId={playerUid} playerName={playerName} skipRegistration={true} roomCode={dealerUid} />;
-  if (selectedGame === 'blackjack') return <BlackjackGame onBack={deactivateGame} isDealerMode={isDealerMode} playerUserId={playerUid} playerName={playerName} skipRegistration={true} roomCode={dealerUid} />;
+  const botOverlay = isDealerMode && dealerUid ? (
+    <div style={{ position: 'fixed', bottom: '16px', right: '16px', zIndex: 9999, width: '300px' }}>
+      <BotPlayer roomCode={dealerUid} startingChips={startingChips} />
+    </div>
+  ) : null;
+  if (selectedGame === 'craps')     return <><CrapsGame     onBack={deactivateGame} isDealerMode={isDealerMode} playerUserId={playerUid} playerName={playerName} skipRegistration={true} roomCode={dealerUid} />{botOverlay}</>;
+  if (selectedGame === 'baccarat')  return <><BaccaratGame  onBack={deactivateGame} isDealerMode={isDealerMode} playerUserId={playerUid} playerName={playerName} skipRegistration={true} roomCode={dealerUid} />{botOverlay}</>;
+  if (selectedGame === 'roulette')  return <><RouletteGame  onBack={deactivateGame} isDealerMode={isDealerMode} playerUserId={playerUid} playerName={playerName} skipRegistration={true} roomCode={dealerUid} />{botOverlay}</>;
+  if (selectedGame === 'blackjack') return <><BlackjackGame onBack={deactivateGame} isDealerMode={isDealerMode} playerUserId={playerUid} playerName={playerName} skipRegistration={true} roomCode={dealerUid} />{botOverlay}</>;
 
   // ── Player: VOD session ───────────────────────────────────────────────────
   if (isPlayer && selectedVodId) {
@@ -873,7 +878,6 @@ const AppMain = () => {
         {hubTab === 'settings' ? (
           <div className="space-y-4">
             <SettingsPanel dealerUid={dealerUid} />
-            <BotPlayer roomCode={dealerUid} startingChips={1000} />
           </div>
         ) : hubTab === 'videos' ? (
           <VODScriptEditor dealerUid={dealerUid} />
@@ -1138,6 +1142,10 @@ const AppMain = () => {
           </div>
         </div>
       )}
+
+      <div style={{ marginTop: '24px' }}>
+        <BotPlayer roomCode={dealerUid} startingChips={startingChips} />
+      </div>
 
       {showResetConfirm && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }} onClick={() => setShowResetConfirm(false)}>
